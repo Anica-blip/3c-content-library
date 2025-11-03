@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3C Public Library</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-tertiary: #999;
+            --border-color: #ddd;
+            --shadow: rgba(0,0,0,0.1);
+            --purple-light: #e9d5ff;
+            --purple-medium: #c084fc;
+            --purple-dark: #9333ea;
+            --folder-bg: linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%);
+            --folder-icon: #9333ea;
+        }
+        
+        body.dark-mode {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-tertiary: #808080;
+            --border-color: #444;
+            --shadow: rgba(0,0,0,0.3);
+            --purple-light: #4c1d95;
+            --purple-medium: #7c3aed;
+            --purple-dark: #a78bfa;
+            --folder-bg: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%);
+            --folder-icon: #c084fc;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: var(--bg-primary);
+            transition: background 0.3s, color 0.3s;
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            padding: 20px;
+            box-shadow: 0 2px 4px var(--shadow);
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+        
+        .header h1 { 
+            color: var(--text-primary); 
+            font-size: 24px;
+            transition: color 0.3s;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .sidebar {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+        
+        .sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+            transition: color 0.3s;
+        }
+        
+        .dark-mode-toggle {
+            background: var(--purple-medium);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 15px;
+            transition: background 0.3s;
+        }
+        
+        .dark-mode-toggle:hover {
+            background: var(--purple-dark);
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .content-card {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .content-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+        
+        .content-card.active {
+            border-color: var(--purple-medium);
+        }
+        
+        .content-card.folder-card {
+            background: var(--folder-bg);
+            border: 2px solid var(--purple-medium);
+        }
+        
+        .content-card.folder-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 6px 16px var(--shadow);
+        }
+        
+        .content-card.folder-card .content-thumbnail {
+            background: transparent;
+            color: var(--folder-icon);
+        }
+        
+        .content-card.folder-card .content-title {
+            color: var(--folder-icon);
+            font-weight: 700;
+        }
+        
+        .content-card.folder-card .content-type {
+            color: var(--purple-dark);
+            font-weight: 600;
+        }
+        
+        .content-thumbnail {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-tertiary);
+            font-size: 48px;
+            transition: background 0.3s, color 0.3s;
+        }
+        
+        .content-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .content-info {
+            padding: 12px;
+            background: var(--bg-secondary);
+            transition: background 0.3s;
+        }
+        
+        .content-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            font-size: 14px;
+            transition: color 0.3s;
+        }
+        
+        .content-type {
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: color 0.3s;
+        }
+        
+        .viewer {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 8px;
+            min-height: 600px;
+            transition: background 0.3s;
+        }
+        
+        .viewer h2 {
+            margin-bottom: 10px;
+            color: var(--text-primary);
+            transition: color 0.3s;
+        }
+        
+        .viewer-desc {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            font-size: 14px;
+            transition: color 0.3s;
+        }
+        
+        .no-content {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-tertiary);
+            transition: color 0.3s;
+        }
+        
+        .no-content h2 {
+            color: var(--text-primary);
+        }
+        
+        .embed-container {
+            width: 100%;
+            height: 700px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .embed-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .no-content {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        /* PDF Popup Modal */
+        .pdf-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            overflow: auto;
+        }
+        
+        .pdf-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .pdf-modal-content {
+            background: white;
+            width: 95%;
+            max-width: 1200px;
+            height: 90vh;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .pdf-modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .pdf-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .pdf-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .pdf-controls button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .pdf-controls button:hover {
+            background: #0056b3;
+        }
+        
+        .pdf-controls button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .close-modal {
+            background: #dc3545 !important;
+            font-size: 20px;
+            padding: 5px 12px !important;
+        }
+        
+        .close-modal:hover {
+            background: #c82333 !important;
+        }
+        
+        .pdf-viewer-container {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            background: #525659;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .pdf-page {
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .page-info {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        @media (min-width: 768px) {
+            .layout {
+                display: grid;
+                grid-template-columns: 350px 1fr;
+                gap: 20px;
+            }
+        }
+        
+        .type-icon {
+            font-size: 64px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>3C Public Library</h1>
+            <div>
+                <button onclick="toggleDarkMode()" class="dark-mode-toggle" id="darkModeBtn">
+                    🌙 Dark Mode
+                </button>
+                <button onclick="toggleDebugWithAuth()" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-left: 10px;">
+                    🔍 Debug
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Debug Panel -->
+    <div id="debugPanel" style="display: none; background: #f8f9fa; border: 2px solid #dee2e6; margin: 20px; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 12px;">
+        <h3 style="margin-bottom: 15px; font-family: sans-serif;">Debug Information</h3>
+        <div id="debugContent"></div>
+    </div>
+    
+    <div class="container">
+        <div class="layout">
+            <div class="sidebar" id="sidebar">
+                <h2 id="folderTitle">Select Content</h2>
+                <div class="content-grid" id="contentList"></div>
+            </div>
+            
+            <div class="viewer" id="viewer">
+                <div class="no-content">
+                    <h2>Welcome to 3C Public Library</h2>
+                    <p>Select content from the sidebar to view</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PDF Modal -->
+    <div class="pdf-modal" id="pdfModal" onclick="closePDFModal()">
+        <div class="pdf-modal-content" onclick="event.stopPropagation()">
+            <div class="pdf-modal-header">
+                <div class="pdf-modal-title" id="pdfTitle">PDF Viewer</div>
+                <div class="pdf-controls">
+                    <button onclick="changePage(-1)" id="prevPage">Previous</button>
+                    <span class="page-info">
+                        Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
+                    </span>
+                    <button onclick="changePage(1)" id="nextPage">Next</button>
+                    <button onclick="zoomPDF(-0.1)">Zoom -</button>
+                    <button onclick="zoomPDF(0.1)">Zoom +</button>
+                    <button class="close-modal" onclick="closePDFModal(); event.stopPropagation();">✕ Close</button>
+                </div>
+            </div>
+            <div class="pdf-viewer-container" id="pdfViewerContainer"></div>
+        </div>
+    </div>
+    
+    <script>
+        // PDF.js setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        let library = { folders: [], content: [] };
+        let currentFolder = null;
+        let currentContent = null;
+        let pdfDoc = null;
+        let currentPageNum = 1;
+        let pdfScale = parseFloat(localStorage.getItem('pdfZoomLevel')) || 0.75; // Default 75%, remember user preference
+        
+        function loadData() {
+            const saved = localStorage.getItem('3c-library-data');
+            console.log('📚 Loading library data...', saved ? 'Data found' : 'No data');
+            if (saved) {
+                library = JSON.parse(saved);
+                console.log('✅ Library loaded:', library);
+                console.log('Folders:', library.folders.length, 'Content:', library.content.length);
+            } else {
+                console.log('❌ No data in localStorage');
+            }
+        }
+        
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                folder: params.get('folder'),
+                content: params.get('content')
+            };
+        }
+        
+        function getTypeIcon(type) {
+            const icons = {
+                pdf: '📄',
+                video: '🎥',
+                image: '🖼️',
+                audio: '🎵',
+                other: '📎'
+            };
+            return icons[type] || icons.other;
+        }
+        
+        function displayContent() {
+            const params = getUrlParams();
+            const folderId = params.folder;
+            const contentId = params.content;
+            
+            console.log('🔍 displayContent called with params:', { folderId, contentId });
+            console.log('Library state:', { folders: library.folders.length, content: library.content.length });
+            
+            // If no folder selected, show all folders
+            if (!folderId) {
+                console.log('No folder ID, showing all folders');
+                displayAllFolders();
+                return;
+            }
+            
+            currentFolder = library.folders.find(f => f.id === folderId);
+            if (!currentFolder) {
+                document.getElementById('contentList').innerHTML = '<p style="color: #999;">Folder not found</p>';
+                document.getElementById('viewer').innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>';
+                return;
+            }
+            
+            document.getElementById('folderTitle').textContent = currentFolder.name;
+            
+            let folderContent = library.content.filter(c => c.folderId === folderId);
+            
+            // Sort by order property
+            folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
+            
+            if (folderContent.length === 0) {
+                document.getElementById('contentList').innerHTML = '<p style="color: #999;">No content in this folder</p>';
+                return;
+            }
+            
+            const html = folderContent.map(item => {
+                let thumbnailHtml;
+                if (item.thumbnail) {
+                    thumbnailHtml = `<img src="${item.thumbnail}" alt="${item.title}">`;
+                } else {
+                    thumbnailHtml = `<div class="type-icon">${getTypeIcon(item.type)}</div>`;
+                }
+                
+                return `
+                    <div class="content-card ${item.id === contentId ? 'active' : ''}" onclick="viewContent('${item.id}')">
+                        <div class="content-thumbnail">${thumbnailHtml}</div>
+                        <div class="content-info">
+                            <div class="content-title">${item.title}</div>
+                            <div class="content-type">${item.type.toUpperCase()}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('contentList').innerHTML = html;
+            
+            if (contentId) {
+                const content = folderContent.find(c => c.id === contentId);
+                if (content) showViewer(content);
+            }
+        }
+        
+        function displayAllFolders() {
+            console.log('📁 displayAllFolders called, folders:', library.folders);
+            document.getElementById('folderTitle').textContent = 'All Folders';
+            
+            if (library.folders.length === 0) {
+                console.log('❌ No folders to display');
+                document.getElementById('contentList').innerHTML = '<p style="color: #999;">No folders created yet</p>';
+                document.getElementById('viewer').innerHTML = '<div class="no-content"><h2>No Folders Yet</h2><p>The library is empty. Check back later!</p></div>';
+                return;
+            }
+            
+            console.log('✅ Displaying', library.folders.length, 'folders');
+            
+            const html = library.folders.map(folder => {
+                const contentCount = library.content.filter(c => c.folderId === folder.id).length;
+                const folderIcon = '📁';
+                
+                return `
+                    <div class="content-card folder-card" onclick="openFolder('${folder.id}')">
+                        <div class="content-thumbnail">
+                            <div class="type-icon">${folderIcon}</div>
+                        </div>
+                        <div class="content-info">
+                            <div class="content-title">${folder.name}</div>
+                            <div class="content-type">${contentCount} ITEMS</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('contentList').innerHTML = html;
+            document.getElementById('viewer').innerHTML = `
+                <div class="no-content">
+                    <h2>Browse Folders</h2>
+                    <p>Select a folder from the sidebar to view its contents</p>
+                </div>
+            `;
+        }
+        
+        function openFolder(folderId) {
+            window.location.href = `?folder=${folderId}`;
+        }
+        
+        function viewContent(contentId) {
+            const params = getUrlParams();
+            window.location.href = `?folder=${params.folder}&content=${contentId}`;
+        }
+        
+        function showViewer(content) {
+            currentContent = content;
+            let viewerHtml = '';
+            
+            if (content.type === 'pdf') {
+                // Show thumbnail with click to open popup
+                let thumbnailSrc;
+                if (content.thumbnail) {
+                    thumbnailSrc = content.thumbnail;
+                } else {
+                    // Default PDF icon
+                    thumbnailSrc = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E📄%3C/text%3E%3C/svg%3E';
+                }
+                
+                viewerHtml = `
+                    <div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${content.url.replace(/`/g, '\\`')}\`, \`${content.title.replace(/`/g, '\\`')}\`)">
+                        <img src="${thumbnailSrc}" style="max-width: 400px; max-height: 500px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <div style="font-size: 18px; color: #007bff; font-weight: 600;">
+                            📄 Click to view PDF in interactive viewer
+                        </div>
+                    </div>
+                `;
+            } else if (content.type === 'video') {
+                if (content.url.startsWith('data:')) {
+                    viewerHtml = `<video controls style="width: 100%; max-height: 700px;"><source src="${content.url}"></video>`;
+                } else {
+                    viewerHtml = `<iframe src="${content.url}" allowfullscreen></iframe>`;
+                }
+            } else if (content.type === 'image') {
+                viewerHtml = `<img src="${content.url}" style="max-width: 100%; height: auto; border-radius: 4px;">`;
+            } else if (content.type === 'audio') {
+                viewerHtml = `<audio controls style="width: 100%;"><source src="${content.url}"></audio>`;
+            } else {
+                viewerHtml = `<iframe src="${content.url}"></iframe>`;
+            }
+            
+            // Add back button for navigating between content
+            const params = getUrlParams();
+            const backButton = params.folder ? `
+                <button onclick="window.location.href='?folder=${params.folder}'" 
+                        style="background: var(--purple-medium); color: white; border: none; padding: 10px 20px; 
+                               border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 14px;">
+                    ← Back to Folder
+                </button>
+            ` : '';
+            
+            document.getElementById('viewer').innerHTML = `
+                ${backButton}
+                <h2>${content.title}</h2>
+                ${content.description ? `<div class="viewer-desc">${content.description}</div>` : ''}
+                <div class="embed-container" style="${content.type === 'pdf' ? 'height: auto; border: none;' : ''}">${viewerHtml}</div>
+            `;
+        }
+        
+        async function openPDFModal(pdfUrl, title) {
+            document.getElementById('pdfModal').classList.add('active');
+            document.getElementById('pdfTitle').textContent = title;
+            document.getElementById('pdfViewerContainer').innerHTML = '<p style="color: white; text-align: center;">Loading PDF...</p>';
+            
+            try {
+                const loadingTask = pdfjsLib.getDocument(pdfUrl);
+                pdfDoc = await loadingTask.promise;
+                document.getElementById('totalPages').textContent = pdfDoc.numPages;
+                currentPageNum = 1;
+                renderAllPages();
+            } catch (error) {
+                document.getElementById('pdfViewerContainer').innerHTML = '<p style="color: white; text-align: center;">Error loading PDF: ' + error.message + '</p>';
+            }
+        }
+        
+        async function renderAllPages() {
+            const container = document.getElementById('pdfViewerContainer');
+            container.innerHTML = '';
+            
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: pdfScale });
+                
+                const canvas = document.createElement('canvas');
+                canvas.className = 'pdf-page';
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                container.appendChild(canvas);
+                
+                await page.render({
+                    canvasContext: context,
+                    viewport: viewport
+                }).promise;
+            }
+        }
+        
+        function changePage(delta) {
+            const newPage = currentPageNum + delta;
+            if (newPage >= 1 && newPage <= pdfDoc.numPages) {
+                currentPageNum = newPage;
+                document.getElementById('currentPage').textContent = currentPageNum;
+                
+                // Scroll to page
+                const container = document.getElementById('pdfViewerContainer');
+                const pages = container.getElementsByClassName('pdf-page');
+                if (pages[currentPageNum - 1]) {
+                    pages[currentPageNum - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+            
+            updatePageButtons();
+        }
+        
+        function updatePageButtons() {
+            document.getElementById('prevPage').disabled = currentPageNum <= 1;
+            document.getElementById('nextPage').disabled = currentPageNum >= pdfDoc.numPages;
+        }
+        
+        async function zoomPDF(delta) {
+            pdfScale += delta;
+            if (pdfScale < 0.5) pdfScale = 0.5;
+            if (pdfScale > 3) pdfScale = 3;
+            localStorage.setItem('pdfZoomLevel', pdfScale); // Remember zoom preference
+            await renderAllPages();
+        }
+        
+        function closePDFModal() {
+            document.getElementById('pdfModal').classList.remove('active');
+            pdfDoc = null;
+        }
+        
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePDFModal();
+        });
+        
+        // Debug functions
+        function toggleDebugWithAuth() {
+            // Check if already authenticated in this session
+            if (sessionStorage.getItem('debugAuth') === 'true') {
+                toggleDebug();
+                return;
+            }
+            
+            // Simple password protection
+            const password = prompt('Enter debug password:');
+            if (password === 'debug3c') {  // Change this password to whatever you want
+                sessionStorage.setItem('debugAuth', 'true');
+                toggleDebug();
+            } else if (password !== null) {
+                alert('Incorrect password');
+            }
+        }
+        
+        function toggleDebug() {
+            const panel = document.getElementById('debugPanel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                updateDebugInfo();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+        
+        function updateDebugInfo() {
+            const params = getUrlParams();
+            const debugDiv = document.getElementById('debugContent');
+            
+            let html = '<div style="line-height: 1.8;">';
+            
+            // localStorage status
+            html += '<strong>📦 localStorage Status:</strong><br>';
+            const saved = localStorage.getItem('3c-library-data');
+            if (saved) {
+                html += `✅ Data found (${(saved.length / 1024).toFixed(2)} KB)<br><br>`;
+            } else {
+                html += '❌ No data found in localStorage<br><br>';
+            }
+            
+            // Library data
+            html += '<strong>📚 Library Data:</strong><br>';
+            html += `Folders: ${library.folders.length}<br>`;
+            html += `Content Items: ${library.content.length}<br><br>`;
+            
+            // URL parameters
+            html += '<strong>🔗 URL Parameters:</strong><br>';
+            html += `Folder ID: ${params.folder || '(none - showing all folders)'}<br>`;
+            html += `Content ID: ${params.content || '(none)'}<br><br>`;
+            
+            // Folders list
+            if (library.folders.length > 0) {
+                html += '<strong>📁 Folders:</strong><br>';
+                library.folders.forEach(folder => {
+                    const contentCount = library.content.filter(c => c.folderId === folder.id).length;
+                    html += `• ${folder.name} (ID: ${folder.id}, ${contentCount} items)<br>`;
+                });
+                html += '<br>';
+            }
+            
+            // Content list
+            if (library.content.length > 0) {
+                html += '<strong>📄 Content:</strong><br>';
+                library.content.forEach(content => {
+                    const folder = library.folders.find(f => f.id === content.folderId);
+                    html += `• ${content.title} (${content.type}) in "${folder ? folder.name : 'Unknown'}"<br>`;
+                    html += `  ID: ${content.id}<br>`;
+                    html += `  Has URL: ${!!content.url}<br>`;
+                    html += `  Has Thumbnail: ${!!content.thumbnail}<br>`;
+                });
+            }
+            
+            html += '</div>';
+            debugDiv.innerHTML = html;
+        }
+        
+        // Dark mode toggle
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            const btn = document.getElementById('darkModeBtn');
+            
+            if (isDark) {
+                btn.innerHTML = '☀️ Light Mode';
+                localStorage.setItem('darkMode', 'enabled');
+            } else {
+                btn.innerHTML = '🌙 Dark Mode';
+                localStorage.setItem('darkMode', 'disabled');
+            }
+        }
+        
+        // Load dark mode preference
+        function loadDarkModePreference() {
+            const darkMode = localStorage.getItem('darkMode');
+            if (darkMode === 'enabled') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('darkModeBtn').innerHTML = '☀️ Light Mode';
+            }
+        }
+        
+        loadDarkModePreference();
+        loadData();
+        displayContent();
+    </script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# Don't push these to GitHub
+
+# Environment files with credentials
+.env
+.env.local
+
+# Backup files
+*.json.backup
+*-backup-*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+~*
+
+# Don't push actual data files if you create them
+data/
+backups/
+
+# Node modules (if you add them later)
+node_modules/
