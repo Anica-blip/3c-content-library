@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3C Public Library</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="config.js"></script>
+    <script src="supabase-client.js"></script>
+    <link rel="stylesheet" href="library-styles.css">
+</head>
+<body>
+    <div class="header">
+        <h1>3C Public Library</h1>
+        <div class="header-actions">
+            <button onclick="toggleDarkMode()" class="icon-btn">🌙</button>
+            <a href="admin.html" class="btn-admin">Admin</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Folder Navigation -->
+        <div class="folder-nav" id="folderNav">
+            <h2>📁 Folders</h2>
+            <div id="folderList" class="folder-list">
+                <p class="loading">Loading folders...</p>
+            </div>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="content-section">
+            <div class="content-header">
+                <h2 id="contentTitle">All Content</h2>
+                <div class="view-toggle">
+                    <button onclick="setView('grid')" class="active" id="gridBtn">Grid</button>
+                    <button onclick="setView('list')" id="listBtn">List</button>
+                </div>
+            </div>
+            <div id="contentGrid" class="content-grid">
+                <p class="loading">Loading content...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Viewer Modal -->
+    <div class="modal" id="pdfModal">
+        <div class="modal-content pdf-viewer">
+            <div class="modal-header">
+                <h3 id="pdfTitle">PDF Viewer</h3>
+                <div class="pdf-controls">
+                    <button onclick="previousPage()" id="prevPage">←</button>
+                    <span id="pageInfo">Page 1 of 1</span>
+                    <button onclick="nextPage()" id="nextPage">→</button>
+                    <button onclick="zoomOut()">-</button>
+                    <span id="zoomLevel">100%</span>
+                    <button onclick="zoomIn()">+</button>
+                </div>
+                <button class="modal-close" onclick="closePdfViewer()">×</button>
+            </div>
+            <div class="pdf-container" id="pdfContainer">
+                <canvas id="pdfCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Modal (Draggable/Resizable) -->
+    <div class="link-modal" id="linkModal" style="display: none;">
+        <div class="link-modal-header" id="linkModalHeader">
+            <span id="linkModalTitle">External Link</span>
+            <button class="modal-close" onclick="closeLinkModal()">×</button>
+        </div>
+        <div class="link-modal-body">
+            <iframe id="linkFrame" frameborder="0"></iframe>
+        </div>
+        <div class="link-modal-resize"></div>
+    </div>
+
+    <!-- Media Player Modal -->
+    <div class="modal" id="mediaModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="mediaTitle">Media Player</h3>
+                <button class="modal-close" onclick="closeMediaPlayer()">×</button>
+            </div>
+            <div id="mediaContainer"></div>
+        </div>
+    </div>
+
+    <script src="library-core.js"></script>
+    <script src="pdf-viewer-enhanced.js"></script>
+</body>
+</html>

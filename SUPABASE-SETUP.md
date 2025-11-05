@@ -60,8 +60,8 @@ WITH CHECK (true);
 1. Click **"Settings"** (gear icon) in left sidebar
 2. Click **"API"**
 3. Find these two values:
-   - **Project URL** (looks like: `https://xxxxx.supabase.co`)
-   - **anon public** key (long string starting with `eyJhbGci...`)
+   - **Project URL** (looks like: `https://cgxjqsbrditbteqhdyus.supabase.co`)
+   - **anon public** key (long string starting with `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneGpxc2JyZGl0YnRlcWhkeXVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTY1ODEsImV4cCI6MjA2NjY5MjU4MX0.xUDy5ic-r52kmRtocdcW8Np9-lczjMZ6YKPXc03rIG4`)
 4. Copy both (you'll need them next)
 
 ### Step 4: Configure in Admin Dashboard

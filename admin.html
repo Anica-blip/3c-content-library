@@ -3,1129 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3C Dashboard Library - Admin</title>
+    <title>3C Admin Panel - Enhanced</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: #f5f5f5;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            padding: 30px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        h1 { margin-bottom: 30px; color: #333; font-size: 28px; }
-        h2 { margin-bottom: 20px; color: #555; font-size: 20px; }
-        
-        .section {
-            margin-bottom: 40px;
-            padding-bottom: 30px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .section:last-child { border-bottom: none; }
-        
-        .form-group { margin-bottom: 15px; }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            color: #666;
-            font-size: 14px;
-        }
-        
-        input[type="text"],
-        input[type="url"],
-        input[type="file"],
-        textarea,
-        select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        
-        textarea { resize: vertical; min-height: 80px; }
-        
-        button {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-right: 10px;
-        }
-        
-        button:hover { background: #0056b3; }
-        button.delete { background: #dc3545; }
-        button.delete:hover { background: #c82333; }
-        
-        .folder-list, .content-list { margin-top: 20px; }
-        
-        .folder-item, .content-item {
-            background: #f9f9f9;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            border-left: 4px solid #007bff;
-        }
-        
-        .content-item { border-left-color: #28a745; }
-        
-        .item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .item-title { font-weight: 600; color: #333; }
-        
-        .item-actions button { padding: 5px 12px; font-size: 12px; }
-        
-        .item-details {
-            font-size: 13px;
-            color: #666;
-            margin-top: 5px;
-        }
-        
-        .url-display {
-            background: #e9ecef;
-            padding: 8px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 12px;
-            margin-top: 5px;
-            word-break: break-all;
-        }
-        
-        .copy-btn {
-            background: #6c757d;
-            padding: 5px 10px;
-            font-size: 11px;
-            margin-left: 10px;
-        }
-        
-        .copy-btn:hover { background: #5a6268; }
-        
-        .success-msg {
-            background: #d4edda;
-            color: #155724;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            display: none;
-        }
-        
-        .upload-area {
-            border: 2px dashed #ddd;
-            border-radius: 4px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 15px;
-            background: #fafafa;
-        }
-        
-        .upload-area.dragover {
-            border-color: #007bff;
-            background: #e3f2fd;
-        }
-        
-        .preview-image {
-            max-width: 200px;
-            max-height: 150px;
-            margin-top: 10px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
-        
-        .thumbnail-preview {
-            width: 60px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 4px;
-            margin-right: 10px;
-            vertical-align: middle;
-        }
-        
-        .file-info {
-            font-size: 12px;
-            color: #888;
-            margin-top: 5px;
-        }
-    </style>
+    <script src="config.js"></script>
+    <script src="r2-storage.js"></script>
+    <script src="supabase-client.js"></script>
+    <link rel="stylesheet" href="admin-styles.css">
 </head>
 <body>
-    <div class="container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-            <h1 style="margin-bottom: 0;">3C Dashboard Library - Admin Panel</h1>
-            <a href="library.html" target="_blank" 
-               style="background: linear-gradient(135deg, #c084fc 0%, #9333ea 100%); 
-                      color: white; 
-                      text-decoration: none; 
-                      padding: 12px 24px; 
-                      border-radius: 6px; 
-                      font-weight: 600;
-                      box-shadow: 0 2px 8px rgba(147, 51, 234, 0.3);
-                      transition: transform 0.2s, box-shadow 0.2s;"
-               onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(147, 51, 234, 0.4)'"
-               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(147, 51, 234, 0.3)'">
-                📚 3C Public Library
-            </a>
+    <div class="header">
+        <h1>3C Admin Panel</h1>
+        <button class="debug-toggle" onclick="toggleDebug()">🐛 Debug</button>
+    </div>
+
+    <div class="debug-panel" id="debugPanel">
+        <h3>Debug Console</h3>
+        <div id="debugContent">
+            <p style="color: #888;">Debug information will appear here...</p>
         </div>
-        
-        <div class="success-msg" id="successMsg"></div>
-        
-        <!-- Create Folder Section -->
+    </div>
+
+    <div class="container">
+        <!-- Stats Section -->
         <div class="section">
-            <h2>Create New Folder</h2>
+            <h2>📊 Dashboard Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="statFolders">0</div>
+                    <div class="stat-label">Folders</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statContent">0</div>
+                    <div class="stat-label">Content Items</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statViews">0</div>
+                    <div class="stat-label">Total Views</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Supabase Connection -->
+        <div class="section">
+            <h2>☁️ Supabase Connection</h2>
+            <div id="connectionAlert"></div>
+            <div class="two-column">
+                <div class="form-group">
+                    <label>Supabase URL</label>
+                    <input type="url" id="supabaseUrl" placeholder="https://xxxxx.supabase.co">
+                </div>
+                <div class="form-group">
+                    <label>Supabase Anon Key</label>
+                    <input type="text" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                </div>
+            </div>
+            <button onclick="connectSupabase()">
+                <span class="status-indicator" id="connectionStatus"></span>
+                Connect
+            </button>
+            <button class="secondary" onclick="testConnection()">Test Connection</button>
+        </div>
+
+        <!-- Create Folder -->
+        <div class="section">
+            <h2>📁 Create New Folder</h2>
             <div class="form-group">
-                <label>Folder Name</label>
-                <input type="text" id="folderName" placeholder="e.g., Marketing Materials">
+                <label>Folder Title *</label>
+                <input type="text" id="folderTitle" placeholder="e.g., Anica Coffee Break Chat">
+                <small>URL will be auto-generated: anica-coffee-break-chat-01, anica-coffee-break-chat-02, etc.</small>
+            </div>
+            <div class="form-group">
+                <label>Table Name (Technical) *</label>
+                <input type="text" id="folderTableName" placeholder="e.g., anica_chats">
+                <small>Simple name for database organization (lowercase, underscores only). Example: anica_chats, tutorials, reference</small>
+            </div>
+            <div class="form-group">
+                <label>Visibility *</label>
+                <select id="folderVisibility">
+                    <option value="public">Public (Anyone can view)</option>
+                    <option value="private">Private (Requires password/auth - for courses)</option>
+                </select>
+                <small>Public content goes to content_public table, Private goes to content_private table</small>
             </div>
             <div class="form-group">
                 <label>Description (Optional)</label>
-                <textarea id="folderDesc" placeholder="Brief description of this folder"></textarea>
+                <textarea id="folderDescription" placeholder="Brief description of this folder"></textarea>
             </div>
             <button onclick="createFolder()">Create Folder</button>
         </div>
-        
-        <!-- Add Content Section -->
+
+        <!-- Add/Edit Content -->
         <div class="section">
-            <h2>Add Content to Folder</h2>
-            <div class="form-group">
-                <label>Select Folder</label>
-                <select id="contentFolder">
-                    <option value="">-- Select a folder --</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Content Title</label>
-                <input type="text" id="contentTitle" placeholder="e.g., Q4 Report">
-            </div>
-            <div class="form-group">
-                <label>Content Type</label>
-                <select id="contentType" onchange="toggleUploadOptions()">
-                    <option value="pdf">PDF Document</option>
-                    <option value="video">Video</option>
-                    <option value="image">Image</option>
-                    <option value="audio">Audio</option>
-                    <option value="other">Other</option>
-                </select>
-            </div>
-            
-            <!-- File Upload Option -->
-            <div class="form-group">
-                <label>Upload File</label>
-                <div class="upload-area" id="uploadArea">
-                    <p>Drag & drop file here or click to browse</p>
-                    <input type="file" id="fileUpload" style="display: none;" onchange="handleFileSelect(event)">
-                    <button type="button" onclick="document.getElementById('fileUpload').click()">Choose File</button>
-                    <div class="file-info" id="fileInfo"></div>
+            <h2 id="contentFormTitle">➕ Add Content</h2>
+            <form id="contentForm" onsubmit="saveContent(event)">
+                <input type="hidden" id="contentId">
+                <input type="hidden" id="editMode" value="false">
+                
+                <div class="form-group">
+                    <label>Select Folder *</label>
+                    <select id="contentFolder" required>
+                        <option value="">-- Select a folder --</option>
+                    </select>
                 </div>
-            </div>
-            
-            <div style="text-align: center; margin: 15px 0; color: #999;">OR</div>
-            
-            <!-- URL Option -->
-            <div class="form-group">
-                <label>File URL (External Link or Cloudflare R2)</label>
-                <input type="url" id="contentUrl" placeholder="https://example.com/file.pdf or https://pub-xxx.r2.dev/file.pdf">
-                <small style="color: #888; font-size: 12px; display: block; margin-top: 5px;">
-                    💡 Supports: Direct URLs, Cloudflare R2, Google Drive, Dropbox, etc.
-                </small>
-            </div>
-            
-            <!-- Thumbnail Upload -->
-            <div class="form-group">
-                <label>Preview/Thumbnail Image (Optional)</label>
-                <input type="file" id="thumbnailUpload" accept="image/*" onchange="previewThumbnail(event)">
-                <img id="thumbnailPreview" class="preview-image" style="display: none;">
-            </div>
-            
-            <div class="form-group">
-                <label>Description (Optional)</label>
-                <textarea id="contentDesc" placeholder="Brief description of this content"></textarea>
-            </div>
-            <button onclick="addContent()">Add Content</button>
+                
+                <div class="form-group">
+                    <label>Content Title *</label>
+                    <input type="text" id="contentTitle" placeholder="e.g., Q4 Report" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Content Type *</label>
+                    <select id="contentType" required>
+                        <option value="pdf">PDF Document</option>
+                        <option value="video">Video</option>
+                        <option value="image">Image</option>
+                        <option value="audio">Audio</option>
+                        <option value="link">External Link</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Upload File</label>
+                    <div class="upload-area" id="uploadArea">
+                        <p>Drag & drop file here or click to browse</p>
+                        <input type="file" id="fileUpload" style="display: none;">
+                        <button type="button" onclick="document.getElementById('fileUpload').click()">Choose File</button>
+                        <div class="file-info" id="fileInfo"></div>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin: 15px 0; color: #999;">OR</div>
+                
+                <div class="form-group">
+                    <label>File URL (R2 or External)</label>
+                    <input type="url" id="contentUrl" placeholder="https://files.3c-public-library.org/file.pdf">
+                </div>
+                
+                <div class="form-group">
+                    <label>Tech/Reference URL (Optional)</label>
+                    <input type="url" id="externalUrl" placeholder="https://example.com/reference">
+                    <small>Additional URL for external resources, documentation, etc.</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Thumbnail Image (Optional)</label>
+                    <input type="file" id="thumbnailUpload" accept="image/*" onchange="previewThumbnail(event)">
+                    <img id="thumbnailPreview" class="preview-image" style="display: none;">
+                    <small>If not provided, GitHub Actions will auto-generate screenshot for external URLs</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <textarea id="contentDescription" placeholder="Brief description"></textarea>
+                </div>
+                
+                <button type="submit" id="saveButton">💾 Save Content</button>
+                <button type="button" class="secondary" onclick="resetContentForm()">Cancel</button>
+            </form>
         </div>
-        
-        <!-- Manage Folders Section -->
+
+        <!-- Manage Folders -->
         <div class="section">
-            <h2>Manage Folders</h2>
-            <div class="folder-list" id="folderList">
-                <p style="color: #999;">No folders created yet.</p>
+            <h2>📂 Manage Folders</h2>
+            <div id="folderList">
+                <p style="color: #999;">Loading folders...</p>
             </div>
         </div>
-        
-        <!-- Manage Content Section -->
+
+        <!-- Manage Content -->
         <div class="section">
-            <h2>Manage Content</h2>
+            <h2>📄 Manage Content</h2>
             <div class="form-group">
                 <label>Filter by Folder</label>
-                <select id="filterFolder" onchange="displayContent()">
+                <select id="filterFolder" onchange="loadContent()">
                     <option value="">-- All Folders --</option>
                 </select>
             </div>
-            <div class="content-list" id="contentList">
-                <p style="color: #999;">No content added yet.</p>
+            <div id="contentList">
+                <p style="color: #999;">Loading content...</p>
             </div>
-        </div>
-        
-        <!-- Supabase Auto-Sync Section -->
-        <div class="section">
-            <h2>☁️ Supabase Auto-Sync (Recommended)</h2>
-            <p style="margin-bottom: 15px; color: #666; font-size: 14px;">
-                Enable automatic backup to Supabase. Your data will sync on every change - no manual exports needed!
-            </p>
-            
-            <div class="form-group">
-                <label>Supabase URL</label>
-                <input type="url" id="supabaseUrl" placeholder="https://xxxxx.supabase.co">
-            </div>
-            
-            <div class="form-group">
-                <label>Supabase Anon Key</label>
-                <input type="text" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
-            </div>
-            
-            <button onclick="saveSupabaseConfig()" style="background: #10b981;">💾 Save & Enable Auto-Sync</button>
-            <button onclick="testSupabaseConnection()" style="background: #3b82f6; margin-left: 10px;">🔍 Test Connection</button>
-            <button onclick="disableSupabase()" style="background: #ef4444; margin-left: 10px;">❌ Disable</button>
-            
-            <div id="supabaseStatus" style="margin-top: 15px; padding: 12px; border-radius: 6px; display: none;"></div>
-            
-            <div style="margin-top: 15px; padding: 15px; background: #f0fdf4; border-left: 4px solid #10b981; border-radius: 4px;">
-                <strong style="color: #059669;">✨ Benefits:</strong>
-                <ul style="margin-top: 8px; margin-left: 20px; color: #065f46; font-size: 13px;">
-                    <li>Auto-saves on every change</li>
-                    <li>Works across devices & browsers</li>
-                    <li>Survives port changes & updates</li>
-                    <li>No manual exports needed</li>
-                    <li>Instant recovery if localStorage clears</li>
-                </ul>
-            </div>
-        </div>
-        
-        <!-- Export/Import Section -->
-        <div class="section">
-            <h2>Data Management (Manual Backup)</h2>
-            <button onclick="testLocalStorage()">Test localStorage</button>
-            <button onclick="exportData()">Export Data (JSON)</button>
-            <button onclick="document.getElementById('importFile').click()">Import Data</button>
-            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
-            <p style="margin-top: 10px; font-size: 13px; color: #666;">
-                Manual export/import. Use Supabase Auto-Sync above for automatic backups!
-            </p>
-            <div id="testResult" style="margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 4px; display: none;"></div>
         </div>
     </div>
-    
-    <script>
-        let library = { folders: [], content: [] };
-        let currentFile = null;
-        let currentThumbnail = null;
-        let supabaseClient = null;
-        let supabaseEnabled = false;
-        
-        // Drag and drop
-        const uploadArea = document.getElementById('uploadArea');
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFile(files[0]);
-            }
-        });
-        
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (file) handleFile(file);
-        }
-        
-        function handleFile(file) {
-            currentFile = file;
-            const fileInfo = document.getElementById('fileInfo');
-            fileInfo.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
-        }
-        
-        function previewThumbnail(event) {
-            const file = event.target.files[0];
-            if (file) {
-                currentThumbnail = file;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const preview = document.getElementById('thumbnailPreview');
-                    preview.src = e.target.result;
-                    preview.style.display = 'block';
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-        
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
-        
-        function loadData() {
-            try {
-                const saved = localStorage.getItem('3c-library-data');
-                console.log('Loading data from localStorage...', saved ? 'Data found' : 'No data');
-                if (saved) {
-                    library = JSON.parse(saved);
-                    console.log('✅ Data loaded:', library);
-                }
-                updateUI();
-            } catch (err) {
-                console.error('❌ Error loading data:', err);
-            }
-        }
-        
-        async function saveData() {
-            try {
-                const dataStr = JSON.stringify(library);
-                localStorage.setItem('3c-library-data', dataStr);
-                console.log('✅ Data saved to localStorage!', library);
-                console.log('Folders:', library.folders.length, 'Content:', library.content.length);
-                
-                // Auto-sync to Supabase if enabled
-                if (supabaseEnabled && supabaseClient) {
-                    await syncToSupabase();
-                }
-            } catch (err) {
-                console.error('❌ Error saving data:', err);
-                alert('Error saving data: ' + err.message);
-            }
-        }
-        
-        function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2);
-        }
-        
-        function showSuccess(message) {
-            const msg = document.getElementById('successMsg');
-            msg.textContent = message;
-            msg.style.display = 'block';
-            setTimeout(() => msg.style.display = 'none', 3000);
-        }
-        
-        function createFolder() {
-            const name = document.getElementById('folderName').value.trim();
-            const desc = document.getElementById('folderDesc').value.trim();
-            
-            if (!name) {
-                alert('Please enter a folder name');
-                return;
-            }
-            
-            library.folders.push({
-                id: generateId(),
-                name: name,
-                description: desc,
-                created: new Date().toISOString()
-            });
-            
-            saveData();
-            updateUI();
-            document.getElementById('folderName').value = '';
-            document.getElementById('folderDesc').value = '';
-            showSuccess('Folder created successfully!');
-        }
-        
-        async function addContent() {
-            console.log('🔵 Starting addContent()...');
-            
-            const folderId = document.getElementById('contentFolder').value;
-            const title = document.getElementById('contentTitle').value.trim();
-            const type = document.getElementById('contentType').value;
-            const urlInput = document.getElementById('contentUrl').value.trim();
-            const desc = document.getElementById('contentDesc').value.trim();
-            
-            console.log('Form values:', { folderId, title, type, urlInput, hasFile: !!currentFile, hasThumbnail: !!currentThumbnail });
-            
-            if (!folderId) {
-                alert('Please select a folder');
-                return;
-            }
-            
-            if (!title) {
-                alert('Please enter a content title');
-                return;
-            }
-            
-            let fileUrl = urlInput;
-            let fileData = null;
-            
-            // Handle uploaded file
-            if (currentFile) {
-                console.log('📄 Processing uploaded file:', currentFile.name);
-                try {
-                    fileData = await fileToBase64(currentFile);
-                    fileUrl = fileData; // Store as base64
-                    console.log('✅ File converted to base64, length:', fileData.length);
-                } catch (err) {
-                    console.error('❌ Error processing file:', err);
-                    alert('Error processing file: ' + err.message);
-                    return;
-                }
-            } else if (!urlInput) {
-                console.log('❌ No file or URL provided');
-                alert('Please upload a file or enter a URL');
-                return;
-            }
-            
-            // Handle thumbnail
-            let thumbnailData = null;
-            if (currentThumbnail) {
-                console.log('🖼️ Processing thumbnail...');
-                try {
-                    thumbnailData = await fileToBase64(currentThumbnail);
-                    console.log('✅ Thumbnail converted, length:', thumbnailData.length);
-                } catch (err) {
-                    console.error('Error processing thumbnail:', err);
-                }
-            }
-            
-            // Get max order for this folder
-            const folderContent = library.content.filter(c => c.folderId === folderId);
-            const maxOrder = folderContent.length > 0 ? Math.max(...folderContent.map(c => c.order || 0)) : -1;
-            
-            const newContent = {
-                id: generateId(),
-                folderId: folderId,
-                title: title,
-                type: type,
-                url: fileUrl,
-                thumbnail: thumbnailData,
-                description: desc,
-                order: maxOrder + 1,
-                created: new Date().toISOString()
-            };
-            
-            console.log('📦 Adding content to library:', newContent.id, newContent.title);
-            library.content.push(newContent);
-            
-            console.log('💾 Saving data...');
-            saveData();
-            updateUI();
-            
-            // Reset form
-            document.getElementById('contentTitle').value = '';
-            document.getElementById('contentUrl').value = '';
-            document.getElementById('contentDesc').value = '';
-            document.getElementById('fileInfo').textContent = '';
-            document.getElementById('thumbnailPreview').style.display = 'none';
-            currentFile = null;
-            currentThumbnail = null;
-            
-            showSuccess('Content added successfully!');
-        }
-        
-        function deleteFolder(id) {
-            // Check if folder has content
-            const folderContent = library.content.filter(c => c.folderId === id);
-            if (folderContent.length > 0) {
-                alert(`Cannot delete folder! It contains ${folderContent.length} item(s). Please delete all content first.`);
-                return;
-            }
-            
-            if (!confirm('Delete this empty folder?')) return;
-            
-            library.folders = library.folders.filter(f => f.id !== id);
-            saveData();
-            updateUI();
-            showSuccess('Folder deleted successfully!');
-        }
-        
-        function deleteContent(id) {
-            const content = library.content.find(c => c.id === id);
-            if (!content) return;
-            
-            if (!confirm(`Delete "${content.title}"?`)) return;
-            
-            library.content = library.content.filter(c => c.id !== id);
-            saveData();
-            updateUI();
-            showSuccess('Content deleted successfully!');
-        }
-        
-        function editContent(id) {
-            const content = library.content.find(c => c.id === id);
-            if (!content) return;
-            
-            // Populate form with existing data
-            document.getElementById('contentFolder').value = content.folderId;
-            document.getElementById('contentTitle').value = content.title;
-            document.getElementById('contentType').value = content.type;
-            document.getElementById('contentDesc').value = content.description || '';
-            
-            // Handle URL or uploaded file
-            if (content.url && !content.url.startsWith('data:')) {
-                document.getElementById('contentUrl').value = content.url;
-            } else {
-                document.getElementById('contentUrl').value = '';
-                document.getElementById('fileInfo').textContent = 'Current file: Uploaded file (keep empty to retain)';
-            }
-            
-            // Show thumbnail if exists
-            if (content.thumbnail) {
-                document.getElementById('thumbnailPreview').src = content.thumbnail;
-                document.getElementById('thumbnailPreview').style.display = 'block';
-            }
-            
-            // Scroll to form
-            document.querySelector('.section').scrollIntoView({ behavior: 'smooth' });
-            
-            // Change button to update mode
-            const addButton = document.querySelector('button[onclick="addContent()"]');
-            addButton.textContent = 'Update Content';
-            addButton.onclick = () => updateContent(id);
-            
-            showSuccess('Editing content - modify fields and click "Update Content"');
-        }
-        
-        async function updateContent(id) {
-            console.log('🔵 Updating content:', id);
-            
-            const content = library.content.find(c => c.id === id);
-            if (!content) return;
-            
-            const folderId = document.getElementById('contentFolder').value;
-            const title = document.getElementById('contentTitle').value.trim();
-            const type = document.getElementById('contentType').value;
-            const urlInput = document.getElementById('contentUrl').value.trim();
-            const desc = document.getElementById('contentDesc').value.trim();
-            
-            if (!folderId) {
-                alert('Please select a folder');
-                return;
-            }
-            
-            if (!title) {
-                alert('Please enter a content title');
-                return;
-            }
-            
-            // Update basic fields
-            content.folderId = folderId;
-            content.title = title;
-            content.type = type;
-            content.description = desc;
-            
-            // Update file if new one uploaded
-            if (currentFile) {
-                console.log('📄 Processing new uploaded file:', currentFile.name);
-                try {
-                    const fileData = await fileToBase64(currentFile);
-                    content.url = fileData;
-                    console.log('✅ File updated');
-                } catch (err) {
-                    console.error('❌ Error processing file:', err);
-                    alert('Error processing file: ' + err.message);
-                    return;
-                }
-            } else if (urlInput) {
-                // Update URL if provided
-                content.url = urlInput;
-            }
-            // If neither, keep existing URL
-            
-            // Update thumbnail if new one uploaded
-            if (currentThumbnail) {
-                console.log('🖼️ Processing new thumbnail...');
-                try {
-                    content.thumbnail = await fileToBase64(currentThumbnail);
-                    console.log('✅ Thumbnail updated');
-                } catch (err) {
-                    console.error('Error processing thumbnail:', err);
-                }
-            }
-            
-            saveData();
-            updateUI();
-            
-            // Reset form
-            document.getElementById('contentTitle').value = '';
-            document.getElementById('contentUrl').value = '';
-            document.getElementById('contentDesc').value = '';
-            document.getElementById('fileInfo').textContent = '';
-            document.getElementById('thumbnailPreview').style.display = 'none';
-            currentFile = null;
-            currentThumbnail = null;
-            
-            // Reset button
-            const addButton = document.querySelector('button[onclick^="updateContent"]');
-            addButton.textContent = 'Add Content';
-            addButton.onclick = addContent;
-            
-            showSuccess('Content updated successfully!');
-        }
-        
-        function moveContent(id, direction) {
-            const filterFolderId = document.getElementById('filterFolder').value;
-            let folderContent = library.content.filter(c => !filterFolderId || c.folderId === filterFolderId);
-            
-            // Ensure all items have order property
-            folderContent.forEach((item, index) => {
-                if (item.order === undefined) {
-                    item.order = index;
-                }
-            });
-            
-            folderContent.sort((a, b) => a.order - b.order);
-            
-            const currentIndex = folderContent.findIndex(c => c.id === id);
-            if (currentIndex === -1) return;
-            
-            const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-            if (targetIndex < 0 || targetIndex >= folderContent.length) return;
-            
-            // Swap order values
-            const tempOrder = folderContent[currentIndex].order;
-            folderContent[currentIndex].order = folderContent[targetIndex].order;
-            folderContent[targetIndex].order = tempOrder;
-            
-            saveData();
-            displayContent();
-            showSuccess('Content reordered!');
-        }
-        
-        function copyUrl(url) {
-            navigator.clipboard.writeText(url).then(() => {
-                showSuccess('URL copied to clipboard!');
-            });
-        }
-        
-        function updateUI() {
-            updateFolderSelects();
-            displayFolders();
-            displayContent();
-        }
-        
-        function updateFolderSelects() {
-            const contentFolder = document.getElementById('contentFolder');
-            const filterFolder = document.getElementById('filterFolder');
-            
-            const options = library.folders.map(f => 
-                `<option value="${f.id}">${f.name}</option>`
-            ).join('');
-            
-            contentFolder.innerHTML = '<option value="">-- Select a folder --</option>' + options;
-            filterFolder.innerHTML = '<option value="">-- All Folders --</option>' + options;
-        }
-        
-        function displayFolders() {
-            const container = document.getElementById('folderList');
-            
-            if (library.folders.length === 0) {
-                container.innerHTML = '<p style="color: #999;">No folders created yet.</p>';
-                return;
-            }
-            
-            const html = library.folders.map(folder => {
-                const contentCount = library.content.filter(c => c.folderId === folder.id).length;
-                const publicUrl = `${window.location.origin}${window.location.pathname.replace('admin.html', '')}library.html?folder=${folder.id}`;
-                
-                return `
-                    <div class="folder-item">
-                        <div class="item-header">
-                            <div class="item-title">${folder.name}</div>
-                            <div class="item-actions">
-                                <button class="copy-btn" onclick="copyUrl('${publicUrl}')">Copy URL</button>
-                                <button class="delete" onclick="deleteFolder('${folder.id}')">Delete</button>
-                            </div>
-                        </div>
-                        ${folder.description ? `<div class="item-details">${folder.description}</div>` : ''}
-                        <div class="item-details">Content items: ${contentCount}</div>
-                        <div class="url-display">${publicUrl}</div>
-                    </div>
-                `;
-            }).join('');
-            
-            container.innerHTML = html;
-        }
-        
-        function displayContent() {
-            const container = document.getElementById('contentList');
-            const filterFolderId = document.getElementById('filterFolder').value;
-            
-            let filteredContent = library.content;
-            if (filterFolderId) {
-                filteredContent = library.content.filter(c => c.folderId === filterFolderId);
-            }
-            
-            // Sort by order property
-            filteredContent.sort((a, b) => (a.order || 0) - (b.order || 0));
-            
-            if (filteredContent.length === 0) {
-                container.innerHTML = '<p style="color: #999;">No content added yet.</p>';
-                return;
-            }
-            
-            const html = filteredContent.map((content, index) => {
-                const folder = library.folders.find(f => f.id === content.folderId);
-                const publicUrl = `${window.location.origin}${window.location.pathname.replace('admin.html', '')}library.html?folder=${content.folderId}&content=${content.id}`;
-                const thumbnailHtml = content.thumbnail ? 
-                    `<img src="${content.thumbnail}" class="thumbnail-preview">` : '';
-                
-                const canMoveUp = index > 0;
-                const canMoveDown = index < filteredContent.length - 1;
-                
-                return `
-                    <div class="content-item">
-                        <div class="item-header">
-                            <div>
-                                ${thumbnailHtml}
-                                <span class="item-title">${content.title}</span>
-                            </div>
-                            <div class="item-actions">
-                                ${canMoveUp ? `<button class="copy-btn" onclick="moveContent('${content.id}', 'up')">↑</button>` : ''}
-                                ${canMoveDown ? `<button class="copy-btn" onclick="moveContent('${content.id}', 'down')">↓</button>` : ''}
-                                <button class="copy-btn" onclick="copyUrl('${publicUrl}')">Copy URL</button>
-                                <button style="background: #28a745;" onclick="editContent('${content.id}')">Edit</button>
-                                <button class="delete" onclick="deleteContent('${content.id}')">Delete</button>
-                            </div>
-                        </div>
-                        <div class="item-details">
-                            Folder: ${folder ? folder.name : 'Unknown'} | Type: ${content.type.toUpperCase()}
-                        </div>
-                        ${content.description ? `<div class="item-details">${content.description}</div>` : ''}
-                        <div class="url-display">Public: ${publicUrl}</div>
-                    </div>
-                `;
-            }).join('');
-            
-            container.innerHTML = html;
-        }
-        
-        function exportData() {
-            const dataStr = JSON.stringify(library, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = '3c-library-backup.json';
-            link.click();
-            URL.revokeObjectURL(url);
-            showSuccess('Data exported successfully!');
-        }
-        
-        function importData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    if (imported.folders && imported.content) {
-                        if (confirm('This will replace all current data. Continue?')) {
-                            library = imported;
-                            saveData();
-                            updateUI();
-                            showSuccess('Data imported successfully!');
-                        }
-                    } else {
-                        alert('Invalid data format');
-                    }
-                } catch (err) {
-                    alert('Error reading file: ' + err.message);
-                }
-            };
-            reader.readAsText(file);
-            event.target.value = '';
-        }
-        
-        function testLocalStorage() {
-            const resultDiv = document.getElementById('testResult');
-            resultDiv.style.display = 'block';
-            
-            try {
-                // Test if localStorage is available
-                if (typeof(Storage) === "undefined") {
-                    resultDiv.innerHTML = '❌ localStorage is NOT supported in this browser';
-                    resultDiv.style.background = '#ffebee';
-                    return;
-                }
-                
-                // Test write
-                localStorage.setItem('test-key', 'test-value');
-                
-                // Test read
-                const value = localStorage.getItem('test-key');
-                
-                if (value === 'test-value') {
-                    resultDiv.innerHTML = '✅ localStorage is working!<br>Current library data: ' + 
-                        library.folders.length + ' folders, ' + library.content.length + ' content items';
-                    resultDiv.style.background = '#d4edda';
-                    
-                    // Clean up
-                    localStorage.removeItem('test-key');
-                } else {
-                    resultDiv.innerHTML = '❌ localStorage read/write failed';
-                    resultDiv.style.background = '#ffebee';
-                }
-            } catch (err) {
-                resultDiv.innerHTML = '❌ localStorage error: ' + err.message;
-                resultDiv.style.background = '#ffebee';
-            }
-        }
-        
-        // ==================== SUPABASE AUTO-SYNC ====================
-        
-        function saveSupabaseConfig() {
-            const url = document.getElementById('supabaseUrl').value.trim();
-            const key = document.getElementById('supabaseKey').value.trim();
-            
-            if (!url || !key) {
-                showSupabaseStatus('Please enter both Supabase URL and Key', 'error');
-                return;
-            }
-            
-            // Save config to localStorage
-            localStorage.setItem('supabase-url', url);
-            localStorage.setItem('supabase-key', key);
-            localStorage.setItem('supabase-enabled', 'true');
-            
-            // Initialize Supabase client
-            initSupabase();
-            
-            showSupabaseStatus('✅ Supabase Auto-Sync Enabled! Your data will now sync automatically.', 'success');
-        }
-        
-        function initSupabase() {
-            const url = localStorage.getItem('supabase-url');
-            const key = localStorage.getItem('supabase-key');
-            const enabled = localStorage.getItem('supabase-enabled') === 'true';
-            
-            if (enabled && url && key) {
-                try {
-                    supabaseClient = supabase.createClient(url, key);
-                    supabaseEnabled = true;
-                    
-                    // Load config into form
-                    document.getElementById('supabaseUrl').value = url;
-                    document.getElementById('supabaseKey').value = key;
-                    
-                    showSupabaseStatus('☁️ Auto-Sync Active - Data syncs on every change', 'success');
-                    
-                    // Try to restore from Supabase on load
-                    restoreFromSupabase();
-                } catch (err) {
-                    console.error('Supabase init error:', err);
-                    showSupabaseStatus('⚠️ Supabase connection error: ' + err.message, 'error');
-                }
-            }
-        }
-        
-        async function testSupabaseConnection() {
-            const url = document.getElementById('supabaseUrl').value.trim();
-            const key = document.getElementById('supabaseKey').value.trim();
-            
-            if (!url || !key) {
-                showSupabaseStatus('Please enter both Supabase URL and Key', 'error');
-                return;
-            }
-            
-            try {
-                const testClient = supabase.createClient(url, key);
-                
-                // Test connection by checking if table exists
-                const { data, error } = await testClient
-                    .from('library_backups')
-                    .select('id')
-                    .limit(1);
-                
-                if (error) {
-                    if (error.message.includes('relation') || error.message.includes('does not exist')) {
-                        showSupabaseStatus('⚠️ Table "library_backups" not found. Creating instructions...', 'warning');
-                        showTableCreationInstructions();
-                    } else {
-                        showSupabaseStatus('❌ Connection error: ' + error.message, 'error');
-                    }
-                } else {
-                    showSupabaseStatus('✅ Connection successful! Table exists and is accessible.', 'success');
-                }
-            } catch (err) {
-                showSupabaseStatus('❌ Connection failed: ' + err.message, 'error');
-            }
-        }
-        
-        function showTableCreationInstructions() {
-            const instructions = `
-                <strong>Create this table in Supabase SQL Editor:</strong>
-                <pre style="background: #1e293b; color: #e2e8f0; padding: 15px; border-radius: 6px; margin-top: 10px; overflow-x: auto; font-size: 12px;">
-CREATE TABLE library_backups (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  data JSONB NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
 
--- Enable Row Level Security
-ALTER TABLE library_backups ENABLE ROW LEVEL SECURITY;
+    <!-- Edit Folder Modal -->
+    <div class="modal" id="editFolderModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Folder</h2>
+                <button class="modal-close" onclick="closeEditFolderModal()">×</button>
+            </div>
+            <input type="hidden" id="editFolderId">
+            <div class="form-group">
+                <label>Folder Title</label>
+                <input type="text" id="editFolderTitle">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="editFolderDescription"></textarea>
+            </div>
+            <button onclick="updateFolder()">Update Folder</button>
+            <button class="secondary" onclick="closeEditFolderModal()">Cancel</button>
+        </div>
+    </div>
 
--- Allow all operations (adjust for your security needs)
-CREATE POLICY "Enable all access for library_backups"
-ON library_backups FOR ALL
-USING (true)
-WITH CHECK (true);
-                </pre>
-                <p style="margin-top: 10px; font-size: 13px;">
-                    1. Go to your Supabase project<br>
-                    2. Click "SQL Editor" in sidebar<br>
-                    3. Paste the SQL above<br>
-                    4. Click "Run"<br>
-                    5. Come back and click "Test Connection" again
-                </p>
-            `;
-            showSupabaseStatus(instructions, 'warning');
-        }
-        
-        async function syncToSupabase() {
-            if (!supabaseClient) return;
-            
-            try {
-                const backupData = {
-                    data: library,
-                    updated_at: new Date().toISOString()
-                };
-                
-                // Check if backup exists
-                const { data: existing } = await supabaseClient
-                    .from('library_backups')
-                    .select('id')
-                    .limit(1)
-                    .single();
-                
-                if (existing) {
-                    // Update existing backup
-                    const { error } = await supabaseClient
-                        .from('library_backups')
-                        .update(backupData)
-                        .eq('id', existing.id);
-                    
-                    if (error) throw error;
-                } else {
-                    // Insert new backup
-                    const { error } = await supabaseClient
-                        .from('library_backups')
-                        .insert([backupData]);
-                    
-                    if (error) throw error;
-                }
-                
-                console.log('☁️ Synced to Supabase successfully');
-                updateSyncIndicator('synced');
-            } catch (err) {
-                console.error('Supabase sync error:', err);
-                updateSyncIndicator('error');
-            }
-        }
-        
-        async function restoreFromSupabase() {
-            if (!supabaseClient) return;
-            
-            try {
-                const { data, error } = await supabaseClient
-                    .from('library_backups')
-                    .select('data')
-                    .order('updated_at', { ascending: false })
-                    .limit(1)
-                    .single();
-                
-                if (error) {
-                    console.log('No Supabase backup found (this is OK for first time)');
-                    return;
-                }
-                
-                if (data && data.data) {
-                    // Check if Supabase has more data than localStorage
-                    const supabaseData = data.data;
-                    const localFolders = library.folders.length;
-                    const localContent = library.content.length;
-                    const supabaseFolders = supabaseData.folders?.length || 0;
-                    const supabaseContent = supabaseData.content?.length || 0;
-                    
-                    if (supabaseFolders > localFolders || supabaseContent > localContent) {
-                        if (confirm(`Found Supabase backup with ${supabaseFolders} folders and ${supabaseContent} content items.\nYour local storage has ${localFolders} folders and ${localContent} items.\n\nRestore from Supabase?`)) {
-                            library = supabaseData;
-                            localStorage.setItem('3c-library-data', JSON.stringify(library));
-                            updateUI();
-                            showSuccess('✅ Data restored from Supabase!');
-                            console.log('✅ Restored from Supabase');
-                        }
-                    } else {
-                        console.log('✅ Local data is up to date');
-                    }
-                }
-            } catch (err) {
-                console.error('Supabase restore error:', err);
-            }
-        }
-        
-        function disableSupabase() {
-            if (confirm('Disable Supabase Auto-Sync? Your data will only be saved locally.')) {
-                localStorage.removeItem('supabase-enabled');
-                supabaseEnabled = false;
-                supabaseClient = null;
-                showSupabaseStatus('⚠️ Auto-Sync Disabled. Data only saved locally.', 'warning');
-            }
-        }
-        
-        function showSupabaseStatus(message, type) {
-            const statusDiv = document.getElementById('supabaseStatus');
-            statusDiv.innerHTML = message;
-            statusDiv.style.display = 'block';
-            
-            if (type === 'success') {
-                statusDiv.style.background = '#d1fae5';
-                statusDiv.style.borderLeft = '4px solid #10b981';
-                statusDiv.style.color = '#065f46';
-            } else if (type === 'error') {
-                statusDiv.style.background = '#fee2e2';
-                statusDiv.style.borderLeft = '4px solid #ef4444';
-                statusDiv.style.color = '#991b1b';
-            } else if (type === 'warning') {
-                statusDiv.style.background = '#fef3c7';
-                statusDiv.style.borderLeft = '4px solid #f59e0b';
-                statusDiv.style.color = '#92400e';
-            }
-        }
-        
-        function updateSyncIndicator(status) {
-            // Optional: Add a small sync indicator in the header
-            // You can enhance this later
-        }
-        
-        // Initialize Supabase on page load
-        initSupabase();
-        loadData();
-    </script>
+    <script src="admin-core.js"></script>
 </body>
 </html>
