@@ -32,10 +32,8 @@ const CONFIG = {
     
     // Feature Flags
     features: {
-        useCloudflareR2: true, // Use R2 instead of base64
-        enableSupabaseSync: true,
-        enableGitHubBackup: false, // Future feature
-        maxLocalStorageSize: 5 * 1024 * 1024 // 5MB fallback for thumbnails
+        useCloudflareR2: true,          // Enable R2 uploads
+        enableSupabaseSync: true,        // Enable Supabase sync
     }
 };
 
