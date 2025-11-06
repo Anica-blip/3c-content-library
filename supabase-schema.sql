@@ -337,7 +337,7 @@ SELECT
   c.*,
   f.title as folder_title,
   f.slug as folder_slug
-FROM content c
+FROM content_public c
 JOIN folders f ON c.folder_id = f.id
 ORDER BY c.view_count DESC, c.last_viewed_at DESC
 LIMIT 50;

@@ -53,6 +53,9 @@ This guide will help you set up Cloudflare R2 storage for your library files. R2
 
 1. **Open Bucket Settings**
    - Click on your `3c-library-files` bucket
+
+
+
    - Go to **"Settings"** tab
 
 2. **Connect Custom Domain**

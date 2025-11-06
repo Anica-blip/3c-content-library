@@ -38,6 +38,12 @@ Supabase Database:
     └── created_at, updated_at
 ```
 
+
+    gen_random_uuid() is available because the pgcrypto extension is installed.
+    I did not enable RLS or add policies. When you're ready to secure content_private (RLS, password checks, allowed_users logic), tell me the desired behavior and I will add the policies and any helper functions.
+    When you integrate Cloudflare and GitHub, if you need triggers or functions for automated URL fetching/parsing, I can create Edge Functions or DB triggers as appropriate.
+
+
 ---
 
 ## 🎯 How It Works
