@@ -4,15 +4,15 @@
 const CONFIG = {
     // Supabase Configuration (client-side safe)
     supabase: {
-        url: '', // Set in admin dashboard
-        anonKey: '', // Set in admin dashboard
+        url: '', 'https://cgxjqsbrditbteqhdyus.supabase.co'
+        anonKey: '', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneGpxc2JyZGl0YnRlcWhkeXVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTY1ODEsImV4cCI6MjA2NjY5MjU4MX0.xUDy5ic-r52kmRtocdcW8Np9-lczjMZ6YKPXc03rIG4'
         tableName: 'library_backups'
     },
     
     // Cloudflare R2 Configuration
     r2: {
-        publicUrl: 'https://files.3c-public-library.org', // Your R2 public domain
-        uploadEndpoint: '/api/upload', // Backend endpoint for uploads
+        publicUrl: 'https://files.3c-public-library.org', 
+        uploadEndpoint: '/api/upload', '3c-library-api'
         maxFileSize: 100 * 1024 * 1024, // 100MB max file size
         allowedTypes: {
             pdf: ['application/pdf'],
