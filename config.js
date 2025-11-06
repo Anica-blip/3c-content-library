@@ -12,7 +12,7 @@ const CONFIG = {
     // Cloudflare R2 Configuration
     r2: {
         publicUrl: 'https://files.3c-public-library.org', 
-        uploadEndpoint: '/api/upload', '3c-library-api'
+        uploadEndpoint: '/api/upload', 'https://api.3c-public-library.org/api/upload',
         maxFileSize: 100 * 1024 * 1024, // 100MB max file size
         allowedTypes: {
             pdf: ['application/pdf'],
