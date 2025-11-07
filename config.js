@@ -5,7 +5,7 @@
     supabase: {
         url: '', // Set in admin dashboard
         anonKey: '', // Set in admin dashboard
-        tableName: 'library_backups'
+        tableName: 'folders_with_states'
     },
     
     // Cloudflare R2 Configuration
