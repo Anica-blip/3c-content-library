@@ -5,7 +5,7 @@
     supabase: {
         url: '', // Set in admin dashboard
         anonKey: '', // Set in admin dashboard
-        tableName: 'folders_with_states'
+        tableName: 'content_public'
     },
     
     // Cloudflare R2 Configuration
