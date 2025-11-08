@@ -364,7 +364,10 @@
     
     <!-- Debug Panel -->
     <div id="debugPanel" style="display: none; background: #f8f9fa; border: 2px solid #dee2e6; margin: 20px; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 12px;">
-        <h3 style="margin-bottom: 15px; font-family: sans-serif;">Debug Information</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; font-family: sans-serif;">Debug Information</h3>
+            <button onclick="toggleDebug()" style="background: #dc3545; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 18px; line-height: 1;">×</button>
+        </div>
         <div id="debugContent"></div>
     </div>
     

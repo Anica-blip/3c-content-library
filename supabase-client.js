@@ -199,6 +199,16 @@ class SupabaseClient {
         const tableName = await this.getContentTable(contentData.folder_id);
         const folder = await this.getFolder(contentData.folder_id);
         
+        // Generate unique slug for content using table_name
+        const { data: slugData, error: slugError } = await this.client
+            .rpc('generate_content_slug', { 
+                content_title: contentData.title,
+                folder_uuid: contentData.folder_id,
+                table_short_name: folder.table_name
+            });
+        
+        if (slugError) throw slugError;
+        
         // Get max display_order for this folder
         const { data: maxOrder } = await this.client
             .from(tableName)
@@ -214,6 +224,7 @@ class SupabaseClient {
             .from(tableName)
             .insert([{
                 ...contentData,
+                slug: slugData,
                 table_name: folder.table_name,
                 display_order: displayOrder
             }])
@@ -242,11 +253,13 @@ class SupabaseClient {
     }
 
     /**
-     * Delete content
+     * Delete content (tries both tables)
      */
-    async deleteContent(id) {
+    async deleteContent(id, folderId) {
+        const tableName = await this.getContentTable(folderId);
+        
         const { error } = await this.client
-            .from('content')
+            .from(tableName)
             .delete()
             .eq('id', id);
         
@@ -257,10 +270,12 @@ class SupabaseClient {
     /**
      * Reorder content within folder
      */
-    async reorderContent(contentId, newOrderIndex) {
+    async reorderContent(contentId, newOrderIndex, folderId) {
+        const tableName = await this.getContentTable(folderId);
+        
         const { data, error } = await this.client
-            .from('content')
-            .update({ order_index: newOrderIndex })
+            .from(tableName)
+            .update({ display_order: newOrderIndex })
             .eq('id', contentId)
             .select()
             .single();
@@ -274,20 +289,22 @@ class SupabaseClient {
      */
     async moveContentUp(contentId) {
         const content = await this.getContent(contentId);
-        if (content.order_index === 0) return content;
+        if (content.display_order === 0) return content;
+        
+        const tableName = await this.getContentTable(content.folder_id);
         
         // Get content above
         const { data: contentAbove } = await this.client
-            .from('content')
+            .from(tableName)
             .select('*')
             .eq('folder_id', content.folder_id)
-            .eq('order_index', content.order_index - 1)
+            .eq('display_order', content.display_order - 1)
             .single();
         
         if (contentAbove) {
             // Swap order indexes
-            await this.updateContent(contentId, { order_index: content.order_index - 1 });
-            await this.updateContent(contentAbove.id, { order_index: content.order_index });
+            await this.updateContent(contentId, { display_order: content.display_order - 1 }, content.folder_id);
+            await this.updateContent(contentAbove.id, { display_order: content.display_order }, content.folder_id);
         }
         
         return await this.getContent(contentId);
@@ -299,18 +316,20 @@ class SupabaseClient {
     async moveContentDown(contentId) {
         const content = await this.getContent(contentId);
         
+        const tableName = await this.getContentTable(content.folder_id);
+        
         // Get content below
         const { data: contentBelow } = await this.client
-            .from('content')
+            .from(tableName)
             .select('*')
             .eq('folder_id', content.folder_id)
-            .eq('order_index', content.order_index + 1)
+            .eq('display_order', content.display_order + 1)
             .single();
         
         if (contentBelow) {
             // Swap order indexes
-            await this.updateContent(contentId, { order_index: content.order_index + 1 });
-            await this.updateContent(contentBelow.id, { order_index: content.order_index });
+            await this.updateContent(contentId, { display_order: content.display_order + 1 }, content.folder_id);
+            await this.updateContent(contentBelow.id, { display_order: content.display_order }, content.folder_id);
         }
         
         return await this.getContent(contentId);
@@ -426,9 +445,11 @@ class SupabaseClient {
     /**
      * Bulk create content
      */
-    async bulkCreateContent(contentArray) {
+    async bulkCreateContent(contentArray, folderId) {
+        const tableName = await this.getContentTable(folderId);
+        
         const { data, error } = await this.client
-            .from('content')
+            .from(tableName)
             .insert(contentArray)
             .select();
         
@@ -463,20 +484,31 @@ class SupabaseClient {
             .from('folders')
             .select('count');
         
-        const { data: contentCount } = await this.client
-            .from('content')
+        const { data: publicCount } = await this.client
+            .from('content_public')
             .select('count');
         
-        const { data: totalViews } = await this.client
-            .from('content')
+        const { data: privateCount } = await this.client
+            .from('content_private')
+            .select('count');
+        
+        const { data: publicViews } = await this.client
+            .from('content_public')
             .select('view_count');
         
-        const views = totalViews?.reduce((sum, item) => sum + (item.view_count || 0), 0) || 0;
+        const { data: privateViews } = await this.client
+            .from('content_private')
+            .select('view_count');
+        
+        const totalPublicContent = publicCount?.[0]?.count || 0;
+        const totalPrivateContent = privateCount?.[0]?.count || 0;
+        const publicViewsSum = publicViews?.reduce((sum, item) => sum + (item.view_count || 0), 0) || 0;
+        const privateViewsSum = privateViews?.reduce((sum, item) => sum + (item.view_count || 0), 0) || 0;
         
         return {
             totalFolders: folderCount?.[0]?.count || 0,
-            totalContent: contentCount?.[0]?.count || 0,
-            totalViews: views
+            totalContent: totalPublicContent + totalPrivateContent,
+            totalViews: publicViewsSum + privateViewsSum
         };
     }
 }

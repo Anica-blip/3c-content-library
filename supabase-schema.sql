@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS content_public (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     folder_id UUID NOT NULL REFERENCES folders(id) ON DELETE CASCADE,
     table_name TEXT, -- Logical grouping name (e.g., 'anica_chats')
+    slug TEXT, -- URL-friendly slug (e.g., 'anica-chats-01')
     title TEXT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('pdf', 'video', 'image', 'audio', 'link')),
     url TEXT, -- Primary content URL (R2, external, or base64)
@@ -46,12 +47,14 @@ CREATE INDEX idx_content_public_folder ON content_public(folder_id);
 CREATE INDEX idx_content_public_table ON content_public(table_name);
 CREATE INDEX idx_content_public_type ON content_public(type);
 CREATE INDEX idx_content_public_order ON content_public(folder_id, display_order);
+CREATE INDEX idx_content_public_slug ON content_public(slug);
 
 -- PRIVATE CONTENT (authentication required - for courses, premium content)
 CREATE TABLE IF NOT EXISTS content_private (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     folder_id UUID NOT NULL REFERENCES folders(id) ON DELETE CASCADE,
     table_name TEXT, -- Logical grouping name
+    slug TEXT, -- URL-friendly slug (e.g., 'premium-course-01')
     title TEXT NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('pdf', 'video', 'image', 'audio', 'link')),
     url TEXT,
@@ -75,6 +78,7 @@ CREATE INDEX idx_content_private_table ON content_private(table_name);
 CREATE INDEX idx_content_private_type ON content_private(type);
 CREATE INDEX idx_content_private_order ON content_private(folder_id, display_order);
 CREATE INDEX idx_content_private_access ON content_private(access_level);
+CREATE INDEX idx_content_private_slug ON content_private(slug);
 
 -- ==================== USER INTERACTIONS TABLE ====================
 -- Track user interactions for analytics (works with both public and private content)
@@ -200,13 +204,15 @@ USING (true);
 
 -- ==================== HELPER FUNCTIONS ====================
 
--- Function to generate unique slug from title
+-- Function to generate unique FOLDER slug from title
+-- Example: "Anica Coffee Break Chats" → "anica-coffee-break-chats"
+-- If duplicate: "anica-coffee-break-chats-02", "anica-coffee-break-chats-03"
 CREATE OR REPLACE FUNCTION generate_slug(title_text TEXT)
 RETURNS TEXT AS $$
 DECLARE
   base_slug TEXT;
   final_slug TEXT;
-  counter INTEGER := 1;
+  counter INTEGER := 2;
 BEGIN
   -- Convert to lowercase, replace spaces with hyphens, remove special chars
   base_slug := lower(regexp_replace(title_text, '[^a-zA-Z0-9\s-]', '', 'g'));
@@ -216,10 +222,54 @@ BEGIN
   
   final_slug := base_slug;
   
-  -- Check if slug exists and increment
+  -- Check if slug exists and increment (starting from 02)
   WHILE EXISTS (SELECT 1 FROM folders WHERE slug = final_slug) LOOP
     final_slug := base_slug || '-' || LPAD(counter::TEXT, 2, '0');
     counter := counter + 1;
+  END LOOP;
+  
+  RETURN final_slug;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to generate unique CONTENT slug within a folder
+-- Example: "Episode 1" in folder "anica-chats" → "anica-chats-01"
+-- Uses table_name (short version) instead of full folder slug
+CREATE OR REPLACE FUNCTION generate_content_slug(
+  content_title TEXT,
+  folder_uuid UUID,
+  table_short_name TEXT
+)
+RETURNS TEXT AS $$
+DECLARE
+  base_slug TEXT;
+  final_slug TEXT;
+  counter INTEGER := 1;
+  content_table TEXT;
+  folder_is_public BOOLEAN;
+BEGIN
+  -- Get folder visibility to determine which table to check
+  SELECT is_public INTO folder_is_public FROM folders WHERE id = folder_uuid;
+  content_table := CASE WHEN folder_is_public THEN 'content_public' ELSE 'content_private' END;
+  
+  -- Use table_name as base (e.g., "anica_chats" → "anica-chats")
+  base_slug := lower(regexp_replace(table_short_name, '_', '-', 'g'));
+  
+  -- Start with -01, -02, etc.
+  final_slug := base_slug || '-' || LPAD(counter::TEXT, 2, '0');
+  
+  -- Check if slug exists in the appropriate content table
+  WHILE (
+    (folder_is_public AND EXISTS (
+      SELECT 1 FROM content_public WHERE slug = final_slug AND folder_id = folder_uuid
+    ))
+    OR
+    (NOT folder_is_public AND EXISTS (
+      SELECT 1 FROM content_private WHERE slug = final_slug AND folder_id = folder_uuid
+    ))
+  ) LOOP
+    counter := counter + 1;
+    final_slug := base_slug || '-' || LPAD(counter::TEXT, 2, '0');
   END LOOP;
   
   RETURN final_slug;
@@ -312,15 +362,23 @@ $$ LANGUAGE plpgsql;
 
 -- ==================== VIEWS FOR EASY QUERYING ====================
 
--- View: Folders with content count
+-- View: Folders with content count (combines both public and private content)
 CREATE OR REPLACE VIEW folders_with_stats AS
 SELECT 
   f.*,
-  COUNT(c.id) as actual_item_count,
-  MAX(c.updated_at) as last_content_update
+  COALESCE(pub.count, 0) + COALESCE(priv.count, 0) as actual_item_count,
+  GREATEST(pub.last_update, priv.last_update) as last_content_update
 FROM folders f
-LEFT JOIN content c ON f.id = c.folder_id
-GROUP BY f.id;
+LEFT JOIN (
+  SELECT folder_id, COUNT(*) as count, MAX(updated_at) as last_update
+  FROM content_public
+  GROUP BY folder_id
+) pub ON f.id = pub.folder_id
+LEFT JOIN (
+  SELECT folder_id, COUNT(*) as count, MAX(updated_at) as last_update
+  FROM content_private
+  GROUP BY folder_id
+) priv ON f.id = priv.folder_id;
 
 -- View: Content with folder info
 CREATE OR REPLACE VIEW content_with_folder AS
@@ -328,7 +386,7 @@ SELECT
   c.*,
   f.title as folder_title,
   f.slug as folder_slug
-FROM content c
+FROM content_public c
 JOIN folders f ON c.folder_id = f.id;
 
 -- View: Popular content

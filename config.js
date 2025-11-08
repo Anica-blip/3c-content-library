@@ -1,11 +1,12 @@
 // Production Configuration
 // This file contains client-side configuration for the 3C Public Library
 
+const CONFIG = {
     // Supabase Configuration (client-side safe)
     supabase: {
-        url: 'https://cgxjqsbrditbteqhdyus.supabase.co', // Set in admin dashboard
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneGpxc2JyZGl0YnRlcWhkeXVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTY1ODEsImV4cCI6MjA2NjY5MjU4MX0.xUDy5ic-r52kmRtocdcW8Np9-lczjMZ6YKPXc03rIG4', // Set in admin dashboard
-        tableName: 'content_with_folder'
+        url: 'https://cgxjqsbrditbteqhdyus.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneGpxc2JyZGl0YnRlcWhkeXVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTY1ODEsImV4cCI6MjA2NjY5MjU4MX0.xUDy5ic-r52kmRtocdcW8Np9-lczjMZ6YKPXc03rIG4',
+        // No longer using single table - using content_public and content_private
     },
     
     // Cloudflare R2 Configuration

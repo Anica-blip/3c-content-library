@@ -321,7 +321,7 @@ async function saveContent(event) {
         if (editMode) {
             // Update existing content
             debugLog('✏️ Updating content: ' + contentId);
-            await supabaseClient.updateContent(contentId, contentData);
+            await supabaseClient.updateContent(contentId, contentData, folderId);
             showAlert('success', '✅ Content updated');
         } else {
             // Create new content
@@ -380,7 +380,7 @@ async function deleteContent(contentId) {
     }
     
     try {
-        await supabaseClient.deleteContent(contentId);
+        await supabaseClient.deleteContent(contentId, content.folder_id);
         showAlert('success', '✅ Content deleted');
         await loadAllData();
     } catch (error) {

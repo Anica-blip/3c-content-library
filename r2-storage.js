@@ -12,12 +12,13 @@ class R2Storage {
     }
 
     /**
-     * Upload file to R2 via backend API
+     * Upload file to R2 via Cloudflare Worker
      * @param {File} file - The file to upload
      * @param {string} folder - Optional folder path in R2
+     * @param {string} type - Type of upload ('content' or 'thumbnail')
      * @returns {Promise<Object>} Upload result with URL
      */
-    async uploadFile(file, folder = 'content') {
+    async uploadFile(file, folder = 'content', type = 'content') {
         // Validate file size
         if (file.size > this.maxFileSize) {
             throw new Error(`File size exceeds maximum of ${this.maxFileSize / (1024 * 1024)}MB`);
@@ -29,38 +30,43 @@ class R2Storage {
             throw new Error(`File type ${file.type} is not supported`);
         }
 
-        // Generate unique filename
-        const timestamp = Date.now();
-        const randomStr = Math.random().toString(36).substring(2, 8);
-        const extension = file.name.split('.').pop();
-        const filename = `${folder}/${timestamp}-${randomStr}.${extension}`;
-
         // Create form data
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('filename', filename);
-        formData.append('contentType', file.type);
+        formData.append('folder', folder);
+        formData.append('type', type);
 
         try {
-            // Upload to backend API (which handles R2 upload)
+            // Upload to Cloudflare Worker
             const response = await fetch(this.uploadEndpoint, {
                 method: 'POST',
                 body: formData
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Upload failed');
+                const errorText = await response.text();
+                let errorMsg = 'Upload failed';
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    errorMsg = errorJson.error || errorMsg;
+                } catch (e) {
+                    errorMsg = errorText || errorMsg;
+                }
+                throw new Error(errorMsg);
             }
 
             const result = await response.json();
             
+            if (!result.success) {
+                throw new Error(result.error || 'Upload failed');
+            }
+            
             return {
                 success: true,
-                url: `${this.publicUrl}/${filename}`,
-                filename: filename,
-                size: file.size,
-                type: file.type,
+                url: result.url,
+                filename: result.filename,
+                size: result.size,
+                type: result.type,
                 uploadedAt: new Date().toISOString()
             };
         } catch (error) {
