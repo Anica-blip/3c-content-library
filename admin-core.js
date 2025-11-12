@@ -286,9 +286,32 @@ function editFolder(folderId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
     
+    // Populate parent folder dropdown for edit
+    const editParentSelect = document.getElementById('editParentFolder');
+    editParentSelect.innerHTML = '<option value="">-- Select Parent Folder --</option>';
+    const rootFolders = folders.filter(f => !f.parent_id || f.folder_type === 'root');
+    rootFolders.forEach(f => {
+        if (f.id !== folder.id) { // Don't allow selecting itself as parent
+            editParentSelect.innerHTML += `<option value="${f.id}">${f.title}</option>`;
+        }
+    });
+    
+    // Fill all form fields
     document.getElementById('editFolderId').value = folder.id;
     document.getElementById('editFolderTitle').value = folder.title;
+    document.getElementById('editFolderType').value = folder.folder_type || 'root';
+    document.getElementById('editParentFolder').value = folder.parent_id || '';
+    document.getElementById('editFolderCustomURL').value = folder.custom_url || '';
+    document.getElementById('editFolderTableName').value = folder.table_name || '';
     document.getElementById('editFolderDescription').value = folder.description || '';
+    document.getElementById('editFolderPublic').checked = folder.is_public !== false;
+    
+    // Update UI based on folder type
+    updateEditFolderTypeUI();
+    
+    // Show current URL
+    const displayURL = folder.custom_url || folder.slug;
+    document.getElementById('editUrlPreview').textContent = `Current URL: ${displayURL}`;
     
     document.getElementById('editFolderModal').classList.add('active');
 }
@@ -296,16 +319,39 @@ function editFolder(folderId) {
 async function updateFolder() {
     const id = document.getElementById('editFolderId').value;
     const title = document.getElementById('editFolderTitle').value.trim();
+    const folderType = document.getElementById('editFolderType').value;
+    const parentId = document.getElementById('editParentFolder').value || null;
+    const customUrl = document.getElementById('editFolderCustomURL').value.trim() || null;
+    const tableName = document.getElementById('editFolderTableName').value.trim();
     const description = document.getElementById('editFolderDescription').value.trim();
+    const isPublic = document.getElementById('editFolderPublic').checked;
     
     if (!title) {
         showAlert('error', 'Please enter a folder title');
         return;
     }
     
+    if (!tableName) {
+        showAlert('error', 'Please enter a table name');
+        return;
+    }
+    
+    if (folderType === 'sub_root' && !parentId) {
+        showAlert('error', 'Sub-root folders require a parent folder');
+        return;
+    }
+    
     try {
-        await supabaseClient.updateFolder(id, { title, description });
-        showAlert('success', '✅ Folder updated');
+        await supabaseClient.updateFolder(id, { 
+            title, 
+            folder_type: folderType,
+            parent_id: parentId,
+            custom_url: customUrl,
+            table_name: tableName,
+            description,
+            is_public: isPublic
+        });
+        showAlert('success', '✅ Folder updated successfully!');
         closeEditFolderModal();
         await loadAllData();
     } catch (error) {
@@ -332,6 +378,61 @@ async function deleteFolder(folderId) {
 
 function closeEditFolderModal() {
     document.getElementById('editFolderModal').classList.remove('active');
+}
+
+function updateEditFolderTypeUI() {
+    const folderType = document.getElementById('editFolderType').value;
+    const parentGroup = document.getElementById('editParentFolderGroup');
+    if (folderType === 'sub_root') {
+        parentGroup.style.display = 'block';
+    } else {
+        parentGroup.style.display = 'none';
+        document.getElementById('editParentFolder').value = '';
+    }
+    suggestEditCustomURL();
+}
+
+function suggestEditCustomURL() {
+    const title = document.getElementById('editFolderTitle').value.trim();
+    const folderType = document.getElementById('editFolderType').value;
+    const parentId = document.getElementById('editParentFolder').value;
+    const customURLInput = document.getElementById('editFolderCustomURL');
+    const preview = document.getElementById('editUrlPreview');
+    
+    if (!title) {
+        preview.textContent = 'URL: (will be auto-generated)';
+        return;
+    }
+    
+    let suggestion = title.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/-+/g, '_');
+    
+    if (folderType === 'sub_root' && parentId) {
+        const parentFolder = folders.find(f => f.id === parentId);
+        if (parentFolder) {
+            const parentURL = parentFolder.custom_url || parentFolder.slug;
+            suggestion = `${parentURL}_sub.01`;
+        }
+    }
+    
+    if (!customURLInput.value) {
+        preview.textContent = `Suggested URL: ${suggestion}`;
+    } else {
+        preview.textContent = `Custom URL: ${customURLInput.value}`;
+    }
+}
+
+function updateEditURLPreview() {
+    const customURL = document.getElementById('editFolderCustomURL').value.trim();
+    const preview = document.getElementById('editUrlPreview');
+    
+    if (customURL) {
+        preview.textContent = `Custom URL: ${customURL}`;
+    } else {
+        suggestEditCustomURL();
+    }
 }
 
 // ==================== CONTENT OPERATIONS ====================

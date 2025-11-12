@@ -225,19 +225,59 @@
     <div class="modal" id="editFolderModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Edit Folder</h2>
+                <h2>✏️ Edit Folder</h2>
                 <button class="modal-close" onclick="closeEditFolderModal()">×</button>
             </div>
             <input type="hidden" id="editFolderId">
+            
             <div class="form-group">
-                <label>Folder Title</label>
-                <input type="text" id="editFolderTitle">
+                <label>Folder Title *</label>
+                <input type="text" id="editFolderTitle" oninput="suggestEditCustomURL()">
             </div>
+            
+            <div class="form-group">
+                <label>Folder Type *</label>
+                <select id="editFolderType" onchange="updateEditFolderTypeUI()">
+                    <option value="root">Root Folder</option>
+                    <option value="sub_root">Sub-Root Folder (requires parent)</option>
+                </select>
+                <small>Root folders are top-level. Sub-root folders are nested under a root folder.</small>
+            </div>
+            
+            <div class="form-group" id="editParentFolderGroup" style="display: none;">
+                <label>Parent Folder *</label>
+                <select id="editParentFolder" onchange="suggestEditCustomURL()">
+                    <option value="">-- Select Parent Folder --</option>
+                </select>
+                <small>Select the root folder this sub-folder belongs to.</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Custom URL (Optional)</label>
+                <input type="text" id="editFolderCustomURL" oninput="updateEditURLPreview()">
+                <small id="editUrlPreview" style="color: #007bff; font-weight: 600;">URL: (will be auto-generated)</small>
+                <small>Leave empty for auto-generation. For root: aurion_goal. For sub-root: aurion_goal_sub.01</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Table Name *</label>
+                <input type="text" id="editFolderTableName">
+                <small>Short identifier for database table (e.g., aurion_goal, anica_chats)</small>
+            </div>
+            
             <div class="form-group">
                 <label>Description</label>
                 <textarea id="editFolderDescription"></textarea>
             </div>
-            <button onclick="updateFolder()">Update Folder</button>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="editFolderPublic" checked>
+                    Public (visible to all users)
+                </label>
+            </div>
+            
+            <button onclick="updateFolder()">💾 Update Folder</button>
             <button class="secondary" onclick="closeEditFolderModal()">Cancel</button>
         </div>
     </div>
