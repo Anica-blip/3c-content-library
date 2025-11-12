@@ -420,9 +420,21 @@
         let pdfDoc = null;
         let currentPageNum = 1;
         let pdfScale = parseFloat(localStorage.getItem('pdfZoomLevel')) || 0.75; // Default 75%, remember user preference
+        let libraryCache = null;
+        let cacheTimestamp = null;
+        const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
         
         async function loadData() {
             console.log('📚 Loading library data from Supabase...');
+            
+            // Check cache first
+            const now = Date.now();
+            if (libraryCache && cacheTimestamp && (now - cacheTimestamp) < CACHE_DURATION) {
+                console.log('⚡ Using cached data');
+                library = libraryCache;
+                return;
+            }
+            
             try {
                 // Initialize Supabase
                 if (!supabaseClient.isConnected) {
@@ -434,8 +446,10 @@
                 library.folders = folders.map(f => ({
                     id: f.id,
                     name: f.title,
-                    slug: f.slug,
-                    description: f.description
+                    slug: f.custom_url || f.slug,
+                    customUrl: f.custom_url,
+                    description: f.description,
+                    folderType: f.folder_type
                 }));
                 
                 // Load all content
@@ -448,13 +462,19 @@
                         title: c.title,
                         type: c.type,
                         url: c.url,
+                        slug: c.custom_url || c.slug,
+                        customUrl: c.custom_url,
                         thumbnail: c.thumbnail_url,
                         description: c.description,
                         externalUrl: c.external_url
                     })));
                 }
                 
-                console.log('✅ Library loaded:', library);
+                // Cache the data
+                libraryCache = library;
+                cacheTimestamp = now;
+                
+                console.log('✅ Library loaded and cached:', library);
                 console.log('Folders:', library.folders.length, 'Content:', library.content.length);
             } catch (error) {
                 console.error('❌ Error loading data from Supabase:', error);
@@ -466,8 +486,20 @@
             const params = new URLSearchParams(window.location.search);
             return {
                 folder: params.get('folder'),
-                content: params.get('content')
+                content: params.get('content'),
+                view: params.get('view') // 'pdf-only' to hide folder sidebar
             };
+        }
+        
+        function findFolderBySlug(slug) {
+            return library.folders.find(f => f.slug === slug || f.id === slug);
+        }
+        
+        function findContentBySlug(slug, folderId = null) {
+            if (folderId) {
+                return library.content.find(c => (c.slug === slug || c.id === slug) && c.folderId === folderId);
+            }
+            return library.content.find(c => c.slug === slug || c.id === slug);
         }
         
         function getTypeIcon(type) {
@@ -483,20 +515,33 @@
         
         function displayContent() {
             const params = getUrlParams();
-            const folderId = params.folder;
-            const contentId = params.content;
+            const folderSlug = params.folder;
+            const contentSlug = params.content;
+            const viewMode = params.view;
             
-            console.log('🔍 displayContent called with params:', { folderId, contentId });
+            console.log('🔍 displayContent called with params:', { folderSlug, contentSlug, viewMode });
             console.log('Library state:', { folders: library.folders.length, content: library.content.length });
             
+            // If view=pdf-only, hide sidebar and show only PDF
+            if (viewMode === 'pdf-only' && contentSlug) {
+                document.querySelector('.sidebar').style.display = 'none';
+                document.querySelector('.layout').style.gridTemplateColumns = '1fr';
+                
+                const content = findContentBySlug(contentSlug);
+                if (content) {
+                    showViewer(content, true); // true = pdf-only mode
+                    return;
+                }
+            }
+            
             // If no folder selected, show all folders
-            if (!folderId) {
-                console.log('No folder ID, showing all folders');
+            if (!folderSlug) {
+                console.log('No folder slug, showing all folders');
                 displayAllFolders();
                 return;
             }
             
-            currentFolder = library.folders.find(f => f.id === folderId);
+            currentFolder = findFolderBySlug(folderSlug);
             if (!currentFolder) {
                 document.getElementById('contentList').innerHTML = '<p style="color: #999;">Folder not found</p>';
                 document.getElementById('viewer').innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>';
@@ -505,7 +550,7 @@
             
             document.getElementById('folderTitle').textContent = currentFolder.name;
             
-            let folderContent = library.content.filter(c => c.folderId === folderId);
+            let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
             
             // Sort by order property
             folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -524,7 +569,7 @@
                 }
                 
                 return `
-                    <div class="content-card ${item.id === contentId ? 'active' : ''}" onclick="viewContent('${item.id}')">
+                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.slug}')">
                         <div class="content-thumbnail">${thumbnailHtml}</div>
                         <div class="content-info">
                             <div class="content-title">${item.title}</div>
@@ -536,8 +581,8 @@
             
             document.getElementById('contentList').innerHTML = html;
             
-            if (contentId) {
-                const content = folderContent.find(c => c.id === contentId);
+            if (contentSlug) {
+                const content = findContentBySlug(contentSlug, currentFolder.id);
                 if (content) showViewer(content);
             }
         }
@@ -560,7 +605,7 @@
                 const folderIcon = '📁';
                 
                 return `
-                    <div class="content-card folder-card" onclick="openFolder('${folder.id}')">
+                    <div class="content-card folder-card" onclick="openFolder('${folder.slug}')">
                         <div class="content-thumbnail">
                             <div class="type-icon">${folderIcon}</div>
                         </div>
@@ -581,18 +626,32 @@
             `;
         }
         
-        function openFolder(folderId) {
-            window.location.href = `?folder=${folderId}`;
+        function openFolder(folderSlug) {
+            window.location.href = `?folder=${folderSlug}`;
         }
         
-        function viewContent(contentId) {
+        function viewContent(contentSlug) {
             const params = getUrlParams();
-            window.location.href = `?folder=${params.folder}&content=${contentId}`;
+            window.location.href = `?folder=${params.folder}&content=${contentSlug}`;
         }
         
-        function showViewer(content) {
+        function sharePDFLink(contentSlug) {
+            const baseUrl = window.location.origin + window.location.pathname;
+            return `${baseUrl}?content=${contentSlug}&view=pdf-only`;
+        }
+        
+        function showViewer(content, pdfOnlyMode = false) {
             currentContent = content;
             let viewerHtml = '';
+            
+            // In PDF-only mode, show share button
+            const shareButton = pdfOnlyMode ? '' : `
+                <button onclick="copyShareLink()" 
+                        style="background: #28a745; color: white; border: none; padding: 8px 16px; 
+                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px;">
+                    🔗 Copy PDF Link
+                </button>
+            `;
             
             if (content.type === 'pdf') {
                 // Show thumbnail with click to open popup
@@ -628,7 +687,7 @@
             
             // Add back button for navigating between content
             const params = getUrlParams();
-            const backButton = params.folder ? `
+            const backButton = !pdfOnlyMode && params.folder ? `
                 <button onclick="window.location.href='?folder=${params.folder}'" 
                         style="background: var(--purple-medium); color: white; border: none; padding: 10px 20px; 
                                border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 14px;">
@@ -638,10 +697,20 @@
             
             document.getElementById('viewer').innerHTML = `
                 ${backButton}
-                <h2>${content.title}</h2>
+                <h2>${content.title}${shareButton}</h2>
                 ${content.description ? `<div class="viewer-desc">${content.description}</div>` : ''}
                 <div class="embed-container" style="${content.type === 'pdf' ? 'height: auto; border: none;' : ''}">${viewerHtml}</div>
             `;
+        }
+        
+        function copyShareLink() {
+            if (!currentContent) return;
+            const shareLink = sharePDFLink(currentContent.slug);
+            navigator.clipboard.writeText(shareLink).then(() => {
+                alert('✅ PDF link copied to clipboard!\n\n' + shareLink);
+            }).catch(err => {
+                prompt('Copy this link:', shareLink);
+            });
         }
         
         async function openPDFModal(pdfUrl, title) {

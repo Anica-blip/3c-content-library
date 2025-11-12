@@ -143,13 +143,88 @@ async function loadContent() {
     }
 }
 
+// ==================== UI HELPER FUNCTIONS ====================
+function updateFolderTypeUI() {
+    const folderType = document.getElementById('folderType').value;
+    const parentGroup = document.getElementById('parentFolderGroup');
+    
+    if (folderType === 'sub_root') {
+        parentGroup.style.display = 'block';
+    } else {
+        parentGroup.style.display = 'none';
+        document.getElementById('parentFolder').value = '';
+    }
+    
+    suggestCustomURL();
+}
+
+function suggestCustomURL() {
+    const title = document.getElementById('folderTitle').value.trim();
+    const folderType = document.getElementById('folderType').value;
+    const parentId = document.getElementById('parentFolder').value;
+    const customURLInput = document.getElementById('folderCustomURL');
+    const preview = document.getElementById('urlPreview');
+    
+    if (!title) {
+        preview.textContent = 'URL: (will be auto-generated)';
+        return;
+    }
+    
+    // Generate suggestion
+    let suggestion = title.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/-+/g, '_');
+    
+    if (folderType === 'sub_root' && parentId) {
+        const parentFolder = folders.find(f => f.id === parentId);
+        if (parentFolder) {
+            const parentURL = parentFolder.custom_url || parentFolder.slug;
+            suggestion = `${parentURL}_sub.01`;
+        }
+    }
+    
+    // Only show suggestion if custom URL is empty
+    if (!customURLInput.value) {
+        preview.textContent = `Suggested URL: ${suggestion}`;
+    } else {
+        preview.textContent = `Custom URL: ${customURLInput.value}`;
+    }
+}
+
+function suggestContentURL() {
+    const title = document.getElementById('contentTitle').value.trim();
+    const folderId = document.getElementById('contentFolder').value;
+    const customURLInput = document.getElementById('contentCustomURL');
+    const preview = document.getElementById('contentUrlPreview');
+    
+    if (!title || !folderId) {
+        preview.textContent = 'URL: (will be auto-generated)';
+        return;
+    }
+    
+    const folder = folders.find(f => f.id === folderId);
+    if (folder) {
+        const folderURL = folder.custom_url || folder.slug;
+        const suggestion = `${folderURL}_content.01`;
+        
+        if (!customURLInput.value) {
+            preview.textContent = `Suggested URL: ${suggestion}`;
+        } else {
+            preview.textContent = `Custom URL: ${customURLInput.value}`;
+        }
+    }
+}
+
 // ==================== FOLDER OPERATIONS ====================
 async function createFolder() {
     const title = document.getElementById('folderTitle').value.trim();
     const tableName = document.getElementById('folderTableName').value.trim();
     const visibility = document.getElementById('folderVisibility').value;
     const description = document.getElementById('folderDescription').value.trim();
+    const folderType = document.getElementById('folderType').value;
     const parentId = document.getElementById('parentFolder').value || null;
+    const customURL = document.getElementById('folderCustomURL').value.trim() || null;
     
     if (!title) {
         showAlert('error', 'Please enter a folder title');
@@ -167,20 +242,37 @@ async function createFolder() {
         return;
     }
     
+    // Validate folder type and parent
+    if (folderType === 'sub_root' && !parentId) {
+        showAlert('error', 'Sub-root folders require a parent folder');
+        return;
+    }
+    
+    // Validate custom URL format
+    if (customURL && !/^[a-z0-9_.-]+$/.test(customURL)) {
+        showAlert('error', 'Custom URL can only contain lowercase letters, numbers, underscores, dots, and hyphens');
+        return;
+    }
+    
     try {
-        debugLog('📁 Creating folder: ' + title + ' (table: ' + tableName + ', visibility: ' + visibility + ', parent: ' + (parentId || 'root') + ')');
+        debugLog('📁 Creating folder: ' + title + ' (type: ' + folderType + ', table: ' + tableName + ', visibility: ' + visibility + ', parent: ' + (parentId || 'root') + ', custom URL: ' + (customURL || 'auto') + ')');
         const isPublic = visibility === 'public';
-        const folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId);
+        const folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
         
-        const folderType = parentId ? 'Sub-folder' : 'Folder';
-        showAlert('success', `✅ ${folderType} created: ${folder.slug} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}`);
+        const folderTypeLabel = folderType === 'sub_root' ? 'Sub-root folder' : 'Root folder';
+        const displayURL = folder.custom_url || folder.slug;
+        showAlert('success', `✅ ${folderTypeLabel} created: ${displayURL} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}`);
         
         // Reset form
         document.getElementById('folderTitle').value = '';
         document.getElementById('folderTableName').value = '';
         document.getElementById('folderVisibility').value = 'public';
         document.getElementById('folderDescription').value = '';
+        document.getElementById('folderType').value = 'root';
         document.getElementById('parentFolder').value = '';
+        document.getElementById('folderCustomURL').value = '';
+        document.getElementById('urlPreview').textContent = 'URL: (will be auto-generated)';
+        updateFolderTypeUI();
         
         // Reload data
         await loadAllData();
@@ -255,6 +347,7 @@ async function saveContent(event) {
     const urlInput = document.getElementById('contentUrl').value.trim();
     const externalUrl = document.getElementById('externalUrl').value.trim();
     const description = document.getElementById('contentDescription').value.trim();
+    const customURL = document.getElementById('contentCustomURL').value.trim() || null;
     
     if (!folderId) {
         showAlert('error', 'Please select a folder');
@@ -318,19 +411,22 @@ async function saveContent(event) {
             external_url: externalUrl || null,
             thumbnail_url: thumbnailUrl,
             description: description,
-            file_size: currentFile ? currentFile.size : null
+            file_size: currentFile ? currentFile.size : null,
+            custom_url: customURL
         };
         
         if (editMode) {
             // Update existing content
             debugLog('✏️ Updating content: ' + contentId);
             await supabaseClient.updateContent(contentId, contentData, folderId);
-            showAlert('success', '✅ Content updated');
+            const displayURL = customURL || 'auto-generated';
+            showAlert('success', `✅ Content updated (URL: ${displayURL})`);
         } else {
             // Create new content
             debugLog('➕ Creating new content: ' + title);
-            await supabaseClient.createContent(contentData);
-            showAlert('success', '✅ Content saved');
+            const result = await supabaseClient.createContent(contentData);
+            const displayURL = result.custom_url || result.slug;
+            showAlert('success', `✅ Content saved (URL: ${displayURL})`);
         }
         
         // Reset form
@@ -418,6 +514,8 @@ function resetContentForm() {
     document.getElementById('contentForm').reset();
     document.getElementById('fileInfo').textContent = '';
     document.getElementById('thumbnailPreview').style.display = 'none';
+    document.getElementById('contentCustomURL').value = '';
+    document.getElementById('contentUrlPreview').textContent = 'URL: (will be auto-generated)';
     
     currentFile = null;
     currentThumbnail = null;
@@ -471,13 +569,16 @@ function displayFolders() {
         const prefix = folder.depth > 0 ? '└─ ' : '';
         const depthStyle = folder.depth > 0 ? `margin-left: ${folder.depth * 20}px; border-left: 2px solid #ddd; padding-left: 10px;` : '';
         
+        const folderTypeLabel = folder.folder_type === 'sub_root' ? '📂 Sub-Root' : '📁 Root';
+        const displayURL = folder.custom_url || folder.slug;
+        
         return `
         <div class="folder-card" style="${depthStyle}">
             <div class="folder-header">
                 <div>
-                    <div class="folder-title">${prefix}${escapeHtml(folder.title)}</div>
+                    <div class="folder-title">${prefix}${escapeHtml(folder.title)} <span style="font-size: 12px; color: #666;">${folderTypeLabel}</span></div>
                     <div class="folder-meta">
-                        Slug: ${folder.slug} | Items: ${folder.item_count || 0} | Depth: ${folder.depth || 0} | Created: ${formatDate(folder.created_at)}
+                        URL: <strong style="color: #007bff;">${displayURL}</strong> | Items: ${folder.item_count || 0} | Depth: ${folder.depth || 0}
                     </div>
                     ${folder.path ? `<div class="folder-meta">Path: ${folder.path}</div>` : ''}
                     ${folder.description ? `<div class="folder-meta">${escapeHtml(folder.description)}</div>` : ''}
@@ -521,7 +622,8 @@ function displayContent() {
                     <div class="content-meta">
                         Folder: ${escapeHtml(folderName)} | Type: ${content.type.toUpperCase()} | Views: ${content.view_count || 0}
                     </div>
-                    ${content.url ? `<div class="content-meta">📄 File URL: <a href="${content.url}" target="_blank" style="color: #007bff; text-decoration: none;">${content.url}</a></div>` : '<div class="content-meta" style="color: #dc3545;">⚠️ No file URL</div>'}
+                    <div class="content-meta">🔗 Public URL: <strong style="color: #007bff;">${content.custom_url || content.slug || 'auto-generated'}</strong></div>
+                    ${content.url ? `<div class="content-meta">📄 File URL: <a href="${truncateURL(content.url)}" target="_blank" style="color: #007bff; text-decoration: none;" title="${content.url}">${truncateURL(content.url)}</a></div>` : '<div class="content-meta" style="color: #dc3545;">⚠️ No file URL</div>'}
                     ${content.description ? `<div class="content-meta">${escapeHtml(content.description)}</div>` : ''}
                     ${content.external_url ? `<div class="content-meta">🔗 Tech URL: <a href="${content.external_url}" target="_blank" style="color: #28a745; text-decoration: none;">${content.external_url}</a></div>` : ''}
                 </div>
@@ -700,4 +802,13 @@ function getTypeIcon(type) {
         link: '🔗'
     };
     return icons[type] || '📎';
+}
+
+function truncateURL(url) {
+    if (!url) return '';
+    // Show only first 60 characters for long Cloudflare URLs
+    if (url.length > 60) {
+        return url.substring(0, 60) + '...';
+    }
+    return url;
 }

@@ -76,16 +76,30 @@
         <div class="section">
             <h2>📁 Create New Folder</h2>
             <div class="form-group">
-                <label>Parent Folder (Optional)</label>
-                <select id="parentFolder">
-                    <option value="">-- Root Folder (No Parent) --</option>
+                <label>Folder Type *</label>
+                <select id="folderType" onchange="updateFolderTypeUI()">
+                    <option value="root">Root Folder</option>
+                    <option value="sub_root">Sub-Root Folder (requires parent)</option>
                 </select>
-                <small>Select a parent folder to create a sub-folder. Leave empty for root-level folder.</small>
+                <small>Root folders are top-level. Sub-root folders are nested under a root folder.</small>
+            </div>
+            <div class="form-group" id="parentFolderGroup" style="display: none;">
+                <label>Parent Folder *</label>
+                <select id="parentFolder">
+                    <option value="">-- Select Parent Folder --</option>
+                </select>
+                <small>Select the root folder this sub-folder belongs to.</small>
             </div>
             <div class="form-group">
                 <label>Folder Title *</label>
-                <input type="text" id="folderTitle" placeholder="e.g., Anica Coffee Break Chat">
-                <small>URL will be auto-generated: anica-coffee-break-chat-01, anica-coffee-break-chat-02, etc.</small>
+                <input type="text" id="folderTitle" placeholder="e.g., Aurion - Goal Setting" oninput="suggestCustomURL()">
+                <small>Display name for the folder</small>
+            </div>
+            <div class="form-group">
+                <label>Custom URL (Optional)</label>
+                <input type="text" id="folderCustomURL" placeholder="e.g., aurion_goal or aurion_goal_sub.01">
+                <small id="urlPreview" style="color: #007bff; font-weight: 600;">URL: (will be auto-generated)</small>
+                <small>Leave empty for auto-generation. For root: aurion_goal. For sub-root: aurion_goal_sub.01</small>
             </div>
             <div class="form-group">
                 <label>Table Name (Technical) *</label>
@@ -123,7 +137,14 @@
                 
                 <div class="form-group">
                     <label>Content Title *</label>
-                    <input type="text" id="contentTitle" placeholder="e.g., Q4 Report" required>
+                    <input type="text" id="contentTitle" placeholder="e.g., Q4 Report" required oninput="suggestContentURL()">
+                </div>
+                
+                <div class="form-group">
+                    <label>Custom URL (Optional)</label>
+                    <input type="text" id="contentCustomURL" placeholder="e.g., aurion_goal_sub.01_report.01">
+                    <small id="contentUrlPreview" style="color: #007bff; font-weight: 600;">URL: (will be auto-generated)</small>
+                    <small>Leave empty for auto-generation. Format: folder_url_content.01</small>
                 </div>
                 
                 <div class="form-group">

@@ -81,10 +81,14 @@ class SupabaseClient {
     /**
      * Create new folder
      */
-    async createFolder(title, description = '', tableName = '', isPublic = true, parentId = null) {
-        // Generate slug from title
+    async createFolder(title, description = '', tableName = '', isPublic = true, parentId = null, folderType = 'root', customUrl = null) {
+        // Generate slug from title (or use custom URL)
         const { data: slugData, error: slugError } = await this.client
-            .rpc('generate_slug', { title_text: title });
+            .rpc('generate_folder_slug', { 
+                title_text: title,
+                parent_folder_id: parentId,
+                custom_slug: customUrl
+            });
         
         if (slugError) throw slugError;
         
@@ -93,10 +97,12 @@ class SupabaseClient {
             .insert([{
                 title: title,
                 slug: slugData,
+                custom_url: customUrl,
                 table_name: tableName,
                 description: description,
                 is_public: isPublic,
-                parent_id: parentId
+                parent_id: parentId,
+                folder_type: folderType
             }])
             .select()
             .single();
@@ -200,12 +206,12 @@ class SupabaseClient {
         const tableName = await this.getContentTable(contentData.folder_id);
         const folder = await this.getFolder(contentData.folder_id);
         
-        // Generate unique slug for content using table_name
+        // Generate unique slug for content (or use custom URL)
         const { data: slugData, error: slugError } = await this.client
-            .rpc('generate_content_slug', { 
+            .rpc('generate_content_slug_v2', { 
                 content_title: contentData.title,
                 folder_uuid: contentData.folder_id,
-                table_short_name: folder.table_name
+                custom_slug: contentData.custom_url || null
             });
         
         if (slugError) throw slugError;
@@ -226,6 +232,7 @@ class SupabaseClient {
             .insert([{
                 ...contentData,
                 slug: slugData,
+                custom_url: contentData.custom_url || null,
                 table_name: folder.table_name,
                 display_order: displayOrder
             }])
