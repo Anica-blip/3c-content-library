@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3C Public Library</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="config.js"></script>
+    <script src="supabase-client.js"></script>
     <style>
         :root {
             --bg-primary: #f5f5f5;
@@ -418,15 +421,44 @@
         let currentPageNum = 1;
         let pdfScale = parseFloat(localStorage.getItem('pdfZoomLevel')) || 0.75; // Default 75%, remember user preference
         
-        function loadData() {
-            const saved = localStorage.getItem('3c-library-data');
-            console.log('📚 Loading library data...', saved ? 'Data found' : 'No data');
-            if (saved) {
-                library = JSON.parse(saved);
+        async function loadData() {
+            console.log('📚 Loading library data from Supabase...');
+            try {
+                // Initialize Supabase
+                if (!supabaseClient.isConnected) {
+                    await supabaseClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
+                }
+                
+                // Load folders
+                const folders = await supabaseClient.getFolders();
+                library.folders = folders.map(f => ({
+                    id: f.id,
+                    name: f.title,
+                    slug: f.slug,
+                    description: f.description
+                }));
+                
+                // Load all content
+                library.content = [];
+                for (const folder of folders) {
+                    const content = await supabaseClient.getContentByFolder(folder.id);
+                    library.content.push(...content.map(c => ({
+                        id: c.id,
+                        folderId: c.folder_id,
+                        title: c.title,
+                        type: c.type,
+                        url: c.url,
+                        thumbnail: c.thumbnail_url,
+                        description: c.description,
+                        externalUrl: c.external_url
+                    })));
+                }
+                
                 console.log('✅ Library loaded:', library);
                 console.log('Folders:', library.folders.length, 'Content:', library.content.length);
-            } else {
-                console.log('❌ No data in localStorage');
+            } catch (error) {
+                console.error('❌ Error loading data from Supabase:', error);
+                library = { folders: [], content: [] };
             }
         }
         
@@ -795,8 +827,12 @@
         }
         
         loadDarkModePreference();
-        loadData();
-        displayContent();
+        
+        // Load data and display content
+        (async () => {
+            await loadData();
+            displayContent();
+        })();
     </script>
 </body>
 </html>

@@ -149,6 +149,7 @@ async function createFolder() {
     const tableName = document.getElementById('folderTableName').value.trim();
     const visibility = document.getElementById('folderVisibility').value;
     const description = document.getElementById('folderDescription').value.trim();
+    const parentId = document.getElementById('parentFolder').value || null;
     
     if (!title) {
         showAlert('error', 'Please enter a folder title');
@@ -167,17 +168,19 @@ async function createFolder() {
     }
     
     try {
-        debugLog('📁 Creating folder: ' + title + ' (table: ' + tableName + ', visibility: ' + visibility + ')');
+        debugLog('📁 Creating folder: ' + title + ' (table: ' + tableName + ', visibility: ' + visibility + ', parent: ' + (parentId || 'root') + ')');
         const isPublic = visibility === 'public';
-        const folder = await supabaseClient.createFolder(title, description, tableName, isPublic);
+        const folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId);
         
-        showAlert('success', `✅ Folder created: ${folder.slug} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}`);
+        const folderType = parentId ? 'Sub-folder' : 'Folder';
+        showAlert('success', `✅ ${folderType} created: ${folder.slug} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}`);
         
         // Reset form
         document.getElementById('folderTitle').value = '';
         document.getElementById('folderTableName').value = '';
         document.getElementById('folderVisibility').value = 'public';
         document.getElementById('folderDescription').value = '';
+        document.getElementById('parentFolder').value = '';
         
         // Reload data
         await loadAllData();
@@ -422,10 +425,12 @@ function resetContentForm() {
 
 // ==================== UI DISPLAY ====================
 function updateFolderSelects() {
-    const selects = ['contentFolder', 'filterFolder'];
+    const selects = ['contentFolder', 'filterFolder', 'parentFolder'];
     
     selects.forEach(selectId => {
         const select = document.getElementById(selectId);
+        if (!select) return;
+        
         const currentValue = select.value;
         
         // Keep first option
@@ -433,11 +438,16 @@ function updateFolderSelects() {
         select.innerHTML = '';
         select.appendChild(firstOption);
         
-        // Add folders
+        // Add folders with indentation for sub-folders
         folders.forEach(folder => {
             const option = document.createElement('option');
             option.value = folder.id;
-            option.textContent = `${folder.title} (${folder.item_count || 0} items)`;
+            
+            // Add indentation based on depth
+            const indent = '  '.repeat(folder.depth || 0);
+            const prefix = folder.depth > 0 ? '└─ ' : '';
+            
+            option.textContent = `${indent}${prefix}${folder.title} (${folder.item_count || 0} items)`;
             select.appendChild(option);
         });
         
@@ -456,14 +466,20 @@ function displayFolders() {
         return;
     }
     
-    const html = folders.map(folder => `
-        <div class="folder-card">
+    const html = folders.map(folder => {
+        const indent = '  '.repeat(folder.depth || 0);
+        const prefix = folder.depth > 0 ? '└─ ' : '';
+        const depthStyle = folder.depth > 0 ? `margin-left: ${folder.depth * 20}px; border-left: 2px solid #ddd; padding-left: 10px;` : '';
+        
+        return `
+        <div class="folder-card" style="${depthStyle}">
             <div class="folder-header">
                 <div>
-                    <div class="folder-title">${escapeHtml(folder.title)}</div>
+                    <div class="folder-title">${prefix}${escapeHtml(folder.title)}</div>
                     <div class="folder-meta">
-                        Slug: ${folder.slug} | Items: ${folder.item_count || 0} | Created: ${formatDate(folder.created_at)}
+                        Slug: ${folder.slug} | Items: ${folder.item_count || 0} | Depth: ${folder.depth || 0} | Created: ${formatDate(folder.created_at)}
                     </div>
+                    ${folder.path ? `<div class="folder-meta">Path: ${folder.path}</div>` : ''}
                     ${folder.description ? `<div class="folder-meta">${escapeHtml(folder.description)}</div>` : ''}
                 </div>
                 <div class="folder-actions">
@@ -472,7 +488,8 @@ function displayFolders() {
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
     
     container.innerHTML = html;
 }
@@ -504,8 +521,9 @@ function displayContent() {
                     <div class="content-meta">
                         Folder: ${escapeHtml(folderName)} | Type: ${content.type.toUpperCase()} | Views: ${content.view_count || 0}
                     </div>
+                    ${content.url ? `<div class="content-meta">📄 File URL: <a href="${content.url}" target="_blank" style="color: #007bff; text-decoration: none;">${content.url}</a></div>` : '<div class="content-meta" style="color: #dc3545;">⚠️ No file URL</div>'}
                     ${content.description ? `<div class="content-meta">${escapeHtml(content.description)}</div>` : ''}
-                    ${content.external_url ? `<div class="content-meta">🔗 Tech URL: ${content.external_url}</div>` : ''}
+                    ${content.external_url ? `<div class="content-meta">🔗 Tech URL: <a href="${content.external_url}" target="_blank" style="color: #28a745; text-decoration: none;">${content.external_url}</a></div>` : ''}
                 </div>
                 <div class="content-actions">
                     ${canMoveUp ? `<button onclick="moveContentUp('${content.id}')">↑</button>` : ''}

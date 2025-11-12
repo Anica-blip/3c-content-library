@@ -81,7 +81,7 @@ class SupabaseClient {
     /**
      * Create new folder
      */
-    async createFolder(title, description = '', tableName = '', isPublic = true) {
+    async createFolder(title, description = '', tableName = '', isPublic = true, parentId = null) {
         // Generate slug from title
         const { data: slugData, error: slugError } = await this.client
             .rpc('generate_slug', { title_text: title });
@@ -95,7 +95,8 @@ class SupabaseClient {
                 slug: slugData,
                 table_name: tableName,
                 description: description,
-                is_public: isPublic
+                is_public: isPublic,
+                parent_id: parentId
             }])
             .select()
             .single();
