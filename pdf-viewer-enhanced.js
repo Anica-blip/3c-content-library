@@ -13,6 +13,8 @@ let pageRendering = false;
 let pageNumPending = null;
 let scale = 1.5;
 let currentPdfContentId = null;
+let currentPdfUrl = null;
+let currentPdfTitle = null;
 
 // ==================== OPEN PDF VIEWER ====================
 async function openPdfViewer(content) {
@@ -21,6 +23,8 @@ async function openPdfViewer(content) {
     
     title.textContent = content.title;
     currentPdfContentId = content.id;
+    currentPdfUrl = content.url;
+    currentPdfTitle = content.title;
     
     // Check for saved page position
     const savedPosition = getPlaybackPosition(content.id);
@@ -226,6 +230,51 @@ function updateZoomLevel() {
     document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
 }
 
+// ==================== DOWNLOAD PDF ====================
+async function downloadPDF() {
+    if (!currentPdfUrl || !currentPdfTitle) {
+        alert('No PDF is currently loaded');
+        return;
+    }
+    
+    try {
+        console.log('📥 Downloading PDF:', currentPdfTitle);
+        
+        // Fetch the PDF file
+        const response = await fetch(currentPdfUrl);
+        if (!response.ok) {
+            throw new Error('Failed to fetch PDF');
+        }
+        
+        // Get the blob
+        const blob = await response.blob();
+        
+        // Create a download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        
+        // Set filename (sanitize the title)
+        const filename = currentPdfTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+        a.download = filename;
+        
+        // Trigger download
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        console.log('✅ PDF download initiated:', filename);
+        
+    } catch (error) {
+        console.error('❌ Error downloading PDF:', error);
+        alert('Error downloading PDF: ' + error.message);
+    }
+}
+
 // ==================== CLOSE VIEWER ====================
 function closePdfViewer() {
     const modal = document.getElementById('pdfModal');
@@ -236,6 +285,8 @@ function closePdfViewer() {
     pageNum = 1;
     scale = 1.5;
     currentPdfContentId = null;
+    currentPdfUrl = null;
+    currentPdfTitle = null;
     
     // Remove link overlays
     const overlays = document.querySelectorAll('.pdf-link-overlay');

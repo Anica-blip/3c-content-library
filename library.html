@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3C Public Library</title>
+    <link rel="icon" type="image/png" href="favicon1.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="config.js"></script>
@@ -55,10 +56,32 @@
             transition: background 0.3s;
         }
         
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-img {
+            height: 50px;
+            width: auto;
+        }
+        
         .header h1 { 
-            color: var(--text-primary); 
+            color: #8b5cf6; /* Purple color to match favicon */
             font-size: 24px;
             transition: color 0.3s;
+            margin: 0;
+        }
+        
+        body.dark-mode .header h1 {
+            color: #a78bfa; /* Lighter purple for dark mode */
         }
         
         .container {
@@ -274,6 +297,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0;
         }
         
         .pdf-modal-title {
@@ -345,15 +369,237 @@
             }
         }
         
+        /* Mobile responsive styles */
+        @media (max-width: 767px) {
+            .header h1 {
+                font-size: 18px;
+            }
+            
+            .dark-mode-toggle {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            
+            .content-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 10px;
+            }
+            
+            .content-thumbnail {
+                height: 120px;
+                font-size: 36px;
+            }
+            
+            .content-title {
+                font-size: 12px;
+            }
+            
+            .content-type {
+                font-size: 11px;
+            }
+            
+            /* PDF Modal mobile styles */
+            .pdf-modal-content {
+                width: 100%;
+                height: 100vh;
+                max-width: 100%;
+                border-radius: 0;
+            }
+            
+            .pdf-modal-header {
+                padding: 10px;
+                flex-wrap: wrap;
+            }
+            
+            .pdf-modal-title {
+                font-size: 14px;
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            
+            .pdf-controls {
+                width: 100%;
+                flex-wrap: wrap;
+                gap: 5px;
+                justify-content: center;
+            }
+            
+            .pdf-controls button {
+                padding: 6px 10px;
+                font-size: 12px;
+                flex: 1 1 auto;
+                min-width: 70px;
+            }
+            
+            .pdf-controls .page-info {
+                width: 100%;
+                text-align: center;
+                margin: 5px 0;
+                font-size: 12px;
+            }
+            
+            .pdf-viewer-container {
+                padding: 10px;
+            }
+            
+            .pdf-page {
+                width: 100%;
+                height: auto;
+                margin-bottom: 10px;
+            }
+            
+            .embed-container {
+                height: 400px;
+            }
+            
+            .viewer {
+                padding: 15px;
+            }
+        }
+        
         .type-icon {
             font-size: 64px;
+        }
+        
+        /* Comments Section Styles */
+        .comments-section {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 30px;
+            margin-top: 30px;
+            transition: background 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .comments-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .comments-header h3 {
+            color: var(--text-primary);
+            margin: 0;
+            font-size: 20px;
+        }
+        
+        .comment-count {
+            background: var(--purple-medium);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .comment-form {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .comment-form input,
+        .comment-form textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+        
+        .comment-form textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .comment-form button {
+            background: var(--purple-medium);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        .comment-form button:hover {
+            background: var(--purple-dark);
+        }
+        
+        .comment-form button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .comments-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .comment-item {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid var(--purple-medium);
+        }
+        
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .comment-author {
+            font-weight: bold;
+            color: var(--purple-dark);
+        }
+        
+        .comment-date {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+        
+        .comment-text {
+            color: var(--text-primary);
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        
+        .no-comments {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-tertiary);
+            font-style: italic;
+        }
+        
+        .comment-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            border: 1px solid #c3e6cb;
         }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
-            <h1>3C Public Library</h1>
+            <div class="header-left">
+                <img src="3C Thread To Success logo.png" alt="3C Logo" class="logo-img">
+                <h1>3C Public Library</h1>
+            </div>
             <div>
                 <button onclick="toggleDarkMode()" class="dark-mode-toggle" id="darkModeBtn">
                     🌙 Dark Mode
@@ -386,6 +632,30 @@
                     <h2>Welcome to 3C Public Library</h2>
                     <p>Select content from the sidebar to view</p>
                 </div>
+                
+                <!-- Comments Section (appears below content) -->
+                <div class="comments-section" id="commentsSection" style="display: none;">
+                    <div class="comments-header">
+                        <h3>💬 Comments</h3>
+                        <span class="comment-count" id="commentCount">0</span>
+                    </div>
+                    
+                    <!-- Comment Form -->
+                    <div class="comment-form">
+                        <div id="commentSuccessMsg" class="comment-success" style="display: none;">
+                            ✅ Thank you! Your comment has been submitted and is awaiting approval.
+                        </div>
+                        <input type="text" id="commentAuthorName" placeholder="Your Name *" required>
+                        <input type="email" id="commentAuthorEmail" placeholder="Your Email (optional)">
+                        <textarea id="commentText" placeholder="Write your comment here... *" required></textarea>
+                        <button onclick="submitComment()" id="submitCommentBtn">Post Comment</button>
+                    </div>
+                    
+                    <!-- Comments List -->
+                    <div class="comments-list" id="commentsList">
+                        <div class="no-comments">No comments yet. Be the first to comment!</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -403,9 +673,11 @@
                     <button onclick="changePage(1)" id="nextPage">Next</button>
                     <button onclick="zoomPDF(-0.1)">Zoom -</button>
                     <button onclick="zoomPDF(0.1)">Zoom +</button>
+                    <button onclick="downloadPDF()" style="background: #28a745; color: white;">📥 Download</button>
                     <button class="close-modal" onclick="closePDFModal(); event.stopPropagation();">✕ Close</button>
                 </div>
             </div>
+            
             <div class="pdf-viewer-container" id="pdfViewerContainer"></div>
         </div>
     </div>
@@ -545,6 +817,7 @@
             if (!currentFolder) {
                 document.getElementById('contentList').innerHTML = '<p style="color: #999;">Folder not found</p>';
                 document.getElementById('viewer').innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>';
+                document.getElementById('commentsSection').style.display = 'none';
                 return;
             }
             
@@ -557,6 +830,7 @@
             
             if (folderContent.length === 0) {
                 document.getElementById('contentList').innerHTML = '<p style="color: #999;">No content in this folder</p>';
+                document.getElementById('commentsSection').style.display = 'none';
                 return;
             }
             
@@ -590,6 +864,9 @@
         function displayAllFolders() {
             console.log('📁 displayAllFolders called, folders:', library.folders);
             document.getElementById('folderTitle').textContent = 'All Folders';
+            
+            // Hide comments section
+            document.getElementById('commentsSection').style.display = 'none';
             
             if (library.folders.length === 0) {
                 console.log('❌ No folders to display');
@@ -664,7 +941,7 @@
                 }
                 
                 viewerHtml = `
-                    <div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${content.url.replace(/`/g, '\\`')}\`, \`${content.title.replace(/`/g, '\\`')}\`)">
+                    <div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${content.url.replace(/`/g, '\\`')}\`, \`${content.title.replace(/`/g, '\\`')}\`, \`${content.id}\`)">
                         <img src="${thumbnailSrc}" style="max-width: 400px; max-height: 500px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <div style="font-size: 18px; color: #007bff; font-weight: 600;">
                             📄 Click to view PDF in interactive viewer
@@ -701,6 +978,10 @@
                 ${content.description ? `<div class="viewer-desc">${content.description}</div>` : ''}
                 <div class="embed-container" style="${content.type === 'pdf' ? 'height: auto; border: none;' : ''}">${viewerHtml}</div>
             `;
+            
+            // Show and load comments section
+            document.getElementById('commentsSection').style.display = 'block';
+            loadComments(content.id);
         }
         
         function copyShareLink() {
@@ -713,7 +994,7 @@
             });
         }
         
-        async function openPDFModal(pdfUrl, title) {
+        async function openPDFModal(pdfUrl, title, contentId = null) {
             document.getElementById('pdfModal').classList.add('active');
             document.getElementById('pdfTitle').textContent = title;
             document.getElementById('pdfViewerContainer').innerHTML = '<p style="color: white; text-align: center;">Loading PDF...</p>';
@@ -780,6 +1061,48 @@
             if (pdfScale > 3) pdfScale = 3;
             localStorage.setItem('pdfZoomLevel', pdfScale); // Remember zoom preference
             await renderAllPages();
+        }
+        
+        async function downloadPDF() {
+            if (!pdfDoc) {
+                alert('No PDF is currently loaded');
+                return;
+            }
+            
+            try {
+                const pdfTitle = document.getElementById('pdfTitle').textContent || 'document';
+                console.log('📥 Downloading PDF:', pdfTitle);
+                
+                // Get the PDF data from the loaded document
+                const pdfData = await pdfDoc.getData();
+                
+                // Create a blob from the PDF data
+                const blob = new Blob([pdfData], { type: 'application/pdf' });
+                
+                // Create a download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                
+                // Set filename (sanitize the title)
+                const filename = pdfTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+                a.download = filename;
+                
+                // Trigger download
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                console.log('✅ PDF download initiated:', filename);
+                
+            } catch (error) {
+                console.error('❌ Error downloading PDF:', error);
+                alert('Error downloading PDF: ' + error.message);
+            }
         }
         
         function closePDFModal() {
@@ -869,6 +1192,131 @@
             
             html += '</div>';
             debugDiv.innerHTML = html;
+        }
+        
+        // ==================== COMMENTS FUNCTIONS ====================
+        
+        /**
+         * Load comments for current content
+         */
+        async function loadComments(contentId) {
+            try {
+                console.log('📝 Loading comments for content:', contentId);
+                const comments = await supabaseClient.getComments(contentId, 'public');
+                const count = comments.length;
+                
+                // Update count
+                document.getElementById('commentCount').textContent = count;
+                
+                // Display comments
+                const commentsList = document.getElementById('commentsList');
+                if (count === 0) {
+                    commentsList.innerHTML = '<div class="no-comments">No comments yet. Be the first to comment!</div>';
+                } else {
+                    commentsList.innerHTML = comments.map(comment => `
+                        <div class="comment-item">
+                            <div class="comment-header">
+                                <span class="comment-author">${escapeHtml(comment.author_name)}</span>
+                                <span class="comment-date">${formatDate(comment.created_at)}</span>
+                            </div>
+                            <div class="comment-text">${escapeHtml(comment.comment_text)}</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('❌ Error loading comments:', error);
+                document.getElementById('commentsList').innerHTML = '<div class="no-comments">Error loading comments.</div>';
+            }
+        }
+        
+        /**
+         * Submit a new comment
+         */
+        async function submitComment() {
+            const authorName = document.getElementById('commentAuthorName').value.trim();
+            const authorEmail = document.getElementById('commentAuthorEmail').value.trim();
+            const commentText = document.getElementById('commentText').value.trim();
+            const submitBtn = document.getElementById('submitCommentBtn');
+            
+            // Validation
+            if (!authorName || !commentText) {
+                alert('Please fill in your name and comment.');
+                return;
+            }
+            
+            if (!currentContent || !currentContent.id) {
+                alert('No content selected for commenting.');
+                return;
+            }
+            
+            try {
+                // Disable button
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Posting...';
+                
+                // Submit comment
+                await supabaseClient.addComment(
+                    currentContent.id,
+                    'public',
+                    authorName,
+                    commentText,
+                    authorEmail || null
+                );
+                
+                // Show success message
+                document.getElementById('commentSuccessMsg').style.display = 'block';
+                
+                // Clear form
+                document.getElementById('commentAuthorName').value = '';
+                document.getElementById('commentAuthorEmail').value = '';
+                document.getElementById('commentText').value = '';
+                
+                // Hide success message after 5 seconds
+                setTimeout(() => {
+                    document.getElementById('commentSuccessMsg').style.display = 'none';
+                }, 5000);
+                
+                console.log('✅ Comment submitted successfully');
+            } catch (error) {
+                console.error('❌ Error submitting comment:', error);
+                alert('Error submitting comment. Please try again.');
+            } finally {
+                // Re-enable button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Post Comment';
+            }
+        }
+        
+        /**
+         * Escape HTML to prevent XSS
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        /**
+         * Format date for display
+         */
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+            if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+            
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
         }
         
         // Dark mode toggle
