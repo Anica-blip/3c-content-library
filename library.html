@@ -105,6 +105,12 @@
             transition: color 0.3s;
         }
         
+        .header-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
         .dark-mode-toggle {
             background: var(--purple-medium);
             color: white;
@@ -112,12 +118,29 @@
             padding: 8px 15px;
             border-radius: 4px;
             cursor: pointer;
-            margin-left: 15px;
+            font-size: 14px;
             transition: background 0.3s;
+            white-space: nowrap;
         }
         
         .dark-mode-toggle:hover {
             background: var(--purple-dark);
+        }
+        
+        .debug-toggle {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            white-space: nowrap;
+        }
+        
+        .debug-toggle:hover {
+            background: #5a6268;
         }
         
         .content-grid {
@@ -371,13 +394,46 @@
         
         /* Mobile responsive styles */
         @media (max-width: 767px) {
-            .header h1 {
-                font-size: 18px;
+            .header {
+                padding: 15px 10px;
             }
             
-            .dark-mode-toggle {
-                padding: 6px 10px;
-                font-size: 12px;
+            .header .container {
+                padding: 0 10px;
+            }
+            
+            .header-left {
+                gap: 8px;
+            }
+            
+            .logo-img {
+                height: 35px;
+            }
+            
+            .header h1 {
+                font-size: 16px;
+            }
+            
+            .header-right {
+                gap: 6px;
+            }
+            
+            /* Icon-only buttons on mobile */
+            .dark-mode-toggle,
+            .debug-toggle {
+                padding: 8px;
+                font-size: 18px;
+                min-width: 36px;
+                min-height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            /* Hide text, show only icons on mobile */
+            .dark-mode-toggle .btn-text,
+            .debug-toggle .btn-text {
+                display: none;
             }
             
             .content-grid {
@@ -600,12 +656,12 @@
                 <img src="3C Thread To Success logo.png" alt="3C Logo" class="logo-img">
                 <h1>3C Public Library</h1>
             </div>
-            <div>
-                <button onclick="toggleDarkMode()" class="dark-mode-toggle" id="darkModeBtn">
-                    🌙 Dark Mode
+            <div class="header-right">
+                <button onclick="toggleDarkMode()" class="dark-mode-toggle" id="darkModeBtn" title="Toggle Dark Mode">
+                    🌙<span class="btn-text"> Dark Mode</span>
                 </button>
-                <button onclick="toggleDebugWithAuth()" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; margin-left: 10px;">
-                    🔍 Debug
+                <button onclick="toggleDebugWithAuth()" class="debug-toggle" title="Debug Panel (Admin Only)">
+                    ⚙️<span class="btn-text"> Debug</span>
                 </button>
             </div>
         </div>
@@ -721,7 +777,10 @@
                     slug: f.custom_url || f.slug,
                     customUrl: f.custom_url,
                     description: f.description,
-                    folderType: f.folder_type
+                    folderType: f.folder_type,
+                    parentId: f.parent_id,
+                    depth: f.depth || 0,
+                    path: f.path
                 }));
                 
                 // Load all content
@@ -794,10 +853,14 @@
             console.log('🔍 displayContent called with params:', { folderSlug, contentSlug, viewMode });
             console.log('Library state:', { folders: library.folders.length, content: library.content.length });
             
-            // If view=pdf-only, hide sidebar and show only PDF
+            // If view=pdf-only, hide sidebar and folder nav, show only PDF
             if (viewMode === 'pdf-only' && contentSlug) {
                 document.querySelector('.sidebar').style.display = 'none';
                 document.querySelector('.layout').style.gridTemplateColumns = '1fr';
+                
+                // Also hide folder navigation if it exists
+                const folderNav = document.getElementById('folderNav');
+                if (folderNav) folderNav.style.display = 'none';
                 
                 const content = findContentBySlug(contentSlug);
                 if (content) {
@@ -877,18 +940,39 @@
             
             console.log('✅ Displaying', library.folders.length, 'folders');
             
-            const html = library.folders.map(folder => {
+            // Sort folders by depth (root first, then sub-folders)
+            const sortedFolders = [...library.folders].sort((a, b) => {
+                if (a.depth !== b.depth) return a.depth - b.depth;
+                return a.name.localeCompare(b.name);
+            });
+            
+            const html = sortedFolders.map(folder => {
                 const contentCount = library.content.filter(c => c.folderId === folder.id).length;
-                const folderIcon = '📁';
+                const isSubFolder = folder.depth > 0 || folder.parentId;
+                const folderIcon = isSubFolder ? '📂' : '📁';
+                const folderTypeLabel = isSubFolder ? 'Sub-Root' : 'Root';
+                
+                // Add indentation for sub-folders
+                const indent = folder.depth > 0 ? `style="margin-left: ${folder.depth * 20}px; border-left: 3px solid #9b59b6; padding-left: 10px;"` : '';
+                
+                // Show parent folder name if it's a sub-folder
+                let parentInfo = '';
+                if (folder.parentId) {
+                    const parent = library.folders.find(f => f.id === folder.parentId);
+                    if (parent) {
+                        parentInfo = `<div style="font-size: 11px; color: #666; margin-top: 2px;">↳ ${parent.name}</div>`;
+                    }
+                }
                 
                 return `
-                    <div class="content-card folder-card" onclick="openFolder('${folder.slug}')">
+                    <div class="content-card folder-card" onclick="openFolder('${folder.slug}')" ${indent}>
                         <div class="content-thumbnail">
                             <div class="type-icon">${folderIcon}</div>
                         </div>
                         <div class="content-info">
                             <div class="content-title">${folder.name}</div>
-                            <div class="content-type">${contentCount} ITEMS</div>
+                            <div class="content-type">${contentCount} ITEMS • ${folderTypeLabel}</div>
+                            ${parentInfo}
                         </div>
                     </div>
                 `;
