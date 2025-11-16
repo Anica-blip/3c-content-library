@@ -519,6 +519,118 @@ class SupabaseClient {
             totalViews: publicViewsSum + privateViewsSum
         };
     }
+
+    // ==================== COMMENTS OPERATIONS ====================
+    
+    /**
+     * Get comments for a specific content item
+     */
+    async getComments(contentId, contentTable = 'public') {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        const { data, error } = await this.client
+            .from('comments')
+            .select('*')
+            .eq('content_id', contentId)
+            .eq('content_table', contentTable)
+            .eq('is_approved', true)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+    }
+    
+    /**
+     * Add a new comment (requires approval)
+     */
+    async addComment(contentId, contentTable, authorName, commentText, authorEmail = null) {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        const { data, error } = await this.client
+            .from('comments')
+            .insert({
+                content_id: contentId,
+                content_table: contentTable,
+                author_name: authorName,
+                author_email: authorEmail,
+                comment_text: commentText,
+                is_approved: false // Requires admin approval
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    }
+    
+    /**
+     * Get comment count for content
+     */
+    async getCommentCount(contentId, contentTable = 'public') {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        const { count, error } = await this.client
+            .from('comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('content_id', contentId)
+            .eq('content_table', contentTable)
+            .eq('is_approved', true);
+        
+        if (error) throw error;
+        return count || 0;
+    }
+    
+    /**
+     * Get all comments (for admin panel)
+     */
+    async getAllComments(includeUnapproved = true) {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        let query = this.client
+            .from('comments')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (!includeUnapproved) {
+            query = query.eq('is_approved', true);
+        }
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+    }
+    
+    /**
+     * Approve a comment (admin only)
+     */
+    async approveComment(commentId) {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        const { data, error } = await this.client
+            .from('comments')
+            .update({ is_approved: true })
+            .eq('id', commentId)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    }
+    
+    /**
+     * Delete a comment (admin only)
+     */
+    async deleteComment(commentId) {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        const { error } = await this.client
+            .from('comments')
+            .delete()
+            .eq('id', commentId);
+        
+        if (error) throw error;
+        return true;
+    }
 }
 
 // Create global instance
