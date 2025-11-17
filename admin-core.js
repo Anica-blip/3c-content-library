@@ -10,25 +10,44 @@ let debugMode = false;
 let folders = [];
 let allContent = [];
 
+// ==================== GLOBAL ERROR HANDLER ====================
+window.onerror = function(message, source, lineno, colno, error) {
+    console.error('Global error caught:', { message, source, lineno, colno, error });
+    return false;
+};
+
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Unhandled promise rejection:', event.reason);
+});
+
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🚀 Admin panel initializing...');
     debugLog('🚀 Admin panel initializing...');
     
-    // Load saved Supabase credentials
-    loadSupabaseCredentials();
-    
-    // Setup drag and drop
-    setupDragAndDrop();
-    
-    // Setup file upload handlers
-    setupFileHandlers();
-    
-    // Try to connect if credentials exist
-    const url = document.getElementById('supabaseUrl').value;
-    const key = document.getElementById('supabaseKey').value;
-    
-    if (url && key) {
-        await connectSupabase();
+    try {
+        // Load saved Supabase credentials
+        loadSupabaseCredentials();
+        
+        // Setup drag and drop
+        setupDragAndDrop();
+        
+        // Setup file upload handlers
+        setupFileHandlers();
+        
+        // Try to connect if credentials exist
+        const url = document.getElementById('supabaseUrl').value;
+        const key = document.getElementById('supabaseKey').value;
+        
+        if (url && key) {
+            console.log('Auto-connecting with saved credentials...');
+            await connectSupabase();
+        }
+        
+        console.log('✅ Admin panel initialized');
+    } catch (error) {
+        console.error('❌ Initialization error:', error);
+        debugLog('❌ Initialization error: ' + (error.message || error.toString()));
     }
 });
 
@@ -57,6 +76,8 @@ async function connectSupabase() {
     
     try {
         debugLog('🔌 Connecting to Supabase...');
+        console.log('Attempting connection with URL:', url);
+        
         await supabaseClient.init(url, key);
         
         saveSupabaseCredentials(url, key);
@@ -64,22 +85,33 @@ async function connectSupabase() {
         showAlert('success', '✅ Connected to Supabase successfully!');
         
         // Load data
+        debugLog('📥 Loading data from Supabase...');
         await loadAllData();
         
         debugLog('✅ Supabase connected and data loaded');
     } catch (error) {
-        debugLog('❌ Supabase connection failed: ' + error.message);
+        console.error('Connection error:', error);
+        debugLog('❌ Supabase connection failed: ' + (error.message || error.toString()));
         updateConnectionStatus(false);
-        showAlert('error', 'Connection failed: ' + error.message);
+        showAlert('error', 'Connection failed: ' + (error.message || error.toString()));
     }
 }
 
 async function testConnection() {
     try {
+        if (!supabaseClient.isConnected) {
+            showAlert('error', 'Please connect to Supabase first');
+            return;
+        }
+        
+        debugLog('🧪 Testing connection...');
         await supabaseClient.testConnection();
         showAlert('success', '✅ Connection test successful!');
+        debugLog('✅ Connection test passed');
     } catch (error) {
-        showAlert('error', '❌ Connection test failed: ' + error.message);
+        console.error('Test connection error:', error);
+        debugLog('❌ Connection test failed: ' + (error.message || error.toString()));
+        showAlert('error', '❌ Connection test failed: ' + (error.message || error.toString()));
     }
 }
 
@@ -673,13 +705,23 @@ function displayFolders() {
         const folderTypeLabel = folder.folder_type === 'sub_root' ? '📂 Sub-Root' : '📁 Root';
         const displayURL = folder.custom_url || folder.slug;
         
+        // Root folders show subfolder count, subfolders show item count
+        const isRootFolder = folder.folder_type !== 'sub_root' && folder.depth === 0;
+        let countLabel;
+        if (isRootFolder) {
+            const subfolderCount = folders.filter(f => f.parent_id === folder.id).length;
+            countLabel = `Subfolders: ${subfolderCount}`;
+        } else {
+            countLabel = `Items: ${folder.item_count || 0}`;
+        }
+        
         return `
         <div class="folder-card" style="${depthStyle}">
             <div class="folder-header">
                 <div>
                     <div class="folder-title">${prefix}${escapeHtml(folder.title)} <span style="font-size: 12px; color: #666;">${folderTypeLabel}</span></div>
                     <div class="folder-meta">
-                        URL: <strong style="color: #007bff;">${displayURL}</strong> | Items: ${folder.item_count || 0} | Depth: ${folder.depth || 0}
+                        URL: <strong style="color: #007bff;">${displayURL}</strong> | ${countLabel} | Depth: ${folder.depth || 0}
                     </div>
                     ${folder.path ? `<div class="folder-meta">Path: ${folder.path}</div>` : ''}
                     ${folder.description ? `<div class="folder-meta">${escapeHtml(folder.description)}</div>` : ''}
@@ -820,12 +862,20 @@ async function fileToBase64(file) {
 
 // ==================== DEBUG PANEL ====================
 function toggleDebug() {
+    console.log('toggleDebug called, current debugMode:', debugMode);
     debugMode = !debugMode;
     const panel = document.getElementById('debugPanel');
-    panel.classList.toggle('active', debugMode);
+    console.log('Debug panel element:', panel);
     
-    if (debugMode) {
-        updateDebugPanel();
+    if (panel) {
+        panel.classList.toggle('active', debugMode);
+        console.log('Debug mode toggled to:', debugMode);
+        
+        if (debugMode) {
+            updateDebugPanel();
+        }
+    } else {
+        console.error('Debug panel element not found!');
     }
 }
 

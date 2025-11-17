@@ -14,6 +14,11 @@ class SupabaseClient {
      */
     async init(url, anonKey) {
         try {
+            // Check if Supabase library is loaded
+            if (typeof supabase === 'undefined') {
+                throw new Error('Supabase library not loaded. Please check your internet connection.');
+            }
+            
             this.client = supabase.createClient(url, anonKey);
             this.isConnected = true;
             console.log('✅ Supabase client initialized');
@@ -21,7 +26,7 @@ class SupabaseClient {
         } catch (error) {
             console.error('❌ Supabase initialization failed:', error);
             this.isConnected = false;
-            return false;
+            throw error;
         }
     }
 
