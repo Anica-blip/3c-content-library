@@ -705,12 +705,16 @@ function displayFolders() {
         const folderTypeLabel = folder.folder_type === 'sub_root' ? '📂 Sub-Root' : '📁 Root';
         const displayURL = folder.custom_url || folder.slug;
         
-        // Root folders show subfolder count, subfolders show item count
+        // Root folders show subfolder count OR content count if no subfolders, subfolders show item count
         const isRootFolder = folder.folder_type !== 'sub_root' && folder.depth === 0;
         let countLabel;
         if (isRootFolder) {
             const subfolderCount = folders.filter(f => f.parent_id === folder.id).length;
-            countLabel = `Subfolders: ${subfolderCount}`;
+            if (subfolderCount > 0) {
+                countLabel = `Subfolders: ${subfolderCount}`;
+            } else {
+                countLabel = `Items: ${folder.item_count || 0}`;
+            }
         } else {
             countLabel = `Items: ${folder.item_count || 0}`;
         }
