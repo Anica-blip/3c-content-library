@@ -26,6 +26,10 @@ npm-debug.log*
 *.temp
 ~*
 
+# Screenshots
+Screenshot*.png
+*.screenshot.png
+
 # Don't push actual data files if you create them
 data/
 backups/
