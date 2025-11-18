@@ -414,6 +414,11 @@ body {
         grid-template-columns: 1fr;
     }
     
+    .content-thumbnail {
+        height: 120px;
+        font-size: 36px;
+    }
+    
     .link-modal {
         min-width: 90vw;
         min-height: 80vh;
