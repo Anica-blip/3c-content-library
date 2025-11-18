@@ -1,6 +1,7 @@
 /**
  * Screenshot Generator for External URLs
  * Fetches content with external_url from Supabase, generates screenshots, uploads to R2
+ * Node.js 20+ Compatible
  */
 
 const puppeteer = require('puppeteer');
@@ -10,7 +11,7 @@ const path = require('path');
 
 // ==================== CONFIGURATION ====================
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
@@ -29,10 +30,13 @@ function log(message) {
 // ==================== MAIN FUNCTION ====================
 async function main() {
     log('🚀 Screenshot generator starting...');
+    log(`Node.js version: ${process.version}`);
     
     // Validate environment variables
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
         log('❌ Missing Supabase credentials');
+        log(`   SUPABASE_URL: ${SUPABASE_URL ? '✅ Set' : '❌ Missing'}`);
+        log(`   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing'}`);
         process.exit(1);
     }
     
@@ -42,7 +46,7 @@ async function main() {
     
     try {
         // Initialize Supabase
-        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         log('✅ Supabase connected');
         
         // Fetch content with external_url and no thumbnail
