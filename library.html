@@ -208,9 +208,12 @@
             color: var(--text-tertiary);
             font-size: 48px;
             transition: background 0.3s, color 0.3s;
+            /* background-image, background-size, background-position set inline */
+        }
+        
+        img.content-thumbnail {
             object-fit: cover;
             object-position: center;
-            /* background-image, background-size, background-position set inline */
         }
         
         .content-info {
@@ -449,9 +452,12 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                /* background-image properties are set inline for thumbnails */
+            }
+            
+            img.content-thumbnail {
                 object-fit: cover;
                 object-position: center;
-                /* background-image properties are set inline for thumbnails */
             }
             
             .content-title {
@@ -1526,3 +1532,4 @@
     </script>
 </body>
 </html>
+
