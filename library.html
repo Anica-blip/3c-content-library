@@ -208,6 +208,7 @@
             color: var(--text-tertiary);
             font-size: 48px;
             transition: background 0.3s, color 0.3s;
+            overflow: hidden;
             /* background-image, background-size, background-position set inline */
         }
         
@@ -447,7 +448,14 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                overflow: hidden;
                 /* background-image properties are set inline for thumbnails */
+            }
+            
+            .content-thumbnail img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
             }
             
             .content-title {
@@ -921,8 +929,8 @@
                 let thumbnailContent = '';
                 
                 if (item.thumbnail) {
-                    // Use background-image for better mobile control
-                    thumbnailStyle = `style="background-image: url('${item.thumbnail}'); background-size: contain; background-position: center; background-repeat: no-repeat;"`;
+                    // Use background-image with cover to fill container
+                    thumbnailStyle = `style="background-image: url('${item.thumbnail}'); background-size: cover; background-position: center; background-repeat: no-repeat;"`;
                     thumbnailContent = '';
                 } else {
                     thumbnailContent = `<div class="type-icon">${getTypeIcon(item.type)}</div>`;
