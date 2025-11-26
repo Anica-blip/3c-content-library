@@ -337,7 +337,7 @@
         }
         
         .pdf-modal-header {
-            padding: 15px 18px;
+            padding: 15px 20px;
             border-bottom: 1px solid #ddd;
             display: flex;
             justify-content: space-between;
@@ -346,7 +346,7 @@
         }
         
         .pdf-modal-title {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
             color: #333;
         }
@@ -551,6 +551,44 @@
             
             .viewer {
                 padding: 15px;
+            }
+            
+            /* Comments section - smaller fonts for mobile */
+            .comments-section {
+                padding: 20px;
+                margin-top: 20px;
+            }
+            
+            .comments-header h3 {
+                font-size: 16px;
+            }
+            
+            .comment-count {
+                font-size: 12px;
+                padding: 3px 10px;
+            }
+            
+            .comment-form input,
+            .comment-form textarea {
+                font-size: 14px;
+                padding: 8px;
+            }
+            
+            .comment-form button {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+            
+            .comment-item {
+                font-size: 14px;
+            }
+            
+            .comment-author {
+                font-size: 13px;
+            }
+            
+            .comment-date {
+                font-size: 11px;
             }
         }
         
@@ -954,9 +992,9 @@
                 document.querySelector('.sidebar').style.display = 'none';
                 document.querySelector('.layout').style.gridTemplateColumns = '1fr';
                 
-                // Hide the default "Select content from sidebar" message
-                const noContent = document.querySelector('.no-content');
-                if (noContent) noContent.style.display = 'none';
+                // Hide only the subtitle, keep the header visible
+                const noContentP = document.querySelector('.no-content p');
+                if (noContentP) noContentP.style.display = 'none';
                 
                 // Also hide folder navigation if it exists
                 const folderNav = document.getElementById('folderNav');
