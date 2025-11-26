@@ -200,17 +200,20 @@
         
         .content-thumbnail {
             width: 100%;
+            height: 150px;
             background: var(--bg-primary);
-            display: block;
-            transition: background 0.3s;
-        }
-        
-        /* Thumbnails at 50% width, centered */
-        img.content-thumbnail {
-            width: 50%;
-            height: auto;
-            display: block;
-            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-tertiary);
+            font-size: 48px;
+            transition: background 0.3s, color 0.3s;
+            overflow: hidden;
+            /* Ensure background images are properly sized and positioned */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
         }
         
         /* Loading placeholder for thumbnails */
@@ -462,23 +465,26 @@
             }
             
             .content-thumbnail {
-                width: 100%;
-                display: block;
-            }
-            
-            /* Mobile thumbnails at 50% width, centered */
-            img.content-thumbnail {
-                width: 50%;
-                height: auto;
-                display: block;
-                margin: 0 auto;
+                height: 120px;
+                font-size: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                padding: 0;
+                margin: 0;
+                /* Force background to cover entire area and center it */
+                background-size: cover !important;
+                background-position: center !important;
+                background-repeat: no-repeat !important;
+                /* background-image properties are set inline for thumbnails */
             }
             
             .content-thumbnail img {
-                width: 50%;
-                height: auto;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
                 display: block;
-                margin: 0 auto;
             }
             
             .content-title {
@@ -1189,7 +1195,7 @@
                 
                 viewerHtml = `
                     <div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${content.url.replace(/`/g, '\\`')}\`, \`${content.title.replace(/`/g, '\\`')}\`, \`${content.id}\`)">
-                        <img src="${thumbnailSrc}" style="max-width: 400px; max-height: 500px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <img src="${thumbnailSrc}" style="width: 60%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <div style="font-size: 18px; color: #007bff; font-weight: 600;">
                             📄 Click to view PDF in interactive viewer
                         </div>
@@ -1664,3 +1670,4 @@
     </script>
 </body>
 </html>
+    
