@@ -34,20 +34,32 @@ async function main() {
     log(`Node.js version: ${process.version}`);
     
     // Validate environment variables
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-        log('❌ Missing Supabase credentials');
+    if (!SUPABASE_URL) {
+        log('❌ Missing SUPABASE_URL');
+        process.exit(1);
+    }
+    
+    // Determine which key to use - prioritize service role for GitHub Actions
+    const supabaseKey = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
+    const keyType = SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE' : 'ANON';
+    
+    if (!supabaseKey) {
+        log('❌ Missing both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_ANON_KEY');
         log(`   SUPABASE_URL: ${SUPABASE_URL ? '✅ Set' : '❌ Missing'}`);
+        log(`   SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing'}`);
         log(`   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing'}`);
         process.exit(1);
     }
+    
+    log(`🔑 Using ${keyType} key for Supabase connection`);
     
     if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
         log('⚠️ Missing R2 credentials - screenshots will not be uploaded');
     }
     
     try {
-        // Initialize Supabase
-        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Initialize Supabase with the appropriate key
+        const supabase = createClient(SUPABASE_URL, supabaseKey);
         log('✅ Supabase connected');
         
         // Fetch content with external_url and no thumbnail
