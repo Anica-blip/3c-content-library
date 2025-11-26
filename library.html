@@ -218,11 +218,13 @@
         
         /* When img tag has the class directly applied */
         img.content-thumbnail {
-            width: 100%;
-            height: 150px;
-            object-fit: cover;
-            object-position: center;
-            display: block;
+            width: 100% !important;
+            height: 150px !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
         
         /* Loading placeholder for thumbnails */
@@ -491,11 +493,13 @@
             
             /* When img tag has the class directly applied - mobile */
             img.content-thumbnail {
-                width: 100%;
-                height: 120px;
-                object-fit: cover;
-                object-position: center;
-                display: block;
+                width: 100% !important;
+                height: 120px !important;
+                object-fit: cover !important;
+                object-position: center !important;
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
             
             .content-thumbnail img {
@@ -1291,28 +1295,49 @@
             }
         }
         
+        // 🚀 OPTIMIZED: Progressive/Lazy Loading for Fast PDF Display
+        let pageObserver = null;
+        const renderedPages = new Set();
+        const INITIAL_PAGES = 3; // Render first 3 pages immediately
+        
         async function renderAllPages() {
             const container = document.getElementById('pdfViewerContainer');
             container.innerHTML = '';
+            renderedPages.clear();
             
+            // Create placeholders for all pages
             for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-                const page = await pdfDoc.getPage(pageNum);
-                const viewport = page.getViewport({ scale: pdfScale });
+                const placeholder = document.createElement('div');
+                placeholder.className = 'pdf-page-placeholder';
+                placeholder.dataset.pageNum = pageNum;
+                placeholder.style.minHeight = '800px'; // Estimated height
+                placeholder.style.background = '#525659';
+                placeholder.style.marginBottom = '20px';
+                placeholder.style.display = 'flex';
+                placeholder.style.alignItems = 'center';
+                placeholder.style.justifyContent = 'center';
+                placeholder.style.color = 'white';
+                placeholder.innerHTML = `<div style="text-align: center;">
+                    <div style="font-size: 14px; margin-bottom: 8px;">Page ${pageNum}</div>
+                    <div style="font-size: 12px; opacity: 0.7;">Loading...</div>
+                </div>`;
                 
-                const canvas = document.createElement('canvas');
-                canvas.className = 'pdf-page';
-                const context = canvas.getContext('2d');
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
-                
-                container.appendChild(canvas);
-                
-                await page.render({
-                    canvasContext: context,
-                    viewport: viewport
-                }).promise;
+                container.appendChild(placeholder);
             }
+            
+            // Render first few pages immediately for instant display
+            for (let pageNum = 1; pageNum <= Math.min(INITIAL_PAGES, pdfDoc.numPages); pageNum++) {
+                await renderPage(pageNum);
+            }
+            
+            // Setup Intersection Observer for lazy loading remaining pages
+            setupPageObserver();
         }
+        
+        function setupPageObserver() {
+            // Disconnect existing observer if any
+            if (pageObserver) {
+                pageObserver.disconnect
         
         function changePage(delta) {
             const newPage = currentPageNum + delta;
