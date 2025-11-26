@@ -216,7 +216,7 @@
             position: relative;
         }
         
-        /* When img tag has the class directly applied */
+        /* Fix for img tags with content-thumbnail class */
         img.content-thumbnail {
             width: 100% !important;
             height: 150px !important;
@@ -491,7 +491,7 @@
                 /* background-image properties are set inline for thumbnails */
             }
             
-            /* When img tag has the class directly applied - mobile */
+            /* Fix for img tags with content-thumbnail class - mobile */
             img.content-thumbnail {
                 width: 100% !important;
                 height: 120px !important;
@@ -1295,49 +1295,28 @@
             }
         }
         
-        // 🚀 OPTIMIZED: Progressive/Lazy Loading for Fast PDF Display
-        let pageObserver = null;
-        const renderedPages = new Set();
-        const INITIAL_PAGES = 3; // Render first 3 pages immediately
-        
         async function renderAllPages() {
             const container = document.getElementById('pdfViewerContainer');
             container.innerHTML = '';
-            renderedPages.clear();
             
-            // Create placeholders for all pages
             for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-                const placeholder = document.createElement('div');
-                placeholder.className = 'pdf-page-placeholder';
-                placeholder.dataset.pageNum = pageNum;
-                placeholder.style.minHeight = '800px'; // Estimated height
-                placeholder.style.background = '#525659';
-                placeholder.style.marginBottom = '20px';
-                placeholder.style.display = 'flex';
-                placeholder.style.alignItems = 'center';
-                placeholder.style.justifyContent = 'center';
-                placeholder.style.color = 'white';
-                placeholder.innerHTML = `<div style="text-align: center;">
-                    <div style="font-size: 14px; margin-bottom: 8px;">Page ${pageNum}</div>
-                    <div style="font-size: 12px; opacity: 0.7;">Loading...</div>
-                </div>`;
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: pdfScale });
                 
-                container.appendChild(placeholder);
+                const canvas = document.createElement('canvas');
+                canvas.className = 'pdf-page';
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                container.appendChild(canvas);
+                
+                await page.render({
+                    canvasContext: context,
+                    viewport: viewport
+                }).promise;
             }
-            
-            // Render first few pages immediately for instant display
-            for (let pageNum = 1; pageNum <= Math.min(INITIAL_PAGES, pdfDoc.numPages); pageNum++) {
-                await renderPage(pageNum);
-            }
-            
-            // Setup Intersection Observer for lazy loading remaining pages
-            setupPageObserver();
         }
-        
-        function setupPageObserver() {
-            // Disconnect existing observer if any
-            if (pageObserver) {
-                pageObserver.disconnect
         
         function changePage(delta) {
             const newPage = currentPageNum + delta;
