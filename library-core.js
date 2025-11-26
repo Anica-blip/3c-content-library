@@ -163,7 +163,7 @@ function displayContent(content) {
     
     const html = content.map(item => {
         const thumbnailHtml = item.thumbnail_url 
-            ? `<img src="${item.thumbnail_url}" class="content-thumbnail" alt="${escapeHtml(item.title)}">`
+            ? `<img data-src="${item.thumbnail_url}" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Crect fill='%23e0e0e0' width='400' height='500'/%3E%3C/svg%3E" class="content-thumbnail lazy-thumbnail" alt="${escapeHtml(item.title)}" loading="lazy">`
             : `<div class="content-thumbnail">${getTypeIcon(item.type)}</div>`;
         
         return `
@@ -183,6 +183,9 @@ function displayContent(content) {
     }).join('');
     
     container.innerHTML = html;
+    
+    // Observe newly added lazy-loaded thumbnails
+    setTimeout(() => observeLazyThumbnails(), 0);
 }
 
 // ==================== FOLDER SELECTION ====================
@@ -413,23 +416,44 @@ function getPlaybackPosition(contentId) {
 }
 
 // ==================== LAZY LOADING ====================
-// Implement intersection observer for lazy loading images
-if ('IntersectionObserver' in window) {
-    const imageObserver = new IntersectionObserver((entries, observer) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const img = entry.target;
-                if (img.dataset.src) {
-                    img.src = img.dataset.src;
-                    img.removeAttribute('data-src');
-                    observer.unobserve(img);
+// Global image observer for lazy loading thumbnails
+let imageObserver = null;
+
+function initLazyLoading() {
+    if ('IntersectionObserver' in window) {
+        imageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    if (img.dataset.src) {
+                        // Add fade-in effect
+                        img.style.opacity = '0';
+                        img.style.transition = 'opacity 0.3s ease-in';
+                        
+                        img.src = img.dataset.src;
+                        img.onload = () => {
+                            img.style.opacity = '1';
+                            img.classList.remove('lazy-thumbnail');
+                        };
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
                 }
-            }
+            });
+        }, {
+            rootMargin: '50px' // Start loading 50px before image is visible
         });
-    });
-    
-    // Observe all images with data-src attribute
-    document.querySelectorAll('img[data-src]').forEach(img => {
-        imageObserver.observe(img);
-    });
+    }
 }
+
+// Observe all lazy-loaded thumbnails
+function observeLazyThumbnails() {
+    if (imageObserver) {
+        document.querySelectorAll('img.lazy-thumbnail[data-src]').forEach(img => {
+            imageObserver.observe(img);
+        });
+    }
+}
+
+// Initialize on load
+initLazyLoading();
