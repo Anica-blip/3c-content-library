@@ -337,7 +337,7 @@
         }
         
         .pdf-modal-header {
-            padding: 15px 20px;
+            padding: 15px 18px;
             border-bottom: 1px solid #ddd;
             display: flex;
             justify-content: space-between;
@@ -346,7 +346,7 @@
         }
         
         .pdf-modal-title {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 600;
             color: #333;
         }
@@ -954,6 +954,10 @@
                 document.querySelector('.sidebar').style.display = 'none';
                 document.querySelector('.layout').style.gridTemplateColumns = '1fr';
                 
+                // Hide the default "Select content from sidebar" message
+                const noContent = document.querySelector('.no-content');
+                if (noContent) noContent.style.display = 'none';
+                
                 // Also hide folder navigation if it exists
                 const folderNav = document.getElementById('folderNav');
                 if (folderNav) folderNav.style.display = 'none';
@@ -1195,7 +1199,7 @@
                 
                 viewerHtml = `
                     <div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${content.url.replace(/`/g, '\\`')}\`, \`${content.title.replace(/`/g, '\\`')}\`, \`${content.id}\`)">
-                        <img src="${thumbnailSrc}" style="width: 60%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <div style="font-size: 18px; color: #007bff; font-weight: 600;">
                             📄 Click to view PDF in interactive viewer
                         </div>
@@ -1237,7 +1241,7 @@
             
             contentArea.innerHTML = `
                 ${backButton}
-                <h2>${content.title}${shareButton}</h2>
+                <h2 style="font-size: 18px;">${content.title}${shareButton}</h2>
                 ${content.description ? `<div class="viewer-desc">${content.description}</div>` : ''}
                 <div class="embed-container" style="${content.type === 'pdf' ? 'height: auto; border: none;' : ''}">${viewerHtml}</div>
             `;
@@ -1670,4 +1674,3 @@
     </script>
 </body>
 </html>
-    
