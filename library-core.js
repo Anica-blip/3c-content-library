@@ -163,7 +163,7 @@ function displayContent(content) {
     
     const html = content.map(item => {
         const thumbnailHtml = item.thumbnail_url 
-            ? `<img data-src="${item.thumbnail_url}" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 500'%3E%3Crect fill='%23e0e0e0' width='400' height='500'/%3E%3C/svg%3E" class="content-thumbnail lazy-thumbnail" alt="${escapeHtml(item.title)}" loading="lazy">`
+            ? `<img data-src="${item.thumbnail_url}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="content-thumbnail lazy-thumbnail" alt="${escapeHtml(item.title)}" loading="lazy">`
             : `<div class="content-thumbnail">${getTypeIcon(item.type)}</div>`;
         
         return `
