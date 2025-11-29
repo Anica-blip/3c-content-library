@@ -63,11 +63,24 @@ async function main() {
         log('✅ Supabase connected');
         
         // Fetch content with external_url and no thumbnail
-        const { data: content, error } = await supabase
-            .from('content')
+        // Try content_public first, fallback to content
+        let { data: content, error } = await supabase
+            .from('content_public')
             .select('*')
             .not('external_url', 'is', null)
             .is('thumbnail_url', null);
+        
+        // If content_public doesn't exist, try content table
+        if (error && error.message.includes('does not exist')) {
+            log('⚠️ content_public table not found, trying content table...');
+            const result = await supabase
+                .from('content')
+                .select('*')
+                .not('external_url', 'is', null)
+                .is('thumbnail_url', null);
+            content = result.data;
+            error = result.error;
+        }
         
         if (error) {
             log('❌ Error fetching content: ' + error.message);
@@ -103,11 +116,23 @@ async function main() {
                     const thumbnailUrl = await uploadToR2(screenshot, item.id);
                     
                     if (thumbnailUrl) {
-                        // Update Supabase
-                        const { error: updateError } = await supabase
-                            .from('content')
+                        // Update Supabase - try content_public first
+                        let updateError;
+                        const updateResult = await supabase
+                            .from('content_public')
                             .update({ thumbnail_url: thumbnailUrl })
                             .eq('id', item.id);
+                        
+                        updateError = updateResult.error;
+                        
+                        // If content_public doesn't exist, try content table
+                        if (updateError && updateError.message.includes('does not exist')) {
+                            const fallbackResult = await supabase
+                                .from('content')
+                                .update({ thumbnail_url: thumbnailUrl })
+                                .eq('id', item.id);
+                            updateError = fallbackResult.error;
+                        }
                         
                         if (updateError) {
                             log(`❌ Error updating ${item.title}: ${updateError.message}`);

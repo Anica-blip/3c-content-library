@@ -1,7 +1,7 @@
 # Cloudflare Worker Configuration for 3C Library
 # This file tells Cloudflare how to deploy your worker from GitHub
 
-name = "3c-library-upload"
+name = "3c-public-library"
 main = "cloudflare-worker.js"
 compatibility_date = "2024-01-01"
 
@@ -16,16 +16,10 @@ bucket_name = "3c-library-files"
 [vars]
 R2_PUBLIC_URL = "https://files.3c-public-library.org"
 
+# Routes - Connect to your custom domain
+[[routes]]
+pattern = "api.3c-public-library.org/*"
+zone_name = "3c-public-library.org"
+
 # Worker Settings
 workers_dev = true
-route = ""
-zone_id = ""
-
-# Build Configuration
-[build]
-command = ""
-
-# Deployment
-[env.production]
-name = "3c-library-upload"
-route = "api.3c-public-library.org/*"
