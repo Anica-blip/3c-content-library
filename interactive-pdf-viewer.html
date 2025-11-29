@@ -331,12 +331,30 @@
                     await supabaseClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
                 }
 
-                // Fetch content from Supabase
-                const { data, error } = await supabaseClient.client
-                    .from('content')
+                // Fetch content from Supabase (try public first, then private)
+                let data, error;
+                
+                // Try content_public first
+                const publicResult = await supabaseClient.client
+                    .from('content_public')
                     .select('*')
                     .eq('id', contentId)
                     .single();
+                
+                if (publicResult.data) {
+                    data = publicResult.data;
+                    error = null;
+                } else {
+                    // Try content_private if not found in public
+                    const privateResult = await supabaseClient.client
+                        .from('content_private')
+                        .select('*')
+                        .eq('id', contentId)
+                        .single();
+                    
+                    data = privateResult.data;
+                    error = privateResult.error;
+                }
                 
                 if (error || !data) {
                     throw new Error('Failed to load content: ' + (error?.message || 'Not found'));
