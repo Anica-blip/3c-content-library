@@ -928,7 +928,8 @@
                             customUrl: c.custom_url,
                             thumbnail: c.thumbnail_url,
                             description: c.description,
-                            externalUrl: c.external_url
+                            externalUrl: c.external_url,
+                            project_json: c.project_json  // Include for interactive PDFs
                         })))
                 );
                 
@@ -1214,6 +1215,14 @@
         
         function showViewer(content, pdfOnlyMode = false) {
             currentContent = content;
+            
+            // CHECK FOR INTERACTIVE PDF - Redirect to interactive viewer
+            if (content.type === 'pdf' && content.project_json) {
+                console.log('🎯 Interactive PDF detected! Redirecting to interactive viewer...');
+                window.location.href = `interactive-pdf-viewer.html?content=${content.id}`;
+                return;
+            }
+            
             let viewerHtml = '';
             
             // In PDF-only mode, show share button
@@ -1226,7 +1235,7 @@
             `;
             
             if (content.type === 'pdf') {
-                // Show thumbnail with click to open popup
+                // Show thumbnail with click to open popup (regular PDF)
                 let thumbnailSrc;
                 if (content.thumbnail) {
                     thumbnailSrc = content.thumbnail;
@@ -1239,7 +1248,7 @@
                     <div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${content.url.replace(/`/g, '\\`')}\`, \`${content.title.replace(/`/g, '\\`')}\`, \`${content.id}\`)">
                         <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                         <div style="font-size: 18px; color: #007bff; font-weight: 600;">
-                            📄 Click to view PDF in interactive viewer
+                            📄 Click to view PDF
                         </div>
                     </div>
                 `;

@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive PDF Viewer - 3C Library</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="supabase-client.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a1a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        }
+
+        .viewer-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .pdf-canvas-container {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 60px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            background: #2a2a2a;
+        }
+
+        .pdf-page-wrapper {
+            position: relative;
+            margin: 20px auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .pdf-page-canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Interactive Elements Overlay */
+        .interactive-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .interactive-element {
+            position: absolute;
+            pointer-events: all;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .interactive-element:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .element-video {
+            border: 2px solid #8b5cf6;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .element-video iframe,
+        .element-video video {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .element-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .element-button:hover {
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+        }
+
+        .element-hotspot {
+            background: rgba(139, 92, 246, 0.2);
+            border: 2px dashed #8b5cf6;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8b5cf6;
+            font-size: 24px;
+        }
+
+        .element-hotspot:hover {
+            background: rgba(139, 92, 246, 0.4);
+        }
+
+        .element-image {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .element-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .element-audio {
+            background: rgba(139, 92, 246, 0.1);
+            border: 2px solid #8b5cf6;
+            border-radius: 8px;
+            padding: 8px;
+        }
+
+        .element-audio audio {
+            width: 100%;
+        }
+
+        /* Controls Bar */
+        .controls-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .controls-left, .controls-center, .controls-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+        }
+
+        .control-btn:hover {
+            background: #7c3aed;
+        }
+
+        .control-btn:disabled {
+            background: #4a5568;
+            cursor: not-allowed;
+        }
+
+        .page-indicator {
+            color: white;
+            font-size: 14px;
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+        }
+
+        /* Flipbook Mode */
+        .flipbook-container {
+            width: 100%;
+            height: calc(100vh - 60px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 2000px;
+        }
+
+        .flipbook {
+            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+        }
+
+        /* Loading */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(139, 92, 246, 0.3);
+            border-top: 4px solid #8b5cf6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .controls-bar {
+                flex-wrap: wrap;
+                padding: 8px 10px;
+            }
+
+            .control-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .page-indicator {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p class="text-white mt-4">Loading Interactive PDF...</p>
+    </div>
+
+    <!-- Viewer Container -->
+    <div class="viewer-container" id="viewerContainer" style="display: none;">
+        <!-- PDF Canvas Container -->
+        <div class="pdf-canvas-container" id="pdfCanvasContainer">
+            <!-- Pages will be rendered here -->
+        </div>
+
+        <!-- Controls Bar -->
+        <div class="controls-bar">
+            <div class="controls-left">
+                <button class="control-btn" onclick="goBack()">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <button class="control-btn" onclick="previousPage()" id="prevBtn">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </button>
+            </div>
+
+            <div class="controls-center">
+                <div class="page-indicator" id="pageIndicator">
+                    Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
+                </div>
+            </div>
+
+            <div class="controls-right">
+                <button class="control-btn" onclick="nextPage()" id="nextBtn">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+                <button class="control-btn" onclick="toggleFlipbook()" id="flipbookBtn" style="display: none;">
+                    <i class="fas fa-book-open"></i> Flipbook
+                </button>
+                <button class="control-btn" onclick="downloadPDF()">
+                    <i class="fas fa-download"></i> Download
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let projectData = null;
+        let currentPageIndex = 0;
+        let flipbookMode = false;
+        let pdfUrl = null;
+        let contentId = null;
+
+        // Get URL parameters
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                content: params.get('content'),
+                project: params.get('project')
+            };
+        }
+
+        // Load project data
+        async function loadProject() {
+            try {
+                const params = getUrlParams();
+                contentId = params.content;
+
+                if (!contentId) {
+                    throw new Error('No content ID provided');
+                }
+
+                // Initialize Supabase
+                if (!supabaseClient.isConnected) {
+                    await supabaseClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
+                }
+
+                // Fetch content from Supabase
+                const { data, error } = await supabaseClient.client
+                    .from('content')
+                    .select('*')
+                    .eq('id', contentId)
+                    .single();
+                
+                if (error || !data) {
+                    throw new Error('Failed to load content: ' + (error?.message || 'Not found'));
+                }
+
+                const content = data;
+                
+                // Check if this is an interactive PDF
+                if (!content.project_json) {
+                    // Regular PDF - redirect to normal viewer
+                    window.location.href = `library.html?content=${contentId}`;
+                    return;
+                }
+
+                // Parse project data
+                projectData = JSON.parse(content.project_json);
+                pdfUrl = content.pdf_url || content.url;
+                
+                // Check if flipbook mode is enabled
+                if (projectData.settings && projectData.settings.flipbookMode) {
+                    document.getElementById('flipbookBtn').style.display = 'flex';
+                }
+
+                // Render the PDF
+                await renderPDF();
+
+            } catch (error) {
+                console.error('Error loading project:', error);
+                alert('Error loading interactive PDF: ' + error.message);
+                goBack();
+            }
+        }
+
+        // Render PDF pages
+        async function renderPDF() {
+            const container = document.getElementById('pdfCanvasContainer');
+            container.innerHTML = '';
+
+            if (!projectData || !projectData.pages) {
+                throw new Error('Invalid project data');
+            }
+
+            // Update page count
+            document.getElementById('totalPages').textContent = projectData.pages.length;
+            document.getElementById('currentPage').textContent = currentPageIndex + 1;
+
+            // Render current page
+            const page = projectData.pages[currentPageIndex];
+            const pageWrapper = document.createElement('div');
+            pageWrapper.className = 'pdf-page-wrapper';
+            pageWrapper.id = `page-${currentPageIndex}`;
+
+            // Calculate page dimensions based on settings
+            const settings = projectData.settings || {};
+            const pageSize = settings.pageSize || 'A4';
+            const orientation = settings.orientation || 'portrait';
+            
+            let width, height;
+            if (pageSize === 'A4') {
+                width = orientation === 'portrait' ? 595 : 842;
+                height = orientation === 'portrait' ? 842 : 595;
+            } else if (pageSize === 'Letter') {
+                width = orientation === 'portrait' ? 612 : 792;
+                height = orientation === 'portrait' ? 792 : 612;
+            } else {
+                width = 595;
+                height = 842;
+            }
+
+            // Scale to fit screen (max 90% of viewport)
+            const maxWidth = window.innerWidth * 0.9;
+            const maxHeight = (window.innerHeight - 100) * 0.9;
+            const scale = Math.min(maxWidth / width, maxHeight / height, 1);
+            
+            const scaledWidth = width * scale;
+            const scaledHeight = height * scale;
+
+            pageWrapper.style.width = scaledWidth + 'px';
+            pageWrapper.style.height = scaledHeight + 'px';
+
+            // Add background
+            if (page.backgroundData || page.background) {
+                const bgSrc = page.backgroundData || page.background;
+                pageWrapper.style.backgroundImage = `url('${bgSrc}')`;
+                pageWrapper.style.backgroundSize = 'cover';
+                pageWrapper.style.backgroundPosition = 'center';
+                pageWrapper.style.backgroundColor = '#fff';
+            } else {
+                pageWrapper.style.backgroundColor = '#fff';
+            }
+
+            // Create interactive overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'interactive-overlay';
+
+            // Add interactive elements
+            if (page.elements && page.elements.length > 0) {
+                page.elements.forEach(element => {
+                    const el = createInteractiveElement(element, scale);
+                    if (el) {
+                        overlay.appendChild(el);
+                    }
+                });
+            }
+
+            pageWrapper.appendChild(overlay);
+            container.appendChild(pageWrapper);
+
+            // Update navigation buttons
+            updateNavButtons();
+
+            // Hide loading
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('viewerContainer').style.display = 'block';
+        }
+
+        // Create interactive element
+        function createInteractiveElement(element, scale) {
+            const el = document.createElement('div');
+            el.className = 'interactive-element';
+            
+            // Scale position and size
+            el.style.left = (element.x * scale) + 'px';
+            el.style.top = (element.y * scale) + 'px';
+            el.style.width = (element.width * scale) + 'px';
+            el.style.height = (element.height * scale) + 'px';
+
+            switch (element.type) {
+                case 'video':
+                    el.classList.add('element-video');
+                    if (element.url.includes('cloudflarestream.com') || element.url.includes('iframe')) {
+                        el.innerHTML = `<iframe src="${element.url}" allowfullscreen></iframe>`;
+                    } else {
+                        el.innerHTML = `<video controls><source src="${element.url}"></video>`;
+                    }
+                    break;
+
+                case 'image':
+                    el.classList.add('element-image');
+                    el.innerHTML = `<img src="${element.url}" alt="${element.text || 'Image'}">`;
+                    break;
+
+                case 'audio':
+                    el.classList.add('element-audio');
+                    el.innerHTML = `<audio controls><source src="${element.url}"></audio>`;
+                    break;
+
+                case 'button':
+                    el.classList.add('element-button');
+                    el.textContent = element.text || 'Click Me';
+                    el.onclick = () => {
+                        if (element.url) {
+                            window.open(element.url, '_blank');
+                        }
+                    };
+                    break;
+
+                case 'hotspot':
+                    el.classList.add('element-hotspot');
+                    el.innerHTML = '<i class="fas fa-hand-pointer"></i>';
+                    el.onclick = () => {
+                        if (element.url) {
+                            window.open(element.url, '_blank');
+                        } else {
+                            alert(element.text || 'Hotspot clicked!');
+                        }
+                    };
+                    break;
+
+                default:
+                    return null;
+            }
+
+            return el;
+        }
+
+        // Navigation
+        function previousPage() {
+            if (currentPageIndex > 0) {
+                currentPageIndex--;
+                renderPDF();
+            }
+        }
+
+        function nextPage() {
+            if (currentPageIndex < projectData.pages.length - 1) {
+                currentPageIndex++;
+                renderPDF();
+            }
+        }
+
+        function updateNavButtons() {
+            document.getElementById('prevBtn').disabled = currentPageIndex === 0;
+            document.getElementById('nextBtn').disabled = currentPageIndex === projectData.pages.length - 1;
+            document.getElementById('currentPage').textContent = currentPageIndex + 1;
+        }
+
+        // Flipbook mode (simplified - you can enhance this)
+        function toggleFlipbook() {
+            alert('Flipbook mode coming soon! For now, use Previous/Next buttons to navigate pages.');
+        }
+
+        // Download PDF
+        function downloadPDF() {
+            if (pdfUrl) {
+                const a = document.createElement('a');
+                a.href = pdfUrl;
+                a.download = 'interactive-pdf.pdf';
+                a.click();
+            }
+        }
+
+        // Go back
+        function goBack() {
+            if (contentId) {
+                window.location.href = `library.html?content=${contentId}`;
+            } else {
+                window.location.href = 'library.html';
+            }
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') previousPage();
+            if (e.key === 'ArrowRight') nextPage();
+            if (e.key === 'Escape') goBack();
+        });
+
+        // Initialize
+        loadProject();
+    </script>
+</body>
+</html>
