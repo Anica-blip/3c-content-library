@@ -41,6 +41,11 @@ export default {
         return await handleInfo(request, env, corsHeaders);
       }
 
+      // Serve files from R2 with CORS headers
+      if (path.startsWith('/files/') && request.method === 'GET') {
+        return await handleFileServe(request, env, corsHeaders);
+      }
+
       return new Response('Not Found', { status: 404, headers: corsHeaders });
     } catch (error) {
       return new Response(JSON.stringify({ error: error.message }), {
@@ -217,6 +222,62 @@ async function handleInfo(request, env, corsHeaders) {
       }
     );
   } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+/**
+ * Handle file serving from R2 with CORS headers
+ */
+async function handleFileServe(request, env, corsHeaders) {
+  try {
+    const url = new URL(request.url);
+    // Remove '/files/' prefix to get the actual R2 key
+    const filename = url.pathname.replace('/files/', '');
+
+    if (!filename) {
+      return new Response('File path required', {
+        status: 400,
+        headers: corsHeaders,
+      });
+    }
+
+    // Get file from R2
+    const object = await env.R2_BUCKET.get(filename);
+
+    if (!object) {
+      return new Response('File not found', {
+        status: 404,
+        headers: corsHeaders,
+      });
+    }
+
+    // Get content type from object metadata
+    const contentType = object.httpMetadata?.contentType || 'application/octet-stream';
+
+    // Create response headers with CORS
+    const headers = {
+      ...corsHeaders,
+      'Content-Type': contentType,
+      'Content-Length': object.size,
+      'Cache-Control': 'public, max-age=31536000',
+    };
+
+    // Add Content-Disposition for PDFs to allow inline viewing
+    if (contentType === 'application/pdf') {
+      headers['Content-Disposition'] = 'inline';
+    }
+
+    // Return the file
+    return new Response(object.body, {
+      status: 200,
+      headers: headers,
+    });
+  } catch (error) {
+    console.error('File serve error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
