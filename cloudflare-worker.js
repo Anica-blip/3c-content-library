@@ -21,23 +21,23 @@ export default {
     const path = url.pathname;
 
     try {
-      // Upload endpoint
-      if (path === '/upload' && request.method === 'POST') {
+      // Upload endpoint - handle both /upload and /api/upload
+      if ((path === '/upload' || path === '/api/upload') && request.method === 'POST') {
         return await handleUpload(request, env, corsHeaders);
       }
 
       // Delete endpoint
-      if (path === '/delete' && request.method === 'DELETE') {
+      if ((path === '/delete' || path === '/api/delete') && request.method === 'DELETE') {
         return await handleDelete(request, env, corsHeaders);
       }
 
       // List files endpoint
-      if (path === '/list' && request.method === 'GET') {
+      if ((path === '/list' || path === '/api/list') && request.method === 'GET') {
         return await handleList(request, env, corsHeaders);
       }
 
       // Get file info endpoint
-      if (path.startsWith('/info/') && request.method === 'GET') {
+      if ((path.startsWith('/info/') || path.startsWith('/api/info/')) && request.method === 'GET') {
         return await handleInfo(request, env, corsHeaders);
       }
 
@@ -191,7 +191,7 @@ async function handleList(request, env, corsHeaders) {
 async function handleInfo(request, env, corsHeaders) {
   try {
     const url = new URL(request.url);
-    const filename = url.pathname.replace('/info/', '');
+    const filename = url.pathname.replace('/info/', '').replace('/api/info/', '');
 
     const object = await env.R2_BUCKET.head(filename);
 
