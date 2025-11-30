@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix All URLs - 3C Library</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .step {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .item {
+            padding: 10px;
+            margin: 10px 0;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .info {
+            color: #17a2b8;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Standardize All URLs</h1>
+        <p>Update all URLs from <code>https://files.3c-public-library.org/...</code> to <code>https://api.3c-public-library.org/files/...</code></p>
+
+        <div class="step">
+            <h3>Step 1: Find Old URLs</h3>
+            <p>Scan database for items using the old URL format</p>
+            <button onclick="findOldURLs()">🔍 Find Old URLs</button>
+            <div id="findResults" class="results" style="display:none;"></div>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Update All URLs</h3>
+            <p>Replace old URLs with new worker endpoint URLs</p>
+            <button onclick="updateAllURLs()" id="updateBtn" disabled>✅ Update All URLs</button>
+            <div id="updateResults" class="results" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let supabase;
+        let oldURLItems = [];
+
+        // Initialize Supabase
+        if (typeof CONFIG !== 'undefined') {
+            supabase = window.supabase.createClient(
+                CONFIG.supabase.url,
+                CONFIG.supabase.anonKey
+            );
+            console.log('✅ Supabase initialized');
+        }
+
+        async function findOldURLs() {
+            const resultsDiv = document.getElementById('findResults');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<p>🔍 Scanning database...</p>';
+
+            try {
+                const tables = ['content_public', 'content_private'];
+                oldURLItems = [];
+
+                for (const table of tables) {
+                    const { data, error } = await supabase
+                        .from(table)
+                        .select('*');
+
+                    if (error) throw error;
+
+                    // Find items with old URL format
+                    const oldURLsInTable = data.filter(item => {
+                        const hasOldPdfUrl = item.url && item.url.startsWith('https://files.3c-public-library.org/');
+                        const hasOldThumbUrl = item.thumbnail_url && item.thumbnail_url.startsWith('https://files.3c-public-library.org/');
+                        return hasOldPdfUrl || hasOldThumbUrl;
+                    });
+
+                    oldURLItems.push(...oldURLsInTable.map(item => ({ ...item, table })));
+                }
+
+                let html = `<p class="success">✅ Found ${oldURLItems.length} items with old URLs</p>`;
+                
+                oldURLItems.forEach(item => {
+                    const hasOldPdfUrl = item.url && item.url.startsWith('https://files.3c-public-library.org/');
+                    const hasOldThumbUrl = item.thumbnail_url && item.thumbnail_url.startsWith('https://files.3c-public-library.org/');
+                    
+                    html += `
+                        <div class="item">
+                            <strong>${item.title}</strong> (${item.table})<br>
+                            ${hasOldPdfUrl ? `<span class="info">📄 PDF: ${item.url.substring(0, 60)}...</span><br>` : ''}
+                            ${hasOldThumbUrl ? `<span class="info">🖼️ Thumbnail: ${item.thumbnail_url.substring(0, 60)}...</span><br>` : ''}
+                        </div>
+                    `;
+                });
+
+                resultsDiv.innerHTML = html;
+                document.getElementById('updateBtn').disabled = oldURLItems.length === 0;
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function updateAllURLs() {
+            const resultsDiv = document.getElementById('updateResults');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<p>🔄 Updating URLs...</p>';
+
+            let html = '';
+            let successCount = 0;
+            let errorCount = 0;
+
+            try {
+                for (const item of oldURLItems) {
+                    const updates = {};
+                    
+                    // Update PDF URL
+                    if (item.url && item.url.startsWith('https://files.3c-public-library.org/')) {
+                        const filename = item.url.replace('https://files.3c-public-library.org/', '');
+                        updates.url = `https://api.3c-public-library.org/files/${filename}`;
+                    }
+                    
+                    // Update thumbnail URL
+                    if (item.thumbnail_url && item.thumbnail_url.startsWith('https://files.3c-public-library.org/')) {
+                        const filename = item.thumbnail_url.replace('https://files.3c-public-library.org/', '');
+                        updates.thumbnail_url = `https://api.3c-public-library.org/files/${filename}`;
+                    }
+
+                    if (Object.keys(updates).length > 0) {
+                        const { error } = await supabase
+                            .from(item.table)
+                            .update(updates)
+                            .eq('id', item.id);
+
+                        if (error) {
+                            html += `<div class="item"><span class="error">❌ ${item.title}: ${error.message}</span></div>`;
+                            errorCount++;
+                        } else {
+                            html += `
+                                <div class="item">
+                                    <span class="success">✅ ${item.title}</span><br>
+                                    ${updates.url ? `<span class="info">📄 ${updates.url}</span><br>` : ''}
+                                    ${updates.thumbnail_url ? `<span class="info">🖼️ ${updates.thumbnail_url}</span><br>` : ''}
+                                </div>
+                            `;
+                            successCount++;
+                        }
+                    }
+                }
+
+                html = `<p class="success">✅ Updated ${successCount} items successfully!</p>` +
+                       (errorCount > 0 ? `<p class="error">❌ ${errorCount} errors</p>` : '') +
+                       `<p class="info">All URLs now use: https://api.3c-public-library.org/files/...</p>` +
+                       html;
+
+                resultsDiv.innerHTML = html;
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

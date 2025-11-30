@@ -1313,14 +1313,38 @@
             document.getElementById('pdfTitle').textContent = title;
             document.getElementById('pdfViewerContainer').innerHTML = '<p style="color: white; text-align: center;">Loading PDF...</p>';
             
-            try {
-                const loadingTask = pdfjsLib.getDocument(pdfUrl);
-                pdfDoc = await loadingTask.promise;
-                document.getElementById('totalPages').textContent = pdfDoc.numPages;
-                currentPageNum = 1;
-                renderAllPages();
-            } catch (error) {
-                document.getElementById('pdfViewerContainer').innerHTML = '<p style="color: white; text-align: center;">Error loading PDF: ' + error.message + '</p>';
+            // Check if mobile device
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                // On mobile, use iframe or direct link
+                document.getElementById('pdfViewerContainer').innerHTML = `
+                    <iframe src="${pdfUrl}" style="width: 100%; height: 80vh; border: none; background: white;"></iframe>
+                    <div style="text-align: center; margin-top: 10px;">
+                        <a href="${pdfUrl}" target="_blank" style="color: white; text-decoration: underline;">
+                            Open PDF in new tab
+                        </a>
+                    </div>
+                `;
+            } else {
+                // Desktop: use pdf.js for better rendering
+                try {
+                    const loadingTask = pdfjsLib.getDocument(pdfUrl);
+                    pdfDoc = await loadingTask.promise;
+                    document.getElementById('totalPages').textContent = pdfDoc.numPages;
+                    currentPageNum = 1;
+                    renderAllPages();
+                } catch (error) {
+                    // Fallback to iframe if pdf.js fails
+                    document.getElementById('pdfViewerContainer').innerHTML = `
+                        <iframe src="${pdfUrl}" style="width: 100%; height: 80vh; border: none; background: white;"></iframe>
+                        <p style="color: white; text-align: center; margin-top: 10px;">
+                            <a href="${pdfUrl}" target="_blank" style="color: white; text-decoration: underline;">
+                                Open PDF in new tab
+                            </a>
+                        </p>
+                    `;
+                }
             }
         }
         
