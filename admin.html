@@ -162,21 +162,36 @@
                     </select>
                 </div>
                 
-                <div class="form-group">
-                    <label>Upload File</label>
-                    <div class="upload-area" id="uploadArea">
-                        <p>Drag & drop file here or click to browse</p>
-                        <input type="file" id="fileUpload" style="display: none;">
-                        <button type="button" onclick="document.getElementById('fileUpload').click()">Choose File</button>
-                        <div class="file-info" id="fileInfo"></div>
-                    </div>
+                <div class="form-group" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; border: 3px solid #764ba2;">
+                    <label style="color: white; font-size: 16px; font-weight: bold;">📁 R2 File URL (Recommended) *</label>
+                    <input type="url" id="contentUrl" placeholder="https://files.3c-public-library.org/interactive-pdfs/flipbooks/courses/level-1/my-course-v1.0.pdf" style="font-size: 14px; padding: 10px;">
+                    <small style="color: #e0e7ff; display: block; margin-top: 8px;">
+                        ✅ <strong>Use this for PDFs generated from Interactive PDF Builder</strong><br>
+                        📋 Paste the URL from your R2 bucket or after generating PDF<br>
+                        🔒 Files stay in R2 - secure and fast access
+                    </small>
+                    <small style="color: #fbbf24; display: block; margin-top: 8px;">
+                        💡 <strong>Examples:</strong><br>
+                        • PDF: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">https://files.3c-public-library.org/interactive-pdfs/flipbooks/...</code><br>
+                        • Video: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">https://files.3c-public-library.org/videos/...</code><br>
+                        • Image: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">https://files.3c-public-library.org/images/...</code>
+                    </small>
                 </div>
                 
-                <div style="text-align: center; margin: 15px 0; color: #999;">OR</div>
-                
-                <div class="form-group">
-                    <label>File URL (R2 or External)</label>
-                    <input type="url" id="contentUrl" placeholder="https://files.3c-public-library.org/file.pdf">
+                <div style="text-align: center; margin: 15px 0;">
+                    <details style="color: #999; cursor: pointer;">
+                        <summary style="font-weight: 600; padding: 8px;">📤 Or Upload File Manually (Legacy Method)</summary>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label>Upload File</label>
+                            <div class="upload-area" id="uploadArea">
+                                <p>Drag & drop file here or click to browse</p>
+                                <input type="file" id="fileUpload" style="display: none;">
+                                <button type="button" onclick="document.getElementById('fileUpload').click()">Choose File</button>
+                                <div class="file-info" id="fileInfo"></div>
+                            </div>
+                            <small style="color: #f59e0b;">⚠️ Files will be uploaded to R2 automatically. Consider using direct R2 URL instead.</small>
+                        </div>
+                    </details>
                 </div>
                 
                 <div class="form-group">
