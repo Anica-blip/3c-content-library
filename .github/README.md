@@ -37,7 +37,7 @@ Add the following secrets:
 
 #### Required Secrets:
 - `SUPABASE_URL` - Your Supabase project URL (e.g., `https://xxxxx.supabase.co`)
-- `SUPABASE_ANON_KEY` - Your Supabase anonymous/public key
+- `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key (bypasses RLS policies)
 
 #### Optional Secrets (for R2 upload):
 - `R2_ACCOUNT_ID` - Your Cloudflare account ID
@@ -61,7 +61,9 @@ Add the following secrets:
 3. Go to "API" section
 4. Copy:
    - **Project URL** → Use for `SUPABASE_URL`
-   - **anon/public key** → Use for `SUPABASE_ANON_KEY`
+   - **service_role key** → Use for `SUPABASE_SERVICE_ROLE_KEY`
+   
+⚠️ **Important**: Use the `service_role` key, NOT the `anon` key. The service role key bypasses Row Level Security (RLS) policies, which is required for GitHub Actions to read and update your database tables.
 
 ### 5. Finding Your R2 Credentials (Optional)
 
@@ -93,9 +95,10 @@ The workflow runs automatically every day at 2 AM UTC.
 
 ## 🐛 Troubleshooting
 
-### Error: "Missing Supabase credentials"
-- **Cause**: GitHub secrets not configured
-- **Fix**: Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` secrets (see Setup Instructions above)
+### Error: "Missing SUPABASE_URL"
+- **Cause**: GitHub secrets not configured properly
+- **Fix**: Add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` secrets (see Setup Instructions above)
+- **Note**: Make sure you're using the `service_role` key from your Supabase API settings, NOT the `anon` key
 
 ### Error: "Node.js 18 and below are deprecated"
 - **Cause**: Using old Node.js version
@@ -120,7 +123,8 @@ After each run, logs are uploaded as artifacts:
 
 - Never commit secrets to the repository
 - Use GitHub Secrets for all sensitive data
-- The `SUPABASE_ANON_KEY` is safe to use in client-side code
+- The `SUPABASE_SERVICE_ROLE_KEY` has full admin access - **NEVER expose this in client-side code**
+- Only use `SUPABASE_SERVICE_ROLE_KEY` in secure server environments like GitHub Actions
 - R2 credentials should be kept secure
 
 ## 📦 Dependencies
