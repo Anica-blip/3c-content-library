@@ -12,7 +12,7 @@ const path = require('path');
 // ==================== CONFIGURATION ====================
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
@@ -40,13 +40,13 @@ async function main() {
     }
     
     // Determine which key to use - prioritize service role for GitHub Actions
-    const supabaseKey = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
-    const keyType = SUPABASE_SERVICE_ROLE_KEY ? 'SERVICE_ROLE' : 'ANON';
+    const supabaseKey = SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
+    const keyType = SUPABASE_SERVICE_KEY ? 'SERVICE_KEY' : 'ANON';
     
     if (!supabaseKey) {
         log('❌ Missing both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_ANON_KEY');
         log(`   SUPABASE_URL: ${SUPABASE_URL ? '✅ Set' : '❌ Missing'}`);
-        log(`   SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing'}`);
+        log(`   SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY ? '✅ Set' : '❌ Missing'}`);
         log(`   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing'}`);
         process.exit(1);
     }
