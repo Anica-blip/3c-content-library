@@ -44,7 +44,7 @@ async function main() {
     const keyType = SUPABASE_SERVICE_KEY ? 'SERVICE_KEY' : 'ANON';
     
     if (!supabaseKey) {
-        log('❌ Missing both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_ANON_KEY');
+        log('❌ Missing both SUPABASE_SERVICE_KEY and SUPABASE_ANON_KEY');
         log(`   SUPABASE_URL: ${SUPABASE_URL ? '✅ Set' : '❌ Missing'}`);
         log(`   SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY ? '✅ Set' : '❌ Missing'}`);
         log(`   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing'}`);
