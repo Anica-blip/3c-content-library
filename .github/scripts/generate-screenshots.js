@@ -1,7 +1,7 @@
 /**
  * Screenshot Generator for External URLs
  * Fetches content with external_url from Supabase, generates screenshots, uploads to R2
- * Node.js 20+ Compatible
+ * Requires: Node.js 20+ (enforced at runtime)
  */
 
 const puppeteer = require('puppeteer');
@@ -33,9 +33,20 @@ async function main() {
     log('🚀 Screenshot generator starting...');
     log(`Node.js version: ${process.version}`);
     
+    // Check Node.js version (Supabase requires 20+)
+    const nodeVersion = parseInt(process.version.split('.')[0].replace('v', ''));
+    if (nodeVersion < 20) {
+        log('❌ Node.js 20 or higher is required');
+        log(`   Current version: ${process.version}`);
+        log(`   Update GitHub workflow: node-version: "20"`);
+        process.exit(1);
+    }
+    log(`✅ Node.js version compatible (${nodeVersion})`);
+    
     // Validate environment variables
     if (!SUPABASE_URL) {
-        log('❌ Missing SUPABASE_URL');
+        log('❌ Missing SUPABASE_URL environment variable');
+        log('   Add it in: GitHub repo → Settings → Secrets → Actions');
         process.exit(1);
     }
     
@@ -58,9 +69,14 @@ async function main() {
     }
     
     try {
-        // Initialize Supabase with the appropriate key
-        const supabase = createClient(SUPABASE_URL, supabaseKey);
-        log('✅ Supabase connected');
+        // Initialize Supabase with proper options for Node.js 20+
+        const supabase = createClient(SUPABASE_URL, supabaseKey, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false
+            }
+        });
+        log('✅ Supabase client initialized');
         
         // Fetch content with external_url and no thumbnail
         // Try content_public first, fallback to content
