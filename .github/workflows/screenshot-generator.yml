@@ -4,11 +4,7 @@ on:
   schedule:
     # Run daily at 2 AM UTC
     - cron: '0 2 * * *'
-  workflow_dispatch: # Allow manual trigger
-
-permissions:
-  contents: read # Read repository contents
-  actions: write # Upload artifacts
+  workflow_dispatch:
 
 jobs:
   generate-screenshots:
@@ -18,7 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Setup Node.js 20
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -28,15 +24,6 @@ jobs:
         run: |
           npm install puppeteer @supabase/supabase-js aws-sdk
       
-      - name: Verify environment variables
-        run: |
-          echo "Checking environment variables..."
-          echo "SUPABASE_URL: ${{ vars.SUPABASE_URL != '' && '✅ Set' || '❌ Missing' }}"
-          echo "SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY != '' && '✅ Set' || '❌ Missing' }}"
-          echo "R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID != '' && '✅ Set' || '❌ Missing' }}"
-          echo "R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID != '' && '✅ Set' || '❌ Missing' }}"
-          echo "R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY != '' && '✅ Set' || '❌ Missing' }}"
-      
       - name: Generate screenshots
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
@@ -44,21 +31,13 @@ jobs:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET_NAME: '3c-library-files'
+          R2_BUCKET_NAME: 3c-library-files
         run: node .github/scripts/generate-screenshots.js
       
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshot-logs-${{ github.run_id }}
+          name: screenshot-logs
           path: screenshot-logs.txt
-          retention-days: 7
-      
-      - name: Notify on failure
-        if: failure()
-        
-        run: |
-          echo "❌ Screenshot generation failed!"
-          echo "📋 Check the logs artifact for details"
-          cat screenshot-logs.txt || echo "No log file found"
+          
