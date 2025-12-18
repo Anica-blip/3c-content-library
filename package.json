@@ -1,13 +1,33 @@
 {
-	"name": "3c-library-api",
-	"version": "0.0.0",
-	"private": true,
-	"scripts": {
-		"deploy": "wrangler deploy",
-		"dev": "wrangler dev",
-		"start": "wrangler dev"
-	},
-	"devDependencies": {
-		"wrangler": "^4.46.0"
-	}
+  "name": "3c-library-screenshot-generator",
+  "version": "2.0.0",
+  "description": "Automated screenshot generator for 3C Public Library external URLs",
+  "private": true,
+  "scripts": {
+    "generate": "node .github/scripts/generate-screenshots.js",
+    "test": "node .github/scripts/generate-screenshots.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.11.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "aws-sdk": "^2.1691.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR-USERNAME/3c-library-api.git"
+  },
+  "keywords": [
+    "screenshot",
+    "puppeteer",
+    "cloudflare-r2",
+    "supabase",
+    "automation",
+    "3c-library",
+    "github-actions"
+  ],
+  "author": "Chef (3C Thread To Success)",
+  "license": "MIT"
 }
