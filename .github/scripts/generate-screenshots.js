@@ -1,17 +1,16 @@
 /**
  * Screenshot Generator for External URLs
- * Fetches content with external_url from Supabase, generates screenshots, uploads to R2
- * Requires: Node.js 20+ (enforced at runtime)
+ * Uses 'screenshots' table to track generation status
+ * Requires: Node.js 20+
  */
 
 const puppeteer = require('puppeteer');
 const { createClient } = require('@supabase/supabase-js');
+const AWS = require('aws-sdk');
 const fs = require('fs');
-const path = require('path');
 
 // ==================== CONFIGURATION ====================
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
@@ -19,6 +18,8 @@ const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || '3c-library-files';
 
 const LOG_FILE = 'screenshot-logs.txt';
+const MAX_RETRIES = 3;
+const SCREENSHOT_TIMEOUT = 30000; // 30 seconds
 
 // ==================== LOGGING ====================
 function log(message) {
@@ -28,215 +29,239 @@ function log(message) {
     fs.appendFileSync(LOG_FILE, logMessage);
 }
 
+// ==================== VALIDATION ====================
+function validateEnvironment() {
+    const required = [
+        { name: 'SUPABASE_URL', value: SUPABASE_URL },
+        { name: 'SUPABASE_SERVICE_KEY', value: SUPABASE_SERVICE_KEY },
+        { name: 'R2_ACCOUNT_ID', value: R2_ACCOUNT_ID },
+        { name: 'R2_ACCESS_KEY_ID', value: R2_ACCESS_KEY_ID },
+        { name: 'R2_SECRET_ACCESS_KEY', value: R2_SECRET_ACCESS_KEY }
+    ];
+
+    const missing = required.filter(env => !env.value);
+    
+    if (missing.length > 0) {
+        log('❌ Missing required environment variables:');
+        missing.forEach(env => {
+            log(`   - ${env.name}`);
+        });
+        log('\n📝 Add these in: GitHub repo → Settings → Secrets and variables → Actions');
+        log('   SUPABASE_URL → Variables');
+        log('   All others → Secrets');
+        process.exit(1);
+    }
+
+    // Check Node.js version
+    const nodeVersion = parseInt(process.version.split('.')[0].replace('v', ''));
+    if (nodeVersion < 20) {
+        log(`❌ Node.js 20+ required (current: ${process.version})`);
+        process.exit(1);
+    }
+
+    log('✅ Environment validation passed');
+}
+
 // ==================== MAIN FUNCTION ====================
 async function main() {
     log('🚀 Screenshot generator starting...');
-    log(`Node.js version: ${process.version}`);
+    log(`   Node.js: ${process.version}`);
+    log(`   Bucket: ${R2_BUCKET_NAME}`);
     
-    // Check Node.js version (Supabase requires 20+)
-    const nodeVersion = parseInt(process.version.split('.')[0].replace('v', ''));
-    if (nodeVersion < 20) {
-        log('❌ Node.js 20 or higher is required');
-        log(`   Current version: ${process.version}`);
-        log(`   Update GitHub workflow: node-version: "20"`);
-        process.exit(1);
-    }
-    log(`✅ Node.js version compatible (${nodeVersion})`);
-    
-    // Validate environment variables
-    if (!SUPABASE_URL) {
-        log('❌ Missing SUPABASE_URL environment variable');
-        log('   Add it in: GitHub repo → Settings → Secrets → Actions');
-        process.exit(1);
-    }
-    
-    // Determine which key to use - prioritize service role for GitHub Actions
-    const supabaseKey = SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
-    const keyType = SUPABASE_SERVICE_KEY ? 'SERVICE_KEY' : 'ANON';
-    
-    if (!supabaseKey) {
-        log('❌ Missing both SUPABASE_SERVICE_KEY and SUPABASE_ANON_KEY');
-        log(`   SUPABASE_URL: ${SUPABASE_URL ? '✅ Set' : '❌ Missing'}`);
-        log(`   SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY ? '✅ Set' : '❌ Missing'}`);
-        log(`   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing'}`);
-        process.exit(1);
-    }
-    
-    log(`🔑 Using ${keyType} key for Supabase connection`);
-    
-    if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-        log('⚠️ Missing R2 credentials - screenshots will not be uploaded');
-    }
+    validateEnvironment();
     
     try {
-        // Initialize Supabase with proper options for Node.js 20+
-        const supabase = createClient(SUPABASE_URL, supabaseKey, {
+        // Initialize Supabase with service_role key
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
             auth: {
                 persistSession: false,
                 autoRefreshToken: false
             }
         });
-        log('✅ Supabase client initialized');
+        log('✅ Supabase client initialized (service_role)');
         
-        // Fetch content with external_url and no thumbnail
-        // Try content_public first, fallback to content
-        let { data: content, error } = await supabase
-            .from('content_public')
+        // Fetch pending screenshots from screenshots table
+        const { data: screenshots, error: fetchError } = await supabase
+            .from('screenshots')
             .select('*')
-            .not('external_url', 'is', null)
-            .is('thumbnail_url', null);
+            .eq('status', 'pending')
+            .lt('attempt_count', MAX_RETRIES)
+            .order('created_at', { ascending: true })
+            .limit(10); // Process 10 at a time
         
-        // If content_public doesn't exist, try content table
-        if (error && error.message.includes('does not exist')) {
-            log('⚠️ content_public table not found, trying content table...');
-            const result = await supabase
-                .from('content')
-                .select('*')
-                .not('external_url', 'is', null)
-                .is('thumbnail_url', null);
-            content = result.data;
-            error = result.error;
-        }
-        
-        if (error) {
-            log('❌ Error fetching content: ' + error.message);
+        if (fetchError) {
+            log(`❌ Error fetching screenshots: ${fetchError.message}`);
+            log('   Hint: Run screenshots-table-setup.sql in Supabase SQL Editor');
             process.exit(1);
         }
         
-        log(`📄 Found ${content.length} items needing screenshots`);
+        log(`📄 Found ${screenshots.length} pending screenshots`);
         
-        if (content.length === 0) {
-            log('✅ No screenshots needed');
+        if (screenshots.length === 0) {
+            log('✅ No screenshots to process');
             return;
         }
         
         // Launch browser
-        log('🌐 Launching browser...');
+        log('🌐 Launching headless browser...');
         const browser = await puppeteer.launch({
             headless: 'new',
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-gpu'
+            ]
         });
+        log('✅ Browser ready');
         
         let successCount = 0;
         let errorCount = 0;
         
-        // Process each item
-        for (const item of content) {
+        // Process each screenshot
+        for (const item of screenshots) {
             try {
-                log(`📸 Processing: ${item.title} (${item.external_url})`);
+                log(`\n📸 Processing [${item.content_id}]: ${item.external_url}`);
                 
-                const screenshot = await captureScreenshot(browser, item.external_url);
+                // Update status to processing
+                await supabase
+                    .from('screenshots')
+                    .update({ 
+                        status: 'processing',
+                        attempt_count: item.attempt_count + 1
+                    })
+                    .eq('id', item.id);
                 
-                if (screenshot) {
-                    // Upload to R2
-                    const thumbnailUrl = await uploadToR2(screenshot, item.id);
-                    
-                    if (thumbnailUrl) {
-                        // Update Supabase - try content_public first
-                        let updateError;
-                        const updateResult = await supabase
-                            .from('content_public')
-                            .update({ thumbnail_url: thumbnailUrl })
-                            .eq('id', item.id);
-                        
-                        updateError = updateResult.error;
-                        
-                        // If content_public doesn't exist, try content table
-                        if (updateError && updateError.message.includes('does not exist')) {
-                            const fallbackResult = await supabase
-                                .from('content')
-                                .update({ thumbnail_url: thumbnailUrl })
-                                .eq('id', item.id);
-                            updateError = fallbackResult.error;
-                        }
-                        
-                        if (updateError) {
-                            log(`❌ Error updating ${item.title}: ${updateError.message}`);
-                            errorCount++;
-                        } else {
-                            log(`✅ Updated ${item.title} with thumbnail`);
-                            successCount++;
-                        }
-                    } else {
-                        log(`❌ Failed to upload screenshot for ${item.title}`);
-                        errorCount++;
-                    }
-                } else {
-                    log(`❌ Failed to capture screenshot for ${item.title}`);
-                    errorCount++;
+                // Capture screenshot
+                const screenshotBuffer = await captureScreenshot(browser, item.external_url);
+                
+                if (!screenshotBuffer) {
+                    throw new Error('Failed to capture screenshot');
                 }
                 
-                // Wait between requests to avoid rate limiting
+                // Upload to R2
+                const thumbnailUrl = await uploadToR2(screenshotBuffer, item.content_id);
+                
+                if (!thumbnailUrl) {
+                    throw new Error('Failed to upload to R2');
+                }
+                
+                // Update screenshots table with success
+                const { error: updateError } = await supabase
+                    .from('screenshots')
+                    .update({ 
+                        status: 'completed',
+                        thumbnail_url: thumbnailUrl,
+                        last_error: null
+                    })
+                    .eq('id', item.id);
+                
+                if (updateError) {
+                    throw new Error(`Database update failed: ${updateError.message}`);
+                }
+                
+                log(`   ✅ Success: ${thumbnailUrl}`);
+                successCount++;
+                
+                // Rate limiting
                 await sleep(2000);
                 
             } catch (error) {
-                log(`❌ Error processing ${item.title}: ${error.message}`);
+                log(`   ❌ Error: ${error.message}`);
+                
+                // Update screenshots table with failure
+                await supabase
+                    .from('screenshots')
+                    .update({ 
+                        status: item.attempt_count + 1 >= MAX_RETRIES ? 'failed' : 'pending',
+                        last_error: error.message
+                    })
+                    .eq('id', item.id);
+                
                 errorCount++;
             }
         }
         
         await browser.close();
+        log('\n🌐 Browser closed');
         
-        log(`\n📊 Summary:`);
+        // Summary
+        log(`\n${'='.repeat(50)}`);
+        log('📊 SUMMARY');
+        log(`${'='.repeat(50)}`);
         log(`   ✅ Success: ${successCount}`);
-        log(`   ❌ Errors: ${errorCount}`);
-        log(`   📝 Total: ${content.length}`);
+        log(`   ❌ Errors:  ${errorCount}`);
+        log(`   📝 Total:   ${screenshots.length}`);
+        log(`${'='.repeat(50)}`);
         log('🎉 Screenshot generator completed');
         
     } catch (error) {
-        log('❌ Fatal error: ' + error.message);
+        log(`❌ Fatal error: ${error.message}`);
+        log(`   Stack: ${error.stack}`);
         process.exit(1);
     }
 }
 
 // ==================== SCREENSHOT CAPTURE ====================
 async function captureScreenshot(browser, url) {
+    let page = null;
+    
     try {
-        const page = await browser.newPage();
+        page = await browser.newPage();
         
-        // Set viewport
+        // Set viewport for consistent screenshots
         await page.setViewport({
             width: 1280,
             height: 720,
             deviceScaleFactor: 1
         });
         
-        // Set timeout
+        // Set user agent to avoid bot detection
+        await page.setUserAgent(
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        );
+        
+        log(`   🌍 Navigating to: ${url}`);
+        
+        // Navigate with timeout
         await page.goto(url, {
             waitUntil: 'networkidle2',
-            timeout: 30000
+            timeout: SCREENSHOT_TIMEOUT
         });
         
-        // Wait a bit for dynamic content
-        await sleep(2000);
+        // Wait for dynamic content
+        await sleep(3000);
+        
+        log('   📷 Capturing screenshot...');
         
         // Take screenshot
-        const screenshot = await page.screenshot({
+        const screenshotBuffer = await page.screenshot({
             type: 'jpeg',
-            quality: 80,
+            quality: 85,
             fullPage: false
         });
         
-        await page.close();
+        log(`   ✅ Captured (${screenshotBuffer.length} bytes)`);
         
-        return screenshot;
+        return screenshotBuffer;
         
     } catch (error) {
-        log(`   ⚠️ Screenshot error: ${error.message}`);
+        log(`   ⚠️ Capture failed: ${error.message}`);
         return null;
+    } finally {
+        if (page) {
+            await page.close();
+        }
     }
 }
 
 // ==================== R2 UPLOAD ====================
-async function uploadToR2(screenshot, contentId) {
-    if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
-        log('   ⚠️ Skipping R2 upload - no credentials');
-        return null;
-    }
-    
+async function uploadToR2(screenshotBuffer, contentId) {
     try {
-        // Use AWS SDK for S3-compatible R2
-        const AWS = require('aws-sdk');
+        log('   ☁️ Uploading to R2...');
         
         const s3 = new AWS.S3({
             endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -251,20 +276,21 @@ async function uploadToR2(screenshot, contentId) {
         const params = {
             Bucket: R2_BUCKET_NAME,
             Key: fileName,
-            Body: screenshot,
-            ContentType: 'image/jpeg'
+            Body: screenshotBuffer,
+            ContentType: 'image/jpeg',
+            CacheControl: 'public, max-age=31536000' // 1 year cache
         };
         
         await s3.upload(params).promise();
         
-        // Return public URL
-        const publicUrl = `https://files.3c-public-library.org/${fileName}`;
-        log(`   📤 Uploaded to: ${publicUrl}`);
+        // Return public URL matching Chef's infrastructure
+        const publicUrl = `https://api.3c-public-library.org/files/${fileName}`;
+        log(`   ✅ Uploaded: ${publicUrl}`);
         
         return publicUrl;
         
     } catch (error) {
-        log(`   ❌ R2 upload error: ${error.message}`);
+        log(`   ❌ R2 upload failed: ${error.message}`);
         return null;
     }
 }
@@ -276,6 +302,7 @@ function sleep(ms) {
 
 // ==================== RUN ====================
 main().catch(error => {
-    log('❌ Unhandled error: ' + error.message);
+    log(`❌ Unhandled error: ${error.message}`);
+    log(`   Stack: ${error.stack}`);
     process.exit(1);
 });
