@@ -283,8 +283,8 @@ async function uploadToR2(screenshotBuffer, contentId) {
         
         await s3.upload(params).promise();
         
-        // Return public URL matching Chef's infrastructure
-        const publicUrl = `https://api.3c-public-library.org/files/${fileName}`;
+        // Return public URL
+        const publicUrl = `https://files.3c-public-library.org/${fileName}`;
         log(`   ✅ Uploaded: ${publicUrl}`);
         
         return publicUrl;
