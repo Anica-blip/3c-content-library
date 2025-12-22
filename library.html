@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3C Public Library</title>
+    <link rel="icon" type="image/png" href="favicon1.png">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="config.js"></script>
+    <script src="supabase-client.js"></script>
+    <style>
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-tertiary: #999;
+            --border-color: #ddd;
+            --shadow: rgba(0,0,0,0.1);
+            --purple-light: #e9d5ff;
+            --purple-medium: #c084fc;
+            --purple-dark: #9333ea;
+            --folder-bg: linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%);
+            --folder-icon: #9333ea;
+        }
+        
+        body.dark-mode {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-tertiary: #808080;
+            --border-color: #444;
+            --shadow: rgba(0,0,0,0.3);
+            --purple-light: #4c1d95;
+            --purple-medium: #7c3aed;
+            --purple-dark: #a78bfa;
+            --folder-bg: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%);
+            --folder-icon: #c084fc;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: var(--bg-primary);
+            transition: background 0.3s, color 0.3s;
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            padding: 20px;
+            box-shadow: 0 2px 4px var(--shadow);
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-img {
+            height: 50px;
+            width: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: white;
+            padding: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 { 
+            color: #8b5cf6; /* Purple color to match favicon */
+            font-size: 24px;
+            transition: color 0.3s;
+            margin: 0;
+        }
+        
+        body.dark-mode .header h1 {
+            color: #a78bfa; /* Lighter purple for dark mode */
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .sidebar {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+        
+        .sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+            transition: color 0.3s;
+        }
+        
+        .header-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .dark-mode-toggle {
+            background: var(--purple-medium);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            white-space: nowrap;
+        }
+        
+        .dark-mode-toggle:hover {
+            background: var(--purple-dark);
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+        
+        .content-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+            border: 2px solid transparent;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .content-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+        
+        .content-card.active {
+            border-color: var(--purple-medium);
+        }
+        
+        .content-card.folder-card {
+            background: var(--folder-bg);
+            border: 2px solid var(--purple-medium);
+        }
+        
+        .content-card.folder-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 6px 16px var(--shadow);
+        }
+        
+        .content-card.folder-card .content-thumbnail {
+            background: transparent;
+            color: var(--folder-icon);
+        }
+        
+        .content-card.folder-card .content-title {
+            color: var(--folder-icon);
+            font-weight: 700;
+        }
+        
+        .content-card.folder-card .content-type {
+            color: var(--purple-dark);
+            font-weight: 600;
+        }
+        
+        .content-card.subfolder-card {
+            background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+            border: 2px solid #a855f7;
+            box-shadow: 0 2px 6px rgba(168, 85, 247, 0.2);
+        }
+        
+        body.dark-mode .content-card.subfolder-card {
+            background: linear-gradient(135deg, #581c87 0%, #6b21a8 100%);
+            border: 2px solid #9333ea;
+        }
+        
+        .content-card.subfolder-card:hover {
+            transform: translateY(-3px) scale(1.01);
+            box-shadow: 0 6px 16px rgba(168, 85, 247, 0.3);
+        }
+        
+        .content-thumbnail {
+            width: 100%;
+            height: 120px;
+            background: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-tertiary);
+            font-size: 42px;
+            transition: background 0.3s, color 0.3s;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
+        }
+        
+        /* Loading placeholder for thumbnails */
+        .content-thumbnail[data-bg]:not([style*="background-image"])::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--bg-primary) 25%, var(--bg-secondary) 50%, var(--bg-primary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .content-info {
+            padding: 10px;
+            background: var(--bg-secondary);
+            transition: background 0.3s;
+        }
+        
+        .content-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            font-size: 13px;
+            line-height: 1.3;
+            transition: color 0.3s;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
+        .content-type {
+            font-size: 11px;
+            color: var(--text-secondary);
+            transition: color 0.3s;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .viewer {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 8px;
+            min-height: 600px;
+            transition: background 0.3s;
+        }
+        
+        .viewer h2 {
+            margin-bottom: 10px;
+            color: var(--text-primary);
+            transition: color 0.3s;
+        }
+        
+        .viewer-desc {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            font-size: 14px;
+            transition: color 0.3s;
+        }
+        
+        .no-content {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-tertiary);
+            transition: color 0.3s;
+        }
+        
+        .no-content h2 {
+            color: var(--text-primary);
+        }
+        
+        .embed-container {
+            width: 100%;
+            height: 700px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .embed-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .no-content {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        /* PDF Popup Modal */
+        .pdf-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            overflow: auto;
+        }
+        
+        .pdf-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .pdf-modal-content {
+            background: white;
+            width: 95%;
+            max-width: 1200px;
+            height: 90vh;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .pdf-modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .pdf-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .pdf-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .pdf-controls button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .pdf-controls button:hover {
+            background: #0056b3;
+        }
+        
+        .pdf-controls button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .close-modal {
+            background: #dc3545 !important;
+            font-size: 20px;
+            padding: 5px 12px !important;
+        }
+        
+        .close-modal:hover {
+            background: #c82333 !important;
+        }
+        
+        .pdf-viewer-container {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            background: #525659;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .pdf-page {
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .page-info {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        @media (min-width: 768px) {
+            .layout {
+                display: grid;
+                grid-template-columns: 350px 1fr;
+                gap: 20px;
+            }
+        }
+        
+        /* Mobile responsive styles */
+        @media (max-width: 767px) {
+            .header {
+                padding: 15px 10px;
+            }
+            
+            .header .container {
+                padding: 0 10px;
+            }
+            
+            .header-left {
+                gap: 8px;
+            }
+            
+            .logo-img {
+                height: 35px;
+                width: 35px;
+            }
+            
+            .header h1 {
+                font-size: 16px;
+            }
+            
+            .header-right {
+                gap: 6px;
+            }
+            
+            /* Icon-only buttons on mobile */
+            .dark-mode-toggle,
+            .debug-toggle {
+                padding: 8px;
+                font-size: 18px;
+                min-width: 36px;
+                min-height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            /* Hide text, show only icons on mobile */
+            .dark-mode-toggle .btn-text,
+            .debug-toggle .btn-text {
+                display: none;
+            }
+            
+            .content-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 10px;
+            }
+            
+            .content-thumbnail {
+                height: 120px;
+                font-size: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                padding: 0;
+                margin: 0;
+                /* Force background to cover entire area and center it */
+                background-size: cover !important;
+                background-position: center !important;
+                background-repeat: no-repeat !important;
+                /* background-image properties are set inline for thumbnails */
+            }
+            
+            .content-thumbnail img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+            
+            .content-title {
+                font-size: 12px;
+            }
+            
+            .content-type {
+                font-size: 11px;
+            }
+            
+            /* PDF Modal mobile styles */
+            .pdf-modal-content {
+                width: 100%;
+                height: 100vh;
+                max-width: 100%;
+                border-radius: 0;
+            }
+            
+            .pdf-modal-header {
+                padding: 10px;
+                flex-wrap: wrap;
+            }
+            
+            .pdf-modal-title {
+                font-size: 14px;
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            
+            .pdf-controls {
+                width: 100%;
+                flex-wrap: wrap;
+                gap: 5px;
+                justify-content: center;
+            }
+            
+            .pdf-controls button {
+                padding: 6px 10px;
+                font-size: 12px;
+                flex: 1 1 auto;
+                min-width: 70px;
+            }
+            
+            .pdf-controls .page-info {
+                width: 100%;
+                text-align: center;
+                margin: 5px 0;
+                font-size: 12px;
+            }
+            
+            .pdf-viewer-container {
+                padding: 10px;
+            }
+            
+            .pdf-page {
+                width: 100%;
+                height: auto;
+                margin-bottom: 10px;
+            }
+            
+            .embed-container {
+                height: 400px;
+            }
+            
+            .viewer {
+                padding: 15px;
+            }
+            
+            /* Comments section - smaller fonts for mobile */
+            .comments-section {
+                padding: 20px;
+                margin-top: 20px;
+            }
+            
+            .comments-header h3 {
+                font-size: 16px;
+            }
+            
+            .comment-count {
+                font-size: 12px;
+                padding: 3px 10px;
+            }
+            
+            .comment-form input,
+            .comment-form textarea {
+                font-size: 14px;
+                padding: 8px;
+            }
+            
+            .comment-form button {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+            
+            .comment-item {
+                font-size: 14px;
+            }
+            
+            .comment-author {
+                font-size: 13px;
+            }
+            
+            .comment-date {
+                font-size: 11px;
+            }
+        }
+        
+        .type-icon {
+            font-size: 64px;
+        }
+        
+        /* Comments Section Styles */
+        .comments-section {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 30px;
+            margin-top: 30px;
+            transition: background 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .comments-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .comments-header h3 {
+            color: var(--text-primary);
+            margin: 0;
+            font-size: 20px;
+        }
+        
+        .comment-count {
+            background: var(--purple-medium);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .comment-form {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .comment-form input,
+        .comment-form textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+        
+        .comment-form textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .comment-form button {
+            background: var(--purple-medium);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        .comment-form button:hover {
+            background: var(--purple-dark);
+        }
+        
+        .comment-form button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .comments-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .comment-item {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid var(--purple-medium);
+        }
+        
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .comment-author {
+            font-weight: bold;
+            color: var(--purple-dark);
+        }
+        
+        .comment-date {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+        
+        .comment-text {
+            color: var(--text-primary);
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        
+        .no-comments {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-tertiary);
+            font-style: italic;
+        }
+        
+        .comment-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            border: 1px solid #c3e6cb;
+        }
+        
+        /* Loading indicator */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.3s;
+        }
+        
+        body.dark-mode .loading-overlay {
+            background: rgba(26, 26, 26, 0.95);
+        }
+        
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--purple-medium);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: var(--text-primary);
+            font-size: 18px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading library...</div>
+    </div>
+    
+    <div class="header">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="header-left">
+                <img src="3C Thread To Success logo.png" alt="3C Logo" class="logo-img">
+                <h1>3C Public Library</h1>
+            </div>
+            <div class="header-right">
+                <button onclick="toggleDarkMode()" class="dark-mode-toggle" id="darkModeBtn" title="Toggle Dark Mode">
+                    🌙<span class="btn-text"> Dark Mode</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Debug Panel -->
+    <div id="debugPanel" style="display: none; background: #f8f9fa; border: 2px solid #dee2e6; margin: 20px; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; font-family: sans-serif;">Debug Information</h3>
+            <button onclick="toggleDebug()" style="background: #dc3545; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 18px; line-height: 1;">×</button>
+        </div>
+        <div id="debugContent"></div>
+    </div>
+    
+    <div class="container">
+        <div class="layout">
+            <div class="sidebar" id="sidebar">
+                <h2 id="folderTitle">Select Content</h2>
+                <div class="content-grid" id="contentList"></div>
+            </div>
+            
+            <div class="viewer" id="viewer">
+                <div class="no-content">
+                    <h2>Welcome to 3C Public Library</h2>
+                    <p>Select content from the sidebar to view</p>
+                </div>
+                
+                <!-- Comments Section (appears below content) -->
+                <div class="comments-section" id="commentsSection" style="display: none;">
+                    <div class="comments-header">
+                        <h3>💬 Comments</h3>
+                        <span class="comment-count" id="commentCount">0</span>
+                    </div>
+                    
+                    <!-- Comment Form -->
+                    <div class="comment-form">
+                        <div id="commentSuccessMsg" class="comment-success" style="display: none;">
+                            ✅ Thank you! Your comment has been submitted and is awaiting approval.
+                        </div>
+                        <input type="text" id="commentAuthorName" placeholder="Your Name *" required>
+                        <input type="email" id="commentAuthorEmail" placeholder="Your Email (optional, for notifications)">
+                        <textarea id="commentText" placeholder="Write your comment here... *" required></textarea>
+                        <button onclick="submitComment()" id="submitCommentBtn">Post Comment</button>
+                    </div>
+                    
+                    <!-- Comments List -->
+                    <div class="comments-list" id="commentsList">
+                        <div class="no-comments">No comments yet. Be the first to comment!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PDF Modal -->
+    <div class="pdf-modal" id="pdfModal" onclick="closePDFModal()">
+        <div class="pdf-modal-content" onclick="event.stopPropagation()">
+            <div class="pdf-modal-header">
+                <div class="pdf-modal-title" id="pdfTitle">PDF Viewer</div>
+                <div class="pdf-controls">
+                    <button onclick="changePage(-1)" id="prevPage">Previous</button>
+                    <span class="page-info">
+                        Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
+                    </span>
+                    <button onclick="changePage(1)" id="nextPage">Next</button>
+                    <button onclick="zoomPDF(-0.1)">Zoom -</button>
+                    <button onclick="zoomPDF(0.1)">Zoom +</button>
+                    <button onclick="downloadPDF()" style="background: #28a745; color: white;">📥 Download</button>
+                    <button class="close-modal" onclick="closePDFModal(); event.stopPropagation();">✕ Close</button>
+                </div>
+            </div>
+            
+            <div class="pdf-viewer-container" id="pdfViewerContainer"></div>
+        </div>
+    </div>
+    
+    <script>
+        // PDF.js setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        let library = { folders: [], content: [] };
+        let currentFolder = null;
+        let currentContent = null;
+        let pdfDoc = null;
+        let currentPageNum = 1;
+        let pdfScale = parseFloat(localStorage.getItem('pdfZoomLevel')) || 0.75; // Default 75%, remember user preference
+        let libraryCache = null;
+        let cacheTimestamp = null;
+        const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+        
+        async function loadData() {
+            console.log('📚 Loading library data from Supabase...');
+            
+            // Check cache first
+            const now = Date.now();
+            if (libraryCache && cacheTimestamp && (now - cacheTimestamp) < CACHE_DURATION) {
+                console.log('⚡ Using cached data');
+                library = libraryCache;
+                return;
+            }
+            
+            try {
+                // Initialize Supabase
+                if (!supabaseClient.isConnected) {
+                    await supabaseClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
+                }
+                
+                // Load folders
+                const folders = await supabaseClient.getFolders();
+                library.folders = folders.map(f => ({
+                    id: f.id,
+                    name: f.title,
+                    slug: f.custom_url || f.slug,
+                    customUrl: f.custom_url,
+                    description: f.description,
+                    folderType: f.folder_type,
+                    parentId: f.parent_id,
+                    depth: f.depth || 0,
+                    path: f.path
+                }));
+                
+                // Load all content in parallel for better performance
+                library.content = [];
+                const contentPromises = folders.map(folder => 
+                    supabaseClient.getContentByFolder(folder.id)
+                        .then(content => content.map(c => ({
+                            id: c.id,
+                            folderId: c.folder_id,
+                            title: c.title,
+                            type: c.type,
+                            url: c.url,
+                            slug: c.custom_url || c.slug,
+                            customUrl: c.custom_url,
+                            thumbnail: c.thumbnail_url,
+                            description: c.description,
+                            externalUrl: c.external_url,
+                            project_json: c.project_json  // Include for interactive PDFs
+                        })))
+                );
+                
+                const allContent = await Promise.all(contentPromises);
+                library.content = allContent.flat();
+                
+                // Cache the data
+                libraryCache = library;
+                cacheTimestamp = now;
+                
+                console.log('✅ Library loaded and cached:', library);
+                console.log('Folders:', library.folders.length, 'Content:', library.content.length);
+            } catch (error) {
+                console.error('❌ Error loading data from Supabase:', error);
+                library = { folders: [], content: [] };
+            }
+        }
+        
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                folder: params.get('folder'),
+                content: params.get('content'),
+                view: params.get('view') // 'pdf-only' to hide folder sidebar
+            };
+        }
+        
+        function findFolderBySlug(slug) {
+            return library.folders.find(f => f.slug === slug || f.id === slug);
+        }
+        
+        function findContentBySlug(slug, folderId = null) {
+            if (folderId) {
+                return library.content.find(c => (c.slug === slug || c.id === slug) && c.folderId === folderId);
+            }
+            return library.content.find(c => c.slug === slug || c.id === slug);
+        }
+        
+        function getTypeIcon(type) {
+            const icons = {
+                pdf: '📄',
+                video: '🎥',
+                image: '🖼️',
+                audio: '🎵',
+                other: '📎'
+            };
+            return icons[type] || icons.other;
+        }
+        
+        function displayContent() {
+            const params = getUrlParams();
+            const folderSlug = params.folder;
+            const contentSlug = params.content;
+            const viewMode = params.view;
+            
+            console.log('🔍 displayContent called with params:', { folderSlug, contentSlug, viewMode });
+            console.log('Library state:', { folders: library.folders.length, content: library.content.length });
+            
+            // If view=pdf-only, hide sidebar and folder nav, show only PDF
+            if (viewMode === 'pdf-only' && contentSlug) {
+                document.querySelector('.sidebar').style.display = 'none';
+                document.querySelector('.layout').style.gridTemplateColumns = '1fr';
+                
+                // Hide only the subtitle, keep the header visible
+                const noContentP = document.querySelector('.no-content p');
+                if (noContentP) noContentP.style.display = 'none';
+                
+                // Also hide folder navigation if it exists
+                const folderNav = document.getElementById('folderNav');
+                if (folderNav) folderNav.style.display = 'none';
+                
+                const content = findContentBySlug(contentSlug);
+                if (content) {
+                    showViewer(content, true); // true = pdf-only mode
+                    return;
+                }
+            }
+            
+            // If no folder selected, show all folders
+            if (!folderSlug) {
+                console.log('No folder slug, showing all folders');
+                displayAllFolders();
+                return;
+            }
+            
+            currentFolder = findFolderBySlug(folderSlug);
+            if (!currentFolder) {
+                document.getElementById('contentList').innerHTML = '<p style="color: #999;">Folder not found</p>';
+                let contentArea = document.getElementById('viewerContent');
+                if (!contentArea) {
+                    contentArea = document.createElement('div');
+                    contentArea.id = 'viewerContent';
+                    const viewer = document.getElementById('viewer');
+                    viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
+                }
+                contentArea.innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>';
+                document.getElementById('commentsSection').style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('folderTitle').textContent = currentFolder.name;
+            
+            let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
+            
+            // Sort by order property
+            folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
+            
+            if (folderContent.length === 0) {
+                document.getElementById('contentList').innerHTML = '<p style="color: #999;">No content in this folder</p>';
+                let contentArea = document.getElementById('viewerContent');
+                if (!contentArea) {
+                    contentArea = document.createElement('div');
+                    contentArea.id = 'viewerContent';
+                    const viewer = document.getElementById('viewer');
+                    viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
+                }
+                contentArea.innerHTML = '<div class="no-content"><h2>Empty Folder</h2><p>No content in this folder yet.</p></div>';
+                document.getElementById('commentsSection').style.display = 'none';
+                return;
+            }
+            
+            const html = folderContent.map(item => {
+                let thumbnailAttr = '';
+                let thumbnailContent = '';
+                
+                if (item.thumbnail) {
+                    // Use data-bg for lazy loading - Intersection Observer will load it when visible
+                    thumbnailAttr = `data-bg="${item.thumbnail}"`;
+                    thumbnailContent = '';
+                } else {
+                    thumbnailContent = `<div class="type-icon">${getTypeIcon(item.type)}</div>`;
+                }
+                
+                return `
+                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.slug}')">
+                        <div class="content-thumbnail" ${thumbnailAttr}>${thumbnailContent}</div>
+                        <div class="content-info">
+                            <div class="content-title">${item.title}</div>
+                            <div class="content-type">${item.type.toUpperCase()}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('contentList').innerHTML = html;
+            
+            // Activate lazy loading for thumbnails
+            observeThumbnails();
+            
+            if (contentSlug) {
+                const content = findContentBySlug(contentSlug, currentFolder.id);
+                if (content) showViewer(content);
+            }
+        }
+        
+        // Helper function to get all subfolder IDs recursively
+        function getAllSubfolderIds(folderId) {
+            const subfolderIds = [folderId];
+            const subfolders = library.folders.filter(f => f.parentId === folderId);
+            for (const subfolder of subfolders) {
+                subfolderIds.push(...getAllSubfolderIds(subfolder.id));
+            }
+            return subfolderIds;
+        }
+        
+        // Helper function to count content in folder and all its subfolders
+        function getTotalContentCount(folderId) {
+            const allFolderIds = getAllSubfolderIds(folderId);
+            return library.content.filter(c => allFolderIds.includes(c.folderId)).length;
+        }
+        
+        function displayAllFolders() {
+            console.log('📁 displayAllFolders called, folders:', library.folders);
+            document.getElementById('folderTitle').textContent = 'All Folders';
+            
+            // Hide comments section
+            document.getElementById('commentsSection').style.display = 'none';
+            
+            if (library.folders.length === 0) {
+                console.log('❌ No folders to display');
+                document.getElementById('contentList').innerHTML = '<p style="color: #999;">No folders created yet</p>';
+                let contentArea = document.getElementById('viewerContent');
+                if (!contentArea) {
+                    contentArea = document.createElement('div');
+                    contentArea.id = 'viewerContent';
+                    const viewer = document.getElementById('viewer');
+                    viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
+                }
+                contentArea.innerHTML = '<div class="no-content"><h2>No Folders Yet</h2><p>The library is empty. Check back later!</p></div>';
+                return;
+            }
+            
+            console.log('✅ Displaying', library.folders.length, 'folders');
+            
+            // Build hierarchical folder structure
+            const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0);
+            
+            function renderFolderWithChildren(folder, level = 0) {
+                const subfolders = library.folders.filter(f => f.parentId === folder.id);
+                const hasSubfolders = subfolders.length > 0;
+                const contentCount = getTotalContentCount(folder.id);
+                
+                let itemCount, itemLabel;
+                if (hasSubfolders) {
+                    itemCount = subfolders.length;
+                    itemLabel = itemCount === 1 ? 'FOLDER' : 'FOLDERS';
+                } else {
+                    itemCount = contentCount;
+                    itemLabel = itemCount === 1 ? 'ITEM' : 'ITEMS';
+                }
+                
+                const folderIcon = level > 0 ? '📂' : '📁';
+                const folderTypeLabel = level > 0 ? 'Sub-Root' : 'Root';
+                
+                // Create wrapper for folder and its children
+                let html = `
+                    <div class="folder-group" style="grid-column: 1 / -1; display: contents;">
+                        <div class="content-card folder-card ${level > 0 ? 'subfolder-card' : ''}" 
+                             onclick="openFolder('${folder.slug}')" 
+                             style="${level > 0 ? 'margin-left: ' + (level * 30) + 'px; width: calc(100% - ' + (level * 30) + 'px);' : ''}">
+                            <div class="content-thumbnail">
+                                <div class="type-icon">${folderIcon}</div>
+                            </div>
+                            <div class="content-info">
+                                <div class="content-title">${level > 0 ? '└─ ' : ''}${folder.name}</div>
+                                <div class="content-type">${itemCount} ${itemLabel} • ${folderTypeLabel}</div>
+                            </div>
+                        </div>
+                `;
+                
+                // Recursively render subfolders
+                if (hasSubfolders) {
+                    subfolders.forEach(subfolder => {
+                        html += renderFolderWithChildren(subfolder, level + 1);
+                    });
+                }
+                
+                html += `</div>`;
+                return html;
+            }
+            
+            const html = rootFolders.map(folder => renderFolderWithChildren(folder)).join('');
+            
+            document.getElementById('contentList').innerHTML = html;
+            let contentArea = document.getElementById('viewerContent');
+            if (!contentArea) {
+                contentArea = document.createElement('div');
+                contentArea.id = 'viewerContent';
+                const viewer = document.getElementById('viewer');
+                viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
+            }
+            contentArea.innerHTML = `
+                <div class="no-content">
+                    <h2>Browse Folders</h2>
+                    <p>Select a folder from the sidebar to view its contents</p>
+                </div>
+            `;
+        }
+        
+        function openFolder(folderSlug) {
+            window.location.href = `?folder=${folderSlug}`;
+        }
+        
+        function viewContent(contentSlug) {
+            const params = getUrlParams();
+            window.location.href = `?folder=${params.folder}&content=${contentSlug}`;
+        }
+        
+        function sharePDFLink(contentSlug) {
+            const baseUrl = window.location.origin + window.location.pathname;
+            return `${baseUrl}?content=${contentSlug}&view=pdf-only`;
+        }
+        
+        function showViewer(content, pdfOnlyMode = false) {
+            currentContent = content;
+            
+            // CHECK FOR INTERACTIVE PDF - Redirect to flipbook viewer
+            if (content.type === 'pdf' && content.project_json) {
+                console.log('🎯 Interactive PDF detected! Redirecting to flipbook viewer...');
+                const params = getUrlParams();
+                const folderParam = params.folder ? `&folder=${params.folder}` : '';
+                window.location.href = `flipbook-viewer.html?content=${content.id}${folderParam}`;
+                return;
+            }
+            
+            let viewerHtml = '';
+            
+            // In PDF-only mode, show share button
+            const shareButton = pdfOnlyMode ? '' : `
+                <button onclick="copyShareLink()" 
+                        style="background: #28a745; color: white; border: none; padding: 8px 16px; 
+                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px;">
+                    🔗 Copy PDF Link
+                </button>
+            `;
+            
+            if (content.type === 'pdf') {
+                // Show thumbnail with click to open popup (regular PDF)
+                let thumbnailSrc;
+                if (content.thumbnail) {
+                    thumbnailSrc = content.thumbnail;
+                } else {
+                    // Default PDF icon
+                    thumbnailSrc = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E📄%3C/text%3E%3C/svg%3E';
+                }
+                
+                viewerHtml = `
+                    <div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${content.url.replace(/`/g, '\\`')}\`, \`${content.title.replace(/`/g, '\\`')}\`, \`${content.id}\`)">
+                        <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <div style="font-size: 18px; color: #007bff; font-weight: 600;">
+                            📄 Click to view PDF
+                        </div>
+                    </div>
+                `;
+            } else if (content.type === 'video') {
+                if (content.url.startsWith('data:')) {
+                    viewerHtml = `<video controls style="width: 100%; max-height: 700px;"><source src="${content.url}"></video>`;
+                } else {
+                    viewerHtml = `<iframe src="${content.url}" allowfullscreen></iframe>`;
+                }
+            } else if (content.type === 'image') {
+                viewerHtml = `<img src="${content.url}" style="max-width: 100%; height: auto; border-radius: 4px;">`;
+            } else if (content.type === 'audio') {
+                viewerHtml = `<audio controls style="width: 100%;"><source src="${content.url}"></audio>`;
+            } else {
+                viewerHtml = `<iframe src="${content.url}"></iframe>`;
+            }
+            
+            // Add back button for navigating between content
+            const params = getUrlParams();
+            const backButton = !pdfOnlyMode && params.folder ? `
+                <button onclick="window.location.href='?folder=${params.folder}'" 
+                        style="background: var(--purple-medium); color: white; border: none; padding: 10px 20px; 
+                               border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 14px;">
+                    ← Back to Folder
+                </button>
+            ` : '';
+            
+            // Create or update content area (preserve comments section)
+            let contentArea = document.getElementById('viewerContent');
+            if (!contentArea) {
+                // Create content area if it doesn't exist
+                const viewer = document.getElementById('viewer');
+                contentArea = document.createElement('div');
+                contentArea.id = 'viewerContent';
+                viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
+            }
+            
+            contentArea.innerHTML = `
+                ${backButton}
+                <h2 style="font-size: 18px;">${content.title}${shareButton}</h2>
+                ${content.description ? `<div class="viewer-desc">${content.description}</div>` : ''}
+                <div class="embed-container" style="${content.type === 'pdf' ? 'height: auto; border: none;' : ''}">${viewerHtml}</div>
+            `;
+            
+            // Show and load comments section
+            document.getElementById('commentsSection').style.display = 'block';
+            loadComments(content.id);
+        }
+        
+        function copyShareLink() {
+            if (!currentContent) return;
+            const shareLink = sharePDFLink(currentContent.slug);
+            navigator.clipboard.writeText(shareLink).then(() => {
+                alert('✅ PDF link copied to clipboard!\n\n' + shareLink);
+            }).catch(err => {
+                prompt('Copy this link:', shareLink);
+            });
+        }
+        
+        async function openPDFModal(pdfUrl, title, contentId = null) {
+            document.getElementById('pdfModal').classList.add('active');
+            document.getElementById('pdfTitle').textContent = title;
+            document.getElementById('pdfViewerContainer').innerHTML = '<p style="color: white; text-align: center;">Loading PDF...</p>';
+            
+            try {
+                const loadingTask = pdfjsLib.getDocument(pdfUrl);
+                pdfDoc = await loadingTask.promise;
+                document.getElementById('totalPages').textContent = pdfDoc.numPages;
+                currentPageNum = 1;
+                renderAllPages();
+            } catch (error) {
+                document.getElementById('pdfViewerContainer').innerHTML = '<p style="color: white; text-align: center;">Error loading PDF: ' + error.message + '</p>';
+            }
+        }
+        
+        async function renderAllPages() {
+            const container = document.getElementById('pdfViewerContainer');
+            container.innerHTML = '';
+            
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: pdfScale });
+                
+                const canvas = document.createElement('canvas');
+                canvas.className = 'pdf-page';
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                container.appendChild(canvas);
+                
+                await page.render({
+                    canvasContext: context,
+                    viewport: viewport
+                }).promise;
+            }
+        }
+        
+        function changePage(delta) {
+            const newPage = currentPageNum + delta;
+            if (newPage >= 1 && newPage <= pdfDoc.numPages) {
+                currentPageNum = newPage;
+                document.getElementById('currentPage').textContent = currentPageNum;
+                
+                // Scroll to page
+                const container = document.getElementById('pdfViewerContainer');
+                const pages = container.getElementsByClassName('pdf-page');
+                if (pages[currentPageNum - 1]) {
+                    pages[currentPageNum - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+            
+            updatePageButtons();
+        }
+        
+        function updatePageButtons() {
+            document.getElementById('prevPage').disabled = currentPageNum <= 1;
+            document.getElementById('nextPage').disabled = currentPageNum >= pdfDoc.numPages;
+        }
+        
+        async function zoomPDF(delta) {
+            pdfScale += delta;
+            if (pdfScale < 0.5) pdfScale = 0.5;
+            if (pdfScale > 3) pdfScale = 3;
+            localStorage.setItem('pdfZoomLevel', pdfScale); // Remember zoom preference
+            await renderAllPages();
+        }
+        
+        async function downloadPDF() {
+            if (!pdfDoc) {
+                alert('No PDF is currently loaded');
+                return;
+            }
+            
+            try {
+                const pdfTitle = document.getElementById('pdfTitle').textContent || 'document';
+                console.log('📥 Downloading PDF:', pdfTitle);
+                
+                // Get the PDF data from the loaded document
+                const pdfData = await pdfDoc.getData();
+                
+                // Create a blob from the PDF data
+                const blob = new Blob([pdfData], { type: 'application/pdf' });
+                
+                // Create a download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                
+                // Set filename (sanitize the title)
+                const filename = pdfTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+                a.download = filename;
+                
+                // Trigger download
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                console.log('✅ PDF download initiated:', filename);
+                
+            } catch (error) {
+                console.error('❌ Error downloading PDF:', error);
+                alert('Error downloading PDF: ' + error.message);
+            }
+        }
+        
+        function closePDFModal() {
+            document.getElementById('pdfModal').classList.remove('active');
+            pdfDoc = null;
+        }
+        
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePDFModal();
+        });
+        
+        // Debug functions
+        function toggleDebugWithAuth() {
+            // Check if already authenticated in this session
+            if (sessionStorage.getItem('debugAuth') === 'true') {
+                toggleDebug();
+                return;
+            }
+            
+            // Simple password protection
+            const password = prompt('Enter debug password:');
+            if (password === 'debug3c') {  // Change this password to whatever you want
+                sessionStorage.setItem('debugAuth', 'true');
+                toggleDebug();
+            } else if (password !== null) {
+                alert('Incorrect password');
+            }
+        }
+        
+        function toggleDebug() {
+            const panel = document.getElementById('debugPanel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                updateDebugInfo();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+        
+        function updateDebugInfo() {
+            const params = getUrlParams();
+            const debugDiv = document.getElementById('debugContent');
+            
+            let html = '<div style="line-height: 1.8;">';
+            
+            // localStorage status
+            html += '<strong>📦 localStorage Status:</strong><br>';
+            const saved = localStorage.getItem('3c-library-data');
+            if (saved) {
+                html += `✅ Data found (${(saved.length / 1024).toFixed(2)} KB)<br><br>`;
+            } else {
+                html += '❌ No data found in localStorage<br><br>';
+            }
+            
+            // Library data
+            html += '<strong>📚 Library Data:</strong><br>';
+            html += `Folders: ${library.folders.length}<br>`;
+            html += `Content Items: ${library.content.length}<br><br>`;
+            
+            // URL parameters
+            html += '<strong>🔗 URL Parameters:</strong><br>';
+            html += `Folder ID: ${params.folder || '(none - showing all folders)'}<br>`;
+            html += `Content ID: ${params.content || '(none)'}<br><br>`;
+            
+            // Folders list
+            if (library.folders.length > 0) {
+                html += '<strong>📁 Folders:</strong><br>';
+                library.folders.forEach(folder => {
+                    const contentCount = library.content.filter(c => c.folderId === folder.id).length;
+                    html += `• ${folder.name} (ID: ${folder.id}, ${contentCount} items)<br>`;
+                });
+                html += '<br>';
+            }
+            
+            // Content list
+            if (library.content.length > 0) {
+                html += '<strong>📄 Content:</strong><br>';
+                library.content.forEach(content => {
+                    const folder = library.folders.find(f => f.id === content.folderId);
+                    html += `• ${content.title} (${content.type}) in "${folder ? folder.name : 'Unknown'}"<br>`;
+                    html += `  ID: ${content.id}<br>`;
+                    html += `  Has URL: ${!!content.url}<br>`;
+                    html += `  Has Thumbnail: ${!!content.thumbnail}<br>`;
+                });
+            }
+            
+            html += '</div>';
+            debugDiv.innerHTML = html;
+        }
+        
+        // ==================== COMMENTS FUNCTIONS ====================
+        
+        /**
+         * Load comments for current content
+         */
+        async function loadComments(contentId) {
+            try {
+                console.log('📝 Loading comments for content:', contentId);
+                const comments = await supabaseClient.getComments(contentId, 'public');
+                const count = comments.length;
+                
+                // Update count
+                document.getElementById('commentCount').textContent = count;
+                
+                // Display comments
+                const commentsList = document.getElementById('commentsList');
+                if (count === 0) {
+                    commentsList.innerHTML = '<div class="no-comments">No comments yet. Be the first to comment!</div>';
+                } else {
+                    commentsList.innerHTML = comments.map(comment => `
+                        <div class="comment-item">
+                            <div class="comment-header">
+                                <span class="comment-author">${escapeHtml(comment.author_name)}</span>
+                                <span class="comment-date">${formatDate(comment.created_at)}</span>
+                            </div>
+                            <div class="comment-text">${escapeHtml(comment.comment_text)}</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('❌ Error loading comments:', error);
+                document.getElementById('commentsList').innerHTML = '<div class="no-comments">Error loading comments.</div>';
+            }
+        }
+        
+        /**
+         * Submit a new comment
+         */
+        async function submitComment() {
+            const authorName = document.getElementById('commentAuthorName').value.trim();
+            const authorEmail = document.getElementById('commentAuthorEmail').value.trim();
+            const commentText = document.getElementById('commentText').value.trim();
+            const submitBtn = document.getElementById('submitCommentBtn');
+            
+            // Validation
+            if (!authorName || !commentText) {
+                alert('Please fill in your name and comment.');
+                return;
+            }
+            
+            if (!currentContent || !currentContent.id) {
+                alert('No content selected for commenting.');
+                return;
+            }
+            
+            try {
+                // Disable button
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Posting...';
+                
+                // Submit comment
+                await supabaseClient.addComment(
+                    currentContent.id,
+                    'public',
+                    authorName,
+                    commentText,
+                    authorEmail || null
+                );
+                
+                // Show success message
+                document.getElementById('commentSuccessMsg').style.display = 'block';
+                
+                // Clear form
+                document.getElementById('commentAuthorName').value = '';
+                document.getElementById('commentAuthorEmail').value = '';
+                document.getElementById('commentText').value = '';
+                
+                // Hide success message after 5 seconds
+                setTimeout(() => {
+                    document.getElementById('commentSuccessMsg').style.display = 'none';
+                }, 5000);
+                
+                console.log('✅ Comment submitted successfully');
+            } catch (error) {
+                console.error('❌ Error submitting comment:', error);
+                const errorMsg = error.message || error.toString();
+                alert('Error submitting comment: ' + errorMsg + '\n\nPlease try again or contact support.');
+            } finally {
+                // Re-enable button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Post Comment';
+            }
+        }
+        
+        /**
+         * Escape HTML to prevent XSS
+         */
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        /**
+         * Format date for display
+         */
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+            if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+            
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+        
+        // Dark mode toggle
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            const btn = document.getElementById('darkModeBtn');
+            
+            if (isDark) {
+                btn.innerHTML = '☀️ Light Mode';
+                localStorage.setItem('darkMode', 'enabled');
+            } else {
+                btn.innerHTML = '🌙 Dark Mode';
+                localStorage.setItem('darkMode', 'disabled');
+            }
+        }
+        
+        // Load dark mode preference
+        function loadDarkModePreference() {
+            const darkMode = localStorage.getItem('darkMode');
+            if (darkMode === 'enabled') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('darkModeBtn').innerHTML = '☀️ Light Mode';
+            }
+        }
+        
+        loadDarkModePreference();
+        
+        // Lazy load thumbnails using Intersection Observer for better performance
+        let thumbnailObserver;
+        function initLazyLoading() {
+            if ('IntersectionObserver' in window) {
+                thumbnailObserver = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const thumbnail = entry.target;
+                            const bgImage = thumbnail.getAttribute('data-bg');
+                            if (bgImage) {
+                                thumbnail.style.backgroundImage = `url('${bgImage}')`;
+                                thumbnail.removeAttribute('data-bg');
+                                thumbnailObserver.unobserve(thumbnail);
+                            }
+                        }
+                    });
+                }, {
+                    rootMargin: '50px' // Start loading 50px before element is visible
+                });
+            }
+        }
+        
+        function observeThumbnails() {
+            if (thumbnailObserver) {
+                document.querySelectorAll('.content-thumbnail[data-bg]').forEach(thumbnail => {
+                    thumbnailObserver.observe(thumbnail);
+                });
+            }
+        }
+        
+        // Initialize lazy loading
+        initLazyLoading();
+        
+        // Load data and display content
+        (async () => {
+            try {
+                await loadData();
+                displayContent();
+            } catch (error) {
+                console.error('Failed to load library:', error);
+                document.getElementById('loadingOverlay').innerHTML = `
+                    <div style="text-align: center; color: var(--text-primary);">
+                        <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                        <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">Failed to load library</div>
+                        <div style="font-size: 14px; color: var(--text-secondary);">Please refresh the page to try again</div>
+                    </div>
+                `;
+                return;
+            } finally {
+                // Hide loading overlay with fade effect
+                setTimeout(() => {
+                    const overlay = document.getElementById('loadingOverlay');
+                    overlay.classList.add('hidden');
+                    // Remove from DOM after animation
+                    setTimeout(() => overlay.remove(), 300);
+                }, 100);
+            }
+        })();
+    </script>
+</body>
+</html>

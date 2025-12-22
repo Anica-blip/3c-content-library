@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3C Flipbook Viewer</title>
+    <link rel="icon" type="image/png" href="favicon1.png">
+    
+    <!-- jQuery (required for turn.js) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Turn.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
+    
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="supabase-client.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #toolbar {
+            background: rgba(42, 42, 42, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            height: 60px;
+        }
+
+        #toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #toolbar-center {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn {
+            background: rgba(139, 92, 246, 0.2);
+            color: white;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background: rgba(139, 92, 246, 0.3);
+            border-color: rgba(139, 92, 246, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.5;
+        }
+
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .btn-back {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            border: none;
+        }
+
+        .btn-back:hover {
+            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+        }
+
+        #page-info {
+            color: #aaa;
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 120px;
+            text-align: center;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        #toolbar-left h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #8b5cf6;
+        }
+
+        #flipbook-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            position: relative;
+            perspective: 2000px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        #flipbook-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100%;
+        }
+
+        #flipbook {
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            position: relative;
+        }
+
+        .page {
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .page-number {
+            position: absolute;
+            bottom: 15px;
+            right: 20px;
+            color: #666;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* Interactive Elements Overlay */
+        .interactive-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .interactive-element {
+            position: absolute;
+            pointer-events: all;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .interactive-element:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        /* Video/Media Overlay */
+        #media-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        }
+
+        #media-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #media-container {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        #media-player-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 1200px;
+            aspect-ratio: 16/9;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #media-player-wrapper iframe,
+        #media-player-wrapper video,
+        #media-player-wrapper audio,
+        #media-player-wrapper img {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        #close-media {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 50px;
+            height: 50px;
+            background: #ff4757;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 10000;
+        }
+
+        #close-media:hover {
+            background: #ff3838;
+            transform: rotate(90deg) scale(1.1);
+        }
+
+        #media-title {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 4px solid rgba(139, 92, 246, 0.2);
+            border-top: 4px solid #8b5cf6;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        #loading.hidden {
+            display: none;
+        }
+
+        #loading p {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #aaa;
+        }
+
+        /* Zoom level */
+        #zoom-level {
+            color: #aaa;
+            font-size: 13px;
+            min-width: 50px;
+            text-align: center;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        /* Scrollbar styling */
+        #flipbook-container::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        #flipbook-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        #flipbook-container::-webkit-scrollbar-thumb {
+            background: rgba(139, 92, 246, 0.3);
+            border-radius: 6px;
+        }
+
+        #flipbook-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(139, 92, 246, 0.5);
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            #toolbar {
+                flex-wrap: wrap;
+                height: auto;
+                padding: 8px 10px;
+            }
+
+            #toolbar-left h2 {
+                font-size: 14px;
+            }
+
+            .btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .btn-icon {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+            }
+
+            #page-info {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+
+            #zoom-level {
+                font-size: 11px;
+                padding: 6px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Toolbar -->
+    <div id="toolbar">
+        <div id="toolbar-left">
+            <h2>📖 3C Interactive Flipbook</h2>
+        </div>
+        
+        <div id="toolbar-center">
+            <button id="first-page" class="btn btn-icon" title="First Page">⏮</button>
+            <button id="prev-page" class="btn btn-icon" title="Previous Page">◀</button>
+            <span id="page-info">Page <span id="current-page">1</span> of <span id="total-pages">1</span></span>
+            <button id="next-page" class="btn btn-icon" title="Next Page">▶</button>
+            <button id="last-page" class="btn btn-icon" title="Last Page">⏭</button>
+        </div>
+        
+        <div id="toolbar-right">
+            <button class="btn btn-back" id="back-btn">
+                <span>←</span>
+                <span>Back to Library</span>
+            </button>
+            <button class="btn btn-icon" id="zoom-out" title="Zoom Out">−</button>
+            <span id="zoom-level">100%</span>
+            <button class="btn btn-icon" id="zoom-in" title="Zoom In">+</button>
+        </div>
+    </div>
+
+    <!-- Flipbook Container -->
+    <div id="flipbook-container">
+        <div id="flipbook-wrapper">
+            <div id="flipbook"></div>
+        </div>
+    </div>
+
+    <!-- Media Overlay -->
+    <div id="media-overlay">
+        <div id="media-container">
+            <button id="close-media">✕</button>
+            <div id="media-title"></div>
+            <div id="media-player-wrapper"></div>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Loading flipbook...</p>
+    </div>
+
+    <script src="flipbook-viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3C Admin Panel - Enhanced</title>
+    <link rel="icon" type="image/png" href="favicon1.png">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="r2-storage.js"></script>
+    <script src="supabase-client.js"></script>
+    <link rel="stylesheet" href="admin-styles.css">
+</head>
+<body>
+    <div class="header">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <img src="3C Thread To Success logo.png" alt="3C Logo" style="height: 50px; width: auto;">
+            <h1>3C Admin Panel</h1>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <a href="library.html" target="_blank" style="background: #28a745; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-size: 14px; font-weight: 500;">
+                🌐 View Public Library
+            </a>
+        </div>
+    </div>
+
+
+    <div class="container">
+        <!-- Stats Section -->
+        <div class="section">
+            <h2>📊 Dashboard Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="statFolders">0</div>
+                    <div class="stat-label">Folders</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statContent">0</div>
+                    <div class="stat-label">Content Items</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statViews">0</div>
+                    <div class="stat-label">Total Views</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Supabase Connection -->
+        <div class="section">
+            <h2>☁️ Supabase Connection</h2>
+            <div id="connectionAlert"></div>
+            <div class="two-column">
+                <div class="form-group">
+                    <label>Supabase URL</label>
+                    <input type="url" id="supabaseUrl" placeholder="https://xxxxx.supabase.co">
+                </div>
+                <div class="form-group">
+                    <label>Supabase Anon Key</label>
+                    <input type="text" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+                </div>
+            </div>
+            <button onclick="connectSupabase()">
+                <span class="status-indicator" id="connectionStatus"></span>
+                Connect
+            </button>
+            <button class="secondary" onclick="testConnection()">Test Connection</button>
+        </div>
+
+        <!-- Create Folder -->
+        <div class="section">
+            <h2>📁 Create New Folder</h2>
+            <div class="form-group">
+                <label>Folder Type *</label>
+                <select id="folderType" onchange="updateFolderTypeUI()">
+                    <option value="root">Root Folder</option>
+                    <option value="sub_root">Sub-Root Folder (requires parent)</option>
+                </select>
+                <small>Root folders are top-level. Sub-root folders are nested under a root folder.</small>
+            </div>
+            <div class="form-group" id="parentFolderGroup" style="display: none;">
+                <label>Parent Folder *</label>
+                <select id="parentFolder">
+                    <option value="">-- Select Parent Folder --</option>
+                </select>
+                <small>Select the root folder this sub-folder belongs to.</small>
+            </div>
+            <div class="form-group">
+                <label>Folder Title *</label>
+                <input type="text" id="folderTitle" placeholder="e.g., Aurion - Goal Setting" oninput="suggestCustomURL()">
+                <small>Display name for the folder</small>
+            </div>
+            <div class="form-group">
+                <label>Custom URL (Optional)</label>
+                <input type="text" id="folderCustomURL" placeholder="e.g., aurion_goal or aurion_goal_sub.01">
+                <small id="urlPreview" style="color: #007bff; font-weight: 600;">URL: (will be auto-generated)</small>
+                <small>Leave empty for auto-generation. For root: aurion_goal. For sub-root: aurion_goal_sub.01</small>
+            </div>
+            <div class="form-group">
+                <label>Table Name (Technical) *</label>
+                <input type="text" id="folderTableName" placeholder="e.g., anica_chats">
+                <small>Simple name for database organization (lowercase, underscores only). Example: anica_chats, tutorials, reference</small>
+            </div>
+            <div class="form-group">
+                <label>Visibility *</label>
+                <select id="folderVisibility">
+                    <option value="public">Public (Anyone can view)</option>
+                    <option value="private">Private (Requires password/auth - for courses)</option>
+                </select>
+                <small>Public content goes to content_public table, Private goes to content_private table</small>
+            </div>
+            <div class="form-group">
+                <label>Description (Optional)</label>
+                <textarea id="folderDescription" placeholder="Brief description of this folder"></textarea>
+            </div>
+            <button onclick="createFolder()">Create Folder</button>
+        </div>
+
+        <!-- Add/Edit Content -->
+        <div class="section">
+            <h2 id="contentFormTitle">➕ Add Content</h2>
+            <form id="contentForm" onsubmit="saveContent(event)">
+                <input type="hidden" id="contentId">
+                <input type="hidden" id="editMode" value="false">
+                
+                <div class="form-group">
+                    <label>Select Folder *</label>
+                    <select id="contentFolder" required>
+                        <option value="">-- Select a folder --</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Content Title *</label>
+                    <input type="text" id="contentTitle" placeholder="e.g., Q4 Report" required oninput="suggestContentURL()">
+                </div>
+                
+                <div class="form-group">
+                    <label>Custom URL (Optional)</label>
+                    <input type="text" id="contentCustomURL" placeholder="e.g., aurion_goal_sub.01_report.01">
+                    <small id="contentUrlPreview" style="color: #007bff; font-weight: 600;">URL: (will be auto-generated)</small>
+                    <small>Leave empty for auto-generation. Format: folder_url_content.01</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Content Type *</label>
+                    <select id="contentType" required>
+                        <option value="pdf">PDF Document</option>
+                        <option value="video">Video</option>
+                        <option value="image">Image</option>
+                        <option value="audio">Audio</option>
+                        <option value="link">External Link</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; border: 3px solid #764ba2;">
+                    <label style="color: white; font-size: 16px; font-weight: bold;">📁 R2 File URL (Recommended) *</label>
+                    <input type="url" id="contentUrl" placeholder="https://files.3c-public-library.org/interactive-pdfs/flipbooks/courses/level-1/my-course-v1.0.pdf" style="font-size: 14px; padding: 10px;">
+                    <small style="color: #e0e7ff; display: block; margin-top: 8px;">
+                        ✅ <strong>Use this for PDFs generated from Interactive PDF Builder</strong><br>
+                        📋 Paste the URL from your R2 bucket or after generating PDF<br>
+                        🔒 Files stay in R2 - secure and fast access
+                    </small>
+                    <small style="color: #fbbf24; display: block; margin-top: 8px;">
+                        💡 <strong>Examples:</strong><br>
+                        • PDF: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">https://files.3c-public-library.org/interactive-pdfs/flipbooks/...</code><br>
+                        • Video: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">https://files.3c-public-library.org/videos/...</code><br>
+                        • Image: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">https://files.3c-public-library.org/images/...</code>
+                    </small>
+                </div>
+                
+                <div style="text-align: center; margin: 15px 0;">
+                    <details style="color: #999; cursor: pointer;">
+                        <summary style="font-weight: 600; padding: 8px;">📤 Or Upload File Manually (Legacy Method)</summary>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label>Upload File</label>
+                            <div class="upload-area" id="uploadArea">
+                                <p>Drag & drop file here or click to browse</p>
+                                <input type="file" id="fileUpload" style="display: none;">
+                                <button type="button" onclick="document.getElementById('fileUpload').click()">Choose File</button>
+                                <div class="file-info" id="fileInfo"></div>
+                            </div>
+                            <small style="color: #f59e0b;">⚠️ Files will be uploaded to R2 automatically. Consider using direct R2 URL instead.</small>
+                        </div>
+                    </details>
+                </div>
+                
+                <div class="form-group">
+                    <label>Tech/Reference URL (Optional)</label>
+                    <input type="url" id="externalUrl" placeholder="https://example.com/reference">
+                    <small>Additional URL for external resources, documentation, etc.</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Thumbnail Image (Optional)</label>
+                    <input type="file" id="thumbnailUpload" accept="image/*" onchange="previewThumbnail(event)">
+                    <img id="thumbnailPreview" class="preview-image" style="display: none;">
+                    <small>If not provided, GitHub Actions will auto-generate screenshot for external URLs</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <textarea id="contentDescription" placeholder="Brief description"></textarea>
+                </div>
+                
+                <button type="submit" id="saveButton">💾 Save Content</button>
+                <button type="button" class="secondary" onclick="resetContentForm()">Cancel</button>
+            </form>
+        </div>
+
+        <!-- Manage Folders & Content (Combined) -->
+        <div class="section">
+            <h2>📂 Manage Folders & Content</h2>
+            <p style="color: #666; margin-bottom: 15px;">Click on a folder to expand and view its content. All PDFs and flipbooks are organized within their folders.</p>
+            <div id="folderContentList">
+                <p style="color: #999;">Loading folders...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Folder Modal -->
+    <div class="modal" id="editFolderModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ Edit Folder</h2>
+                <button class="modal-close" onclick="closeEditFolderModal()">×</button>
+            </div>
+            <input type="hidden" id="editFolderId">
+            
+            <div class="form-group">
+                <label>Folder Title *</label>
+                <input type="text" id="editFolderTitle" oninput="suggestEditCustomURL()">
+            </div>
+            
+            <div class="form-group">
+                <label>Folder Type *</label>
+                <select id="editFolderType" onchange="updateEditFolderTypeUI()">
+                    <option value="root">Root Folder</option>
+                    <option value="sub_root">Sub-Root Folder (requires parent)</option>
+                </select>
+                <small>Root folders are top-level. Sub-root folders are nested under a root folder.</small>
+            </div>
+            
+            <div class="form-group" id="editParentFolderGroup" style="display: none;">
+                <label>Parent Folder *</label>
+                <select id="editParentFolder" onchange="suggestEditCustomURL()">
+                    <option value="">-- Select Parent Folder --</option>
+                </select>
+                <small>Select the root folder this sub-folder belongs to.</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Custom URL (Optional)</label>
+                <input type="text" id="editFolderCustomURL" oninput="updateEditURLPreview()">
+                <small id="editUrlPreview" style="color: #007bff; font-weight: 600;">URL: (will be auto-generated)</small>
+                <small>Leave empty for auto-generation. For root: aurion_goal. For sub-root: aurion_goal_sub.01</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Table Name *</label>
+                <input type="text" id="editFolderTableName">
+                <small>Short identifier for database table (e.g., aurion_goal, anica_chats)</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="editFolderDescription"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="editFolderPublic" checked>
+                    Public (visible to all users)
+                </label>
+            </div>
+            
+            <button onclick="updateFolder()">💾 Update Folder</button>
+            <button class="secondary" onclick="closeEditFolderModal()">Cancel</button>
+        </div>
+    </div>
+
+    <script src="admin-core.js"></script>
+</body>
+</html>

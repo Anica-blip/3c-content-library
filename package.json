@@ -1,0 +1,22 @@
+{
+	"name": "3c-library-api",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev",
+		"screenshot": "node .github/scripts/generate-screenshots.js"
+	},
+	"dependencies": {
+		"puppeteer": "^21.11.0",
+		"@supabase/supabase-js": "^2.45.0",
+		"aws-sdk": "^2.1691.0"
+	},
+	"devDependencies": {
+		"wrangler": "^4.46.0"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	}
+}

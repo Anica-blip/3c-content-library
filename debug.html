@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - 3C Library</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 { color: #333; margin-bottom: 20px; }
+        h2 { color: #555; margin-top: 30px; margin-bottom: 10px; }
+        pre {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>3C Library Debug Tool</h1>
+        
+        <div class="info">
+            This page shows what's stored in your browser's localStorage for the 3C Library.
+        </div>
+        
+        <h2>Raw Data</h2>
+        <pre id="rawData"></pre>
+        
+        <h2>Folders</h2>
+        <pre id="folders"></pre>
+        
+        <h2>Content</h2>
+        <pre id="content"></pre>
+        
+        <button onclick="clearData()">Clear All Data (Reset Library)</button>
+    </div>
+    
+    <script>
+        function loadDebugInfo() {
+            const saved = localStorage.getItem('3c-library-data');
+            
+            if (!saved) {
+                document.getElementById('rawData').textContent = 'No data found in localStorage';
+                document.getElementById('folders').textContent = 'No folders';
+                document.getElementById('content').textContent = 'No content';
+                return;
+            }
+            
+            document.getElementById('rawData').textContent = saved;
+            
+            try {
+                const library = JSON.parse(saved);
+                
+                if (library.folders && library.folders.length > 0) {
+                    document.getElementById('folders').textContent = JSON.stringify(library.folders, null, 2);
+                } else {
+                    document.getElementById('folders').textContent = 'No folders found';
+                }
+                
+                if (library.content && library.content.length > 0) {
+                    // Don't show full base64 data, just metadata
+                    const contentSummary = library.content.map(c => ({
+                        id: c.id,
+                        folderId: c.folderId,
+                        title: c.title,
+                        type: c.type,
+                        hasUrl: !!c.url,
+                        urlLength: c.url ? c.url.length : 0,
+                        hasThumbnail: !!c.thumbnail,
+                        description: c.description
+                    }));
+                    document.getElementById('content').textContent = JSON.stringify(contentSummary, null, 2);
+                } else {
+                    document.getElementById('content').textContent = 'No content found';
+                }
+            } catch (err) {
+                document.getElementById('rawData').textContent += '\n\nERROR: ' + err.message;
+            }
+        }
+        
+        function clearData() {
+            if (confirm('This will delete ALL library data. Are you sure?')) {
+                localStorage.removeItem('3c-library-data');
+                alert('Data cleared! Refresh the page.');
+                location.reload();
+            }
+        }
+        
+        loadDebugInfo();
+    </script>
+</body>
+</html>
