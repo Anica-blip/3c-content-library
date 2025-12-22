@@ -215,6 +215,23 @@ button.delete:hover {
 .folder-actions button {
     padding: 6px 12px;
     font-size: 12px;
+    background: rgba(167, 139, 250, 0.2) !important;
+    border-color: rgba(167, 139, 250, 0.3) !important;
+}
+
+.folder-actions button:hover {
+    background: rgba(167, 139, 250, 0.3) !important;
+    border-color: rgba(167, 139, 250, 0.5) !important;
+}
+
+.folder-actions button.delete {
+    background: rgba(239, 68, 68, 0.2) !important;
+    border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.folder-actions button.delete:hover {
+    background: rgba(239, 68, 68, 0.3) !important;
+    border-color: rgba(239, 68, 68, 0.5) !important;
 }
 
 .folder-content {
@@ -284,6 +301,23 @@ button.delete:hover {
     padding: 5px 10px;
     font-size: 11px;
     min-width: auto;
+    background: rgba(167, 139, 250, 0.2) !important;
+    border-color: rgba(167, 139, 250, 0.3) !important;
+}
+
+.content-actions button:hover {
+    background: rgba(167, 139, 250, 0.3) !important;
+    border-color: rgba(167, 139, 250, 0.5) !important;
+}
+
+.content-actions button.delete {
+    background: rgba(239, 68, 68, 0.2) !important;
+    border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.content-actions button.delete:hover {
+    background: rgba(239, 68, 68, 0.3) !important;
+    border-color: rgba(239, 68, 68, 0.5) !important;
 }
 
 .debug-panel {
