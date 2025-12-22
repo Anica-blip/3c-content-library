@@ -162,16 +162,25 @@ async function loadAllData() {
 async function loadStats() {
     try {
         const stats = await supabaseClient.getStats();
-        document.getElementById('statFolders').textContent = stats.totalFolders;
-        document.getElementById('statContent').textContent = stats.totalContent;
-        document.getElementById('statViews').textContent = stats.totalViews;
+        const statFolders = document.getElementById('statFolders');
+        const statContent = document.getElementById('statContent');
+        const statViews = document.getElementById('statViews');
+        
+        if (statFolders) statFolders.textContent = stats.totalFolders;
+        if (statContent) statContent.textContent = stats.totalContent;
+        if (statViews) statViews.textContent = stats.totalViews;
     } catch (error) {
         debugLog('Error loading stats: ' + error.message);
     }
 }
 
 async function loadContent() {
-    const filterFolderId = document.getElementById('filterFolder').value;
+    const filterFolderElement = document.getElementById('filterFolder');
+    if (!filterFolderElement) {
+        console.warn('filterFolder element not found');
+        return;
+    }
+    const filterFolderId = filterFolderElement.value;
     
     try {
         if (filterFolderId) {
