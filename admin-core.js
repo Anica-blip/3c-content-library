@@ -36,12 +36,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupFileHandlers();
         
         // Try to connect if credentials exist
-        const url = document.getElementById('supabaseUrl').value;
-        const key = document.getElementById('supabaseKey').value;
+        const urlInput = document.getElementById('supabaseUrl');
+        const keyInput = document.getElementById('supabaseKey');
         
-        if (url && key) {
-            console.log('Auto-connecting with saved credentials...');
-            await connectSupabase();
+        if (urlInput && keyInput) {
+            const url = urlInput.value;
+            const key = keyInput.value;
+            
+            if (url && key) {
+                console.log('Auto-connecting with saved credentials...');
+                await connectSupabase();
+            }
         }
         
         console.log('✅ Admin panel initialized');
@@ -56,8 +61,11 @@ function loadSupabaseCredentials() {
     const url = localStorage.getItem('supabase_url') || '';
     const key = localStorage.getItem('supabase_key') || '';
     
-    document.getElementById('supabaseUrl').value = url;
-    document.getElementById('supabaseKey').value = key;
+    const urlInput = document.getElementById('supabaseUrl');
+    const keyInput = document.getElementById('supabaseKey');
+    
+    if (urlInput) urlInput.value = url;
+    if (keyInput) keyInput.value = key;
 }
 
 function saveSupabaseCredentials(url, key) {

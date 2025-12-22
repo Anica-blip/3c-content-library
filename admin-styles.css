@@ -488,6 +488,16 @@ button.delete:hover {
     border-color: rgba(150, 150, 150, 0.5);
 }
 
+/* Collapsible section styling */
+details summary span {
+    display: inline-block;
+    transition: transform 0.2s;
+}
+
+details[open] summary span {
+    transform: rotate(90deg);
+}
+
 @media (max-width: 768px) {
     .two-column {
         grid-template-columns: 1fr;

@@ -14,8 +14,11 @@
 <body>
     <div class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
-            <img src="3C Thread To Success logo.png" alt="3C Logo" style="height: 50px; width: auto;">
-            <h1>3C Admin Panel</h1>
+            <img src="3C Thread To Success logo.png" alt="3C Logo" style="height: 50px; width: 50px; border-radius: 50%; object-fit: cover; background: white; padding: 4px; box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);">
+            <div>
+                <h1 style="color: #a78bfa; margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.5px;">3C Content Library</h1>
+                <p style="color: #808080; margin: 0; font-size: 12px; margin-top: 2px;">Admin Editing Panel</p>
+            </div>
         </div>
         <div style="display: flex; gap: 10px;">
             <a href="library.html" target="_blank" style="background: rgba(139, 92, 246, 0.2); color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 500; border: 1px solid rgba(139, 92, 246, 0.3); transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.background='rgba(139, 92, 246, 0.3)'; this.style.borderColor='rgba(139, 92, 246, 0.5)'; this.style.transform='translateY(-1px)';" onmouseout="this.style.background='rgba(139, 92, 246, 0.2)'; this.style.borderColor='rgba(139, 92, 246, 0.3)'; this.style.transform='translateY(0)';">
@@ -68,7 +71,11 @@
 
         <!-- Create Folder -->
         <div class="section">
-            <h2>📁 Create New Folder</h2>
+            <details open>
+                <summary style="cursor: pointer; font-size: 18px; font-weight: 600; color: #a78bfa; margin-bottom: 20px; list-style: none; display: flex; align-items: center; gap: 8px;">
+                    <span style="transition: transform 0.2s;">▶</span> 📁 Create New Folder
+                </summary>
+                <div style="padding-left: 0;">
             <div class="form-group">
                 <label>Folder Type *</label>
                 <select id="folderType" onchange="updateFolderTypeUI()">
@@ -113,11 +120,13 @@
                 <textarea id="folderDescription" placeholder="Brief description of this folder"></textarea>
             </div>
             <button onclick="createFolder()">Create Folder</button>
+                </div>
+            </details>
         </div>
 
         <!-- Add/Edit Content -->
         <div class="section">
-            <h2 id="contentFormTitle">➕ Add Content</h2>
+            <h2 id="contentFormTitle" style="color: #a78bfa;">➕ Add PDF/Flipbook</h2>
             <form id="contentForm" onsubmit="saveContent(event)">
                 <input type="hidden" id="contentId">
                 <input type="hidden" id="editMode" value="false">
@@ -162,16 +171,16 @@
                 
                 <div style="text-align: center; margin: 15px 0;">
                     <details style="color: #999; cursor: pointer;">
-                        <summary style="font-weight: 600; padding: 8px;">📤 Or Upload File Manually (Legacy Method)</summary>
+                        <summary style="font-weight: 600; padding: 8px;">📤 Or Upload File Manually</summary>
                         <div class="form-group" style="margin-top: 10px;">
-                            <label>Upload File</label>
+                            <label>Upload File (PDF, Video, Image, Audio, or JSON)</label>
                             <div class="upload-area" id="uploadArea">
                                 <p>Drag & drop file here or click to browse</p>
-                                <input type="file" id="fileUpload" style="display: none;">
+                                <input type="file" id="fileUpload" accept=".pdf,.mp4,.mp3,.jpg,.jpeg,.png,.gif,.json" style="display: none;">
                                 <button type="button" onclick="document.getElementById('fileUpload').click()">Choose File</button>
                                 <div class="file-info" id="fileInfo"></div>
                             </div>
-                            <small style="color: #f59e0b;">⚠️ Files will be uploaded to R2 automatically. Consider using direct R2 URL instead.</small>
+                            <small>Supports PDF, videos, images, audio, and JSON files for flipbook configuration.</small>
                         </div>
                     </details>
                 </div>
