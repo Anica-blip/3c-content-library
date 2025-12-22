@@ -700,6 +700,11 @@ function displayContent() {
 function displayFoldersWithContent() {
     const container = document.getElementById('folderContentList');
     
+    if (!container) {
+        console.error('folderContentList container not found');
+        return;
+    }
+    
     if (folders.length === 0) {
         container.innerHTML = '<p style="color: #999;">No folders created yet. Create a folder above to get started.</p>';
         return;

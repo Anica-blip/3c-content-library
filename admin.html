@@ -18,7 +18,7 @@
             <h1>3C Admin Panel</h1>
         </div>
         <div style="display: flex; gap: 10px;">
-            <a href="library.html" target="_blank" style="background: #28a745; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-size: 14px; font-weight: 500;">
+            <a href="library.html" target="_blank" style="background: rgba(139, 92, 246, 0.2); color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 500; border: 1px solid rgba(139, 92, 246, 0.3); transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.background='rgba(139, 92, 246, 0.3)'; this.style.borderColor='rgba(139, 92, 246, 0.5)'; this.style.transform='translateY(-1px)';" onmouseout="this.style.background='rgba(139, 92, 246, 0.2)'; this.style.borderColor='rgba(139, 92, 246, 0.3)'; this.style.transform='translateY(0)';">
                 🌐 View Public Library
             </a>
         </div>
@@ -152,19 +152,11 @@
                     </select>
                 </div>
                 
-                <div class="form-group" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; border: 3px solid #764ba2;">
-                    <label style="color: white; font-size: 16px; font-weight: bold;">📁 R2 File URL (Recommended) *</label>
-                    <input type="url" id="contentUrl" placeholder="https://files.3c-public-library.org/interactive-pdfs/flipbooks/courses/level-1/my-course-v1.0.pdf" style="font-size: 14px; padding: 10px;">
-                    <small style="color: #e0e7ff; display: block; margin-top: 8px;">
-                        ✅ <strong>Use this for PDFs generated from Interactive PDF Builder</strong><br>
-                        📋 Paste the URL from your R2 bucket or after generating PDF<br>
-                        🔒 Files stay in R2 - secure and fast access
-                    </small>
-                    <small style="color: #fbbf24; display: block; margin-top: 8px;">
-                        💡 <strong>Examples:</strong><br>
-                        • PDF: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">https://files.3c-public-library.org/interactive-pdfs/flipbooks/...</code><br>
-                        • Video: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">https://files.3c-public-library.org/videos/...</code><br>
-                        • Image: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">https://files.3c-public-library.org/images/...</code>
+                <div class="form-group">
+                    <label>📁 R2 File URL (Recommended) *</label>
+                    <input type="url" id="contentUrl" placeholder="https://files.3c-public-library.org/...">
+                    <small>
+                        Paste the URL from your R2 bucket. Files stay in R2 for secure and fast access.
                     </small>
                 </div>
                 
