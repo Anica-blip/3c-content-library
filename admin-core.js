@@ -74,8 +74,16 @@ function saveSupabaseCredentials(url, key) {
 }
 
 async function connectSupabase() {
-    const url = document.getElementById('supabaseUrl').value.trim();
-    const key = document.getElementById('supabaseKey').value.trim();
+    const urlInput = document.getElementById('supabaseUrl');
+    const keyInput = document.getElementById('supabaseKey');
+    
+    if (!urlInput || !keyInput) {
+        showAlert('error', 'Supabase connection fields not found');
+        return;
+    }
+    
+    const url = urlInput.value.trim();
+    const key = keyInput.value.trim();
     
     if (!url || !key) {
         showAlert('error', 'Please enter both Supabase URL and Anon Key');
