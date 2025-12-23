@@ -745,10 +745,21 @@ function displayFoldersGrid() {
     }
     
     // Get only root folders (folders with no parent_id AND folder_type is 'root')
-    const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
+    console.log('📊 All folders from database:', folders.map(f => ({ 
+        title: f.title, 
+        type: f.folder_type, 
+        parent_id: f.parent_id,
+        has_parent: !!f.parent_id,
+        id: f.id
+    })));
     
-    console.log('Root folders to display:', rootFolders.length);
-    console.log('All folders:', folders.map(f => ({ title: f.title, type: f.folder_type, parent: f.parent_id })));
+    const rootFolders = folders.filter(f => {
+        const isRoot = !f.parent_id && f.folder_type === 'root';
+        console.log(`Folder "${f.title}": parent_id=${f.parent_id}, type=${f.folder_type}, isRoot=${isRoot}`);
+        return isRoot;
+    }).sort((a, b) => a.title.localeCompare(b.title));
+    
+    console.log('✅ Root folders to display:', rootFolders.length, rootFolders.map(f => f.title));
     
     // Render folders as grid (only root folders)
     let html = '<div class="folders-grid">';
