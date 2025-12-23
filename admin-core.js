@@ -359,7 +359,7 @@ function editFolder(folderId) {
     // Populate parent folder dropdown for edit
     const editParentSelect = document.getElementById('editParentFolder');
     editParentSelect.innerHTML = '<option value="">-- Select Parent Folder --</option>';
-    const rootFolders = folders.filter(f => !f.parent_id || f.folder_type === 'root');
+    const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root');
     rootFolders.forEach(f => {
         if (f.id !== folder.id) { // Don't allow selecting itself as parent
             editParentSelect.innerHTML += `<option value="${f.id}">${f.title}</option>`;
@@ -694,18 +694,14 @@ function resetContentForm() {
 
 // ==================== UI DISPLAY ====================
 function updateFolderSelects() {
-    const selects = ['contentFolder', 'filterFolder', 'parentFolder'];
+    const selects = document.querySelectorAll('#parentFolder, #contentFolder');
     
-    selects.forEach(selectId => {
-        const select = document.getElementById(selectId);
-        if (!select) return;
-        
+    selects.forEach(select => {
         const currentValue = select.value;
+        select.innerHTML = '<option value="">-- Select Folder --</option>';
         
-        // Keep first option
-        const firstOption = select.options[0];
-        select.innerHTML = '';
-        select.appendChild(firstOption);
+        // Build hierarchical folder list - only show root folders for parent selection
+        const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
         
         // Add folders with indentation for sub-folders
         folders.forEach(folder => {
@@ -748,10 +744,11 @@ function displayFoldersGrid() {
         return;
     }
     
-    // Get only root folders (no parent_id) and sort alphabetically
-    const rootFolders = folders.filter(f => !f.parent_id || f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
+    // Get only root folders (folders with no parent_id AND folder_type is 'root')
+    const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
     
     console.log('Root folders to display:', rootFolders.length);
+    console.log('All folders:', folders.map(f => ({ title: f.title, type: f.folder_type, parent: f.parent_id })));
     
     // Render folders as grid (only root folders)
     let html = '<div class="folders-grid">';
