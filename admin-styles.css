@@ -667,6 +667,13 @@ details[open] summary span {
     background: rgba(139, 92, 246, 0.6);
 }
 
+/* Subfolder cards in sidebar */
+.subfolder-card:hover {
+    background: rgba(50, 50, 50, 0.7) !important;
+    border-color: rgba(139, 92, 246, 0.5) !important;
+    transform: translateX(4px);
+}
+
 @media (max-width: 768px) {
     .two-column {
         grid-template-columns: 1fr;

@@ -748,22 +748,33 @@ function displayFoldersGrid() {
         return;
     }
     
-    // Sort folders alphabetically by title
-    const sortedFolders = [...folders].sort((a, b) => a.title.localeCompare(b.title));
+    // Get only root folders (no parent_id) and sort alphabetically
+    const rootFolders = folders.filter(f => !f.parent_id || f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
     
-    // Render folders as grid
+    console.log('Root folders to display:', rootFolders.length);
+    
+    // Render folders as grid (only root folders)
     let html = '<div class="folders-grid">';
     
-    sortedFolders.forEach(folder => {
-        const folderTypeLabel = folder.folder_type === 'sub_root' ? '📂' : '📁';
+    rootFolders.forEach(folder => {
         const contentCount = allContent.filter(c => c.folder_id === folder.id).length;
+        const subfolders = folders.filter(f => f.parent_id === folder.id);
+        const subfoldersCount = subfolders.length;
         const displayURL = folder.custom_url || folder.slug;
+        
+        // Count label shows subfolders + content items
+        let countLabel = '';
+        if (subfoldersCount > 0) {
+            countLabel = `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`;
+        } else {
+            countLabel = `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
+        }
         
         html += `
             <div class="folder-grid-card" onclick="openFolderSidebar('${folder.id}')">
-                <div class="folder-icon">${folderTypeLabel}</div>
+                <div class="folder-icon">📁</div>
                 <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
-                <div class="folder-grid-meta">${contentCount} item${contentCount !== 1 ? 's' : ''}</div>
+                <div class="folder-grid-meta">${countLabel}</div>
                 <div class="folder-grid-url">${displayURL}</div>
             </div>
         `;
@@ -779,6 +790,7 @@ function openFolderSidebar(folderId) {
     if (!folder) return;
     
     const folderContent = allContent.filter(c => c.folder_id === folderId);
+    const subfolders = folders.filter(f => f.parent_id === folderId).sort((a, b) => a.title.localeCompare(b.title));
     const sidebar = document.getElementById('folderSidebar');
     const sidebarTitle = document.getElementById('sidebarFolderTitle');
     const sidebarContent = document.getElementById('sidebarContent');
@@ -799,11 +811,40 @@ function openFolderSidebar(folderId) {
         </div>
     `;
     
-    // Update sidebar content
-    if (folderContent.length === 0) {
-        sidebarContent.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 20px;">No content in this folder yet.<br><br>Use the "Add PDF/Flipbook" form above to add content to this folder.</p>';
-    } else {
-        let contentHtml = '';
+    // Build sidebar content
+    let contentHtml = '';
+    
+    // Show subfolders first if they exist
+    if (subfolders.length > 0) {
+        contentHtml += '<div style="margin-bottom: 20px;"><h4 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(139, 92, 246, 0.2); padding-bottom: 8px;">📂 Subfolders</h4>';
+        
+        subfolders.forEach(subfolder => {
+            const subfolderContent = allContent.filter(c => c.folder_id === subfolder.id);
+            const subfolderURL = subfolder.custom_url || subfolder.slug;
+            
+            contentHtml += `
+                <div class="subfolder-card" onclick="openFolderSidebar('${subfolder.id}')" style="background: rgba(40, 40, 40, 0.5); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="font-size: 24px;">📂</div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: #ffffff; font-size: 14px;">${escapeHtml(subfolder.title)}</div>
+                            <div style="font-size: 11px; color: #808080;">${subfolderContent.length} item${subfolderContent.length !== 1 ? 's' : ''} • ${subfolderURL}</div>
+                        </div>
+                        <div style="color: #8b5cf6; font-size: 18px;">→</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        contentHtml += '</div>';
+    }
+    
+    // Show content items
+    if (folderContent.length === 0 && subfolders.length === 0) {
+        contentHtml += '<p style="color: #999; text-align: center; padding: 40px 20px;">No content or subfolders yet.<br><br>Use the "Add PDF/Flipbook" form above to add content.</p>';
+    } else if (folderContent.length > 0) {
+        contentHtml += '<div><h4 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(139, 92, 246, 0.2); padding-bottom: 8px;">📄 Content Items</h4>';
+        
         folderContent.forEach((content, index) => {
             const thumbnailHtml = content.thumbnail_url 
                 ? `<img src="${content.thumbnail_url}" class="content-thumbnail" alt="Thumbnail">`
@@ -832,8 +873,11 @@ function openFolderSidebar(folderId) {
                 </div>
             `;
         });
-        sidebarContent.innerHTML = contentHtml;
+        
+        contentHtml += '</div>';
     }
+    
+    sidebarContent.innerHTML = contentHtml;
     
     // Show sidebar
     sidebar.classList.add('active');
