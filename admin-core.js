@@ -175,28 +175,27 @@ async function loadStats() {
 }
 
 async function loadContent() {
-    const filterFolderElement = document.getElementById('filterFolder');
-    if (!filterFolderElement) {
-        console.warn('filterFolder element not found');
-        return;
-    }
-    const filterFolderId = filterFolderElement.value;
-    
     try {
-        if (filterFolderId) {
-            allContent = await supabaseClient.getContentByFolder(filterFolderId);
-        } else {
-            // Load all content
-            allContent = [];
-            for (const folder of folders) {
+        console.log('📥 Loading content for', folders.length, 'folders...');
+        // Load all content from all folders
+        allContent = [];
+        for (const folder of folders) {
+            try {
+                console.log('Loading content for folder:', folder.title, '(ID:', folder.id, ')');
                 const content = await supabaseClient.getContentByFolder(folder.id);
+                console.log('  → Found', content.length, 'items in', folder.title);
                 allContent.push(...content);
+            } catch (folderError) {
+                console.error('Error loading content for folder', folder.title, ':', folderError);
+                // Continue with other folders even if one fails
             }
         }
         
+        console.log('✅ Total content loaded:', allContent.length);
         displayContent();
     } catch (error) {
         debugLog('Error loading content: ' + error.message);
+        console.error('Error loading content:', error);
     }
 }
 
@@ -275,6 +274,14 @@ function suggestContentURL() {
 
 // ==================== FOLDER OPERATIONS ====================
 async function createFolder() {
+    console.log('🔨 createFolder() called');
+    
+    if (!supabaseClient.isConnected) {
+        showAlert('error', 'Please connect to Supabase first');
+        console.error('Supabase not connected');
+        return;
+    }
+    
     const title = document.getElementById('folderTitle').value.trim();
     const tableName = document.getElementById('folderTableName').value.trim();
     const visibility = document.getElementById('folderVisibility').value;
@@ -282,6 +289,8 @@ async function createFolder() {
     const folderType = document.getElementById('folderType').value;
     const parentId = document.getElementById('parentFolder').value || null;
     const customURL = document.getElementById('folderCustomURL').value.trim() || null;
+    
+    console.log('📋 Form values:', { title, tableName, visibility, description, folderType, parentId, customURL });
     
     if (!title) {
         showAlert('error', 'Please enter a folder title');
@@ -312,10 +321,12 @@ async function createFolder() {
     }
     
     try {
+        console.log('📁 Creating folder in Supabase...');
         debugLog('📁 Creating folder: ' + title + ' (type: ' + folderType + ', table: ' + tableName + ', visibility: ' + visibility + ', parent: ' + (parentId || 'root') + ', custom URL: ' + (customURL || 'auto') + ')');
         const isPublic = visibility === 'public';
         const folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
         
+        console.log('✅ Folder created:', folder);
         const folderTypeLabel = folderType === 'sub_root' ? 'Sub-root folder' : 'Root folder';
         const displayURL = folder.custom_url || folder.slug;
         showAlert('success', `✅ ${folderTypeLabel} created: ${displayURL} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}`);
@@ -332,8 +343,10 @@ async function createFolder() {
         updateFolderTypeUI();
         
         // Reload data
+        console.log('🔄 Reloading data...');
         await loadAllData();
     } catch (error) {
+        console.error('❌ Error creating folder:', error);
         debugLog('❌ Error creating folder: ' + error.message);
         showAlert('error', 'Error creating folder: ' + error.message);
     }
@@ -715,14 +728,14 @@ function updateFolderSelects() {
 }
 
 function displayFolders() {
-    displayFoldersWithContent();
+    displayFoldersGrid();
 }
 
 function displayContent() {
-    displayFoldersWithContent();
+    displayFoldersGrid();
 }
 
-function displayFoldersWithContent() {
+function displayFoldersGrid() {
     const container = document.getElementById('folderContentList');
     
     if (!container) {
@@ -735,132 +748,99 @@ function displayFoldersWithContent() {
         return;
     }
     
-    // Build hierarchical structure
-    const rootFolders = folders.filter(f => !f.parent_id && f.depth === 0);
+    // Sort folders alphabetically by title
+    const sortedFolders = [...folders].sort((a, b) => a.title.localeCompare(b.title));
     
-    function renderFolderWithContent(folder, level = 0) {
-        const prefix = level > 0 ? '└─ ' : '';
-        const depthStyle = level > 0 ? `margin-left: ${level * 20}px; border-left: 2px solid #ddd; padding-left: 10px;` : '';
-        const folderTypeLabel = folder.folder_type === 'sub_root' ? '📂 Sub-Root' : '📁 Root';
+    // Render folders as grid
+    let html = '<div class="folders-grid">';
+    
+    sortedFolders.forEach(folder => {
+        const folderTypeLabel = folder.folder_type === 'sub_root' ? '📂' : '📁';
+        const contentCount = allContent.filter(c => c.folder_id === folder.id).length;
         const displayURL = folder.custom_url || folder.slug;
         
-        // Get content for this folder
-        const folderContent = allContent.filter(c => c.folder_id === folder.id);
-        const contentCount = folderContent.length;
-        
-        // Get subfolders
-        const subfolders = folders.filter(f => f.parent_id === folder.id);
-        const subfolderCount = subfolders.length;
-        
-        // Determine what to show in count
-        let countLabel;
-        if (subfolderCount > 0) {
-            countLabel = `${subfolderCount} subfolder${subfolderCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`;
-        } else {
-            countLabel = `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
-        }
-        
-        const folderId = `folder-${folder.id}`;
-        const isExpanded = window.expandedFolders && window.expandedFolders.has(folder.id);
-        
-        let html = `
-        <div class="folder-card" style="${depthStyle}">
-            <div class="folder-header" style="cursor: pointer; user-select: none;" onclick="toggleFolder('${folder.id}')">
-                <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                    <span style="font-size: 18px; transition: transform 0.2s;" id="arrow-${folder.id}">${isExpanded ? '▼' : '▶'}</span>
-                    <div style="flex: 1;">
-                        <div class="folder-title">${prefix}${escapeHtml(folder.title)} <span style="font-size: 12px; color: #666;">${folderTypeLabel}</span></div>
-                        <div class="folder-meta">
-                            URL: <strong style="color: #007bff;">${displayURL}</strong> | ${countLabel}
-                        </div>
-                        ${folder.description ? `<div class="folder-meta">${escapeHtml(folder.description)}</div>` : ''}
-                    </div>
-                </div>
-                <div class="folder-actions" onclick="event.stopPropagation()">
-                    <button onclick="editFolder('${folder.id}')">Edit</button>
-                    <button class="delete" onclick="deleteFolder('${folder.id}')">Delete</button>
-                </div>
+        html += `
+            <div class="folder-grid-card" onclick="openFolderSidebar('${folder.id}')">
+                <div class="folder-icon">${folderTypeLabel}</div>
+                <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
+                <div class="folder-grid-meta">${contentCount} item${contentCount !== 1 ? 's' : ''}</div>
+                <div class="folder-grid-url">${displayURL}</div>
             </div>
-            
-            <div id="${folderId}" class="folder-content" style="display: ${isExpanded ? 'block' : 'none'}; margin-top: 10px; padding-left: 20px; border-left: 3px solid #9b59b6;">
         `;
-        
-        // Render content items
-        if (folderContent.length > 0) {
-            folderContent.forEach((content, index) => {
-                const thumbnailHtml = content.thumbnail_url 
-                    ? `<img src="${content.thumbnail_url}" class="content-thumbnail" alt="Thumbnail">`
-                    : `<div class="content-thumbnail" style="background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 24px;">${getTypeIcon(content.type)}</div>`;
-                
-                const folderContentArray = allContent.filter(c => c.folder_id === folder.id);
-                const contentIndex = folderContentArray.findIndex(c => c.id === content.id);
-                const canMoveUp = contentIndex > 0;
-                const canMoveDown = contentIndex < folderContentArray.length - 1;
-                
-                // Check if it's an interactive PDF
-                const isInteractive = content.project_json ? ' 📖 Interactive' : '';
-                
-                html += `
-                    <div class="content-card" style="margin-bottom: 10px;">
-                        ${thumbnailHtml}
-                        <div class="content-info">
-                            <div class="content-title">${escapeHtml(content.title)}${isInteractive}</div>
-                            <div class="content-meta">
-                                Type: ${content.type.toUpperCase()} | Views: ${content.view_count || 0}
-                            </div>
-                            <div class="content-meta">🔗 Public URL: <strong style="color: #007bff;">${content.custom_url || content.slug || 'auto-generated'}</strong></div>
-                            ${content.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(content.url)}" target="_blank" style="color: #007bff; text-decoration: none;" title="${content.url}">${truncateURL(content.url)}</a></div>` : '<div class="content-meta" style="color: #dc3545;">⚠️ No file URL</div>'}
-                            ${content.description ? `<div class="content-meta">${escapeHtml(content.description)}</div>` : ''}
-                            ${content.external_url ? `<div class="content-meta">🔗 Tech URL: <a href="${content.external_url}" target="_blank" style="color: #28a745; text-decoration: none;">${truncateURL(content.external_url)}</a></div>` : ''}
-                        </div>
-                        <div class="content-actions">
-                            ${canMoveUp ? `<button onclick="moveContentUp('${content.id}')">↑</button>` : ''}
-                            ${canMoveDown ? `<button onclick="moveContentDown('${content.id}')">↓</button>` : ''}
-                            <button onclick="editContent('${content.id}')">Edit</button>
-                            <button class="delete" onclick="deleteContent('${content.id}')">Delete</button>
-                        </div>
-                    </div>
-                `;
-            });
-        } else {
-            html += '<p style="color: #999; padding: 10px;">No content in this folder yet.</p>';
-        }
-        
-        // Recursively render subfolders
-        if (subfolders.length > 0) {
-            html += '<div style="margin-top: 15px;">';
-            subfolders.forEach(subfolder => {
-                html += renderFolderWithContent(subfolder, level + 1);
-            });
-            html += '</div>';
-        }
-        
-        html += `</div></div>`;
-        return html;
-    }
+    });
     
-    const html = rootFolders.map(folder => renderFolderWithContent(folder)).join('');
+    html += '</div>';
     container.innerHTML = html;
 }
 
-// Track expanded folders
-if (!window.expandedFolders) {
-    window.expandedFolders = new Set();
+// Folder sidebar management
+function openFolderSidebar(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    
+    const folderContent = allContent.filter(c => c.folder_id === folderId);
+    const sidebar = document.getElementById('folderSidebar');
+    const sidebarTitle = document.getElementById('sidebarFolderTitle');
+    const sidebarContent = document.getElementById('sidebarContent');
+    
+    // Update sidebar header
+    const folderTypeLabel = folder.folder_type === 'sub_root' ? '📂 Sub-Root' : '📁 Root';
+    const displayURL = folder.custom_url || folder.slug;
+    sidebarTitle.innerHTML = `
+        <div style="flex: 1;">
+            <h3 style="margin: 0; color: #a78bfa; font-size: 18px;">${escapeHtml(folder.title)} <span style="font-size: 12px; color: #999;">${folderTypeLabel}</span></h3>
+            <div style="font-size: 12px; color: #808080; margin-top: 4px;">URL: <strong style="color: #8b5cf6;">${displayURL}</strong></div>
+            ${folder.description ? `<div style="font-size: 12px; color: #999; margin-top: 2px;">${escapeHtml(folder.description)}</div>` : ''}
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button onclick="editFolder('${folder.id}')" style="padding: 6px 12px; font-size: 12px;">✏️ Edit</button>
+            <button class="delete" onclick="deleteFolder('${folder.id}')" style="padding: 6px 12px; font-size: 12px;">🗑️ Delete</button>
+            <button onclick="closeFolderSidebar()" style="padding: 6px 12px; font-size: 16px;">×</button>
+        </div>
+    `;
+    
+    // Update sidebar content
+    if (folderContent.length === 0) {
+        sidebarContent.innerHTML = '<p style="color: #999; text-align: center; padding: 40px 20px;">No content in this folder yet.<br><br>Use the "Add PDF/Flipbook" form above to add content to this folder.</p>';
+    } else {
+        let contentHtml = '';
+        folderContent.forEach((content, index) => {
+            const thumbnailHtml = content.thumbnail_url 
+                ? `<img src="${content.thumbnail_url}" class="content-thumbnail" alt="Thumbnail">`
+                : `<div class="content-thumbnail" style="background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 24px;">${getTypeIcon(content.type)}</div>`;
+            
+            const canMoveUp = index > 0;
+            const canMoveDown = index < folderContent.length - 1;
+            const isInteractive = content.project_json ? ' 📖 Interactive' : '';
+            
+            contentHtml += `
+                <div class="content-card" style="margin-bottom: 10px;">
+                    ${thumbnailHtml}
+                    <div class="content-info">
+                        <div class="content-title">${escapeHtml(content.title)}${isInteractive}</div>
+                        <div class="content-meta">Type: ${content.type.toUpperCase()} | Views: ${content.view_count || 0}</div>
+                        <div class="content-meta">🔗 URL: <strong style="color: #007bff;">${content.custom_url || content.slug || 'auto-generated'}</strong></div>
+                        ${content.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(content.url)}" target="_blank" style="color: #007bff;">${truncateURL(content.url)}</a></div>` : '<div class="content-meta" style="color: #dc3545;">⚠️ No file URL</div>'}
+                        ${content.description ? `<div class="content-meta">${escapeHtml(content.description)}</div>` : ''}
+                    </div>
+                    <div class="content-actions">
+                        ${canMoveUp ? `<button onclick="moveContentUp('${content.id}')">↑</button>` : ''}
+                        ${canMoveDown ? `<button onclick="moveContentDown('${content.id}')">↓</button>` : ''}
+                        <button onclick="editContent('${content.id}')">Edit</button>
+                        <button class="delete" onclick="deleteContent('${content.id}')">Delete</button>
+                    </div>
+                </div>
+            `;
+        });
+        sidebarContent.innerHTML = contentHtml;
+    }
+    
+    // Show sidebar
+    sidebar.classList.add('active');
 }
 
-function toggleFolder(folderId) {
-    const folderContent = document.getElementById(`folder-${folderId}`);
-    const arrow = document.getElementById(`arrow-${folderId}`);
-    
-    if (folderContent.style.display === 'none') {
-        folderContent.style.display = 'block';
-        arrow.textContent = '▼';
-        window.expandedFolders.add(folderId);
-    } else {
-        folderContent.style.display = 'none';
-        arrow.textContent = '▶';
-        window.expandedFolders.delete(folderId);
-    }
+function closeFolderSidebar() {
+    document.getElementById('folderSidebar').classList.remove('active');
 }
 
 // ==================== FILE HANDLING ====================
