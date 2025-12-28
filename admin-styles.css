@@ -120,33 +120,31 @@ textarea {
 }
 
 small {
-    color: #808080;
+    color: #ffffff; /* Changed to white */
     font-size: 12px;
     display: block;
     margin-top: 5px;
     line-height: 1.4;
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
 }
 
 button {
     background: linear-gradient(135deg, #9b59b6, #8e44ad);
-    color: white;
-    border: none;
-    padding: 10px 18px;
-    border-radius: 8px;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 10px 20px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 2px 8px rgba(233, 30, 99, 0.3);
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
 }
 
 button:hover {
-    background: linear-gradient(135deg, #d81b60, #ec407a);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(233, 30, 99, 0.4);
+    background: linear-gradient(135deg, #8e44ad, #663399);
+    border-color: rgba(255, 255, 255, 0.4);
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
 }
 
 button:active {
@@ -154,44 +152,44 @@ button:active {
 }
 
 button.secondary {
-    background: rgba(158, 158, 158, 0.3);
+    background: rgba(26, 26, 26, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.5);
-    color: #ffffff;
+    color: #ffffff; /* Changed to white */
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
 button.secondary:hover {
-    background: rgba(158, 158, 158, 0.4);
+    background: rgba(45, 45, 45, 0.95);
     border-color: rgba(255, 255, 255, 0.7);
     text-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
 }
 
 button.delete {
-    background: linear-gradient(135deg, #ff1744, #f50057);
-    border-color: rgba(255, 23, 68, 0.3);
-    color: white;
+    background: rgba(26, 26, 26, 0.95);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff; /* Changed to white */
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
 button.delete:hover {
-    background: linear-gradient(135deg, #d50000, #c51162);
-    border-color: rgba(255, 23, 68, 0.5);
+    background: rgba(45, 45, 45, 0.95);
+    border-color: rgba(255, 255, 255, 0.5);
     text-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
 }
 
 .folder-card {
-    background: rgba(13, 71, 161, 0.3);
+    background: rgba(26, 26, 26, 0.95);
     padding: 0;
     margin-bottom: 12px;
     border-radius: 10px;
-    border: 1px solid rgba(139, 92, 246, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     overflow: hidden;
     transition: all 0.2s;
 }
 
 .folder-card:hover {
-    border-color: rgba(139, 92, 246, 0.4);
-    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 16px rgba(255, 255, 255, 0.15);
 }
 
 .folder-header {
@@ -199,51 +197,56 @@ button.delete:hover {
     justify-content: space-between;
     align-items: center;
     padding: 14px 18px;
-    background: rgba(25, 118, 210, 0.4);
+    background: rgba(26, 26, 26, 0.95);
     transition: all 0.2s;
 }
 
 .folder-header:hover {
-    background: rgba(33, 150, 243, 0.5);
+    background: rgba(45, 45, 45, 0.95);
 }
 
 .folder-title {
     font-weight: 600;
-    color: #ffffff;
+    color: #ffffff; /* Changed to white */
     font-size: 15px;
     letter-spacing: -0.2px;
 }
 
 .folder-meta {
     font-size: 12px;
-    color: #a0a0a0;
+    color: #ffffff;
     margin-top: 4px;
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
 }
 
 .folder-actions button {
-    padding: 6px 12px;
-    font-size: 12px;
-    background: linear-gradient(135deg, #e91e63, #f06292) !important;
-    border-color: rgba(233, 30, 99, 0.3) !important;
-    color: white;
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    background: linear-gradient(135deg, #9b59b6, #8e44ad) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.5) !important;
 }
 
 .folder-actions button:hover {
-    background: linear-gradient(135deg, #d81b60, #ec407a) !important;
-    border-color: rgba(233, 30, 99, 0.5) !important;
+    background: linear-gradient(135deg, #8e44ad, #663399) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8) !important;
 }
 
 .folder-actions button.delete {
-    background: linear-gradient(135deg, #ff1744, #f50057) !important;
-    border-color: rgba(255, 23, 68, 0.3) !important;
-    color: white;
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    background: rgba(26, 26, 26, 0.95) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    color: #ffffff !important;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.5) !important;
 }
 
 .folder-actions button.delete:hover {
-    background: linear-gradient(135deg, #d50000, #c51162) !important;
-    border-color: rgba(255, 23, 68, 0.5) !important;
+    background: rgba(45, 45, 45, 0.95) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8) !important;
 }
 
 .folder-content {
@@ -313,27 +316,29 @@ flex: 1;
     padding: 5px 10px;
     font-size: 11px;
     min-width: auto;
-    background: linear-gradient(135deg, #e91e63, #f06292) !important;
-    border-color: rgba(233, 30, 99, 0.3) !important;
-    color: white;
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    background: linear-gradient(135deg, #9b59b6, #8e44ad) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.5) !important;
 }
 
 .content-actions button:hover {
-    background: linear-gradient(135deg, #d81b60, #ec407a) !important;
-    border-color: rgba(233, 30, 99, 0.5) !important;
+    background: linear-gradient(135deg, #8e44ad, #663399) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8) !important;
 }
 
 .content-actions button.delete {
-    background: linear-gradient(135deg, #ff1744, #f50057) !important;
-    border-color: rgba(255, 23, 68, 0.3) !important;
-    color: white;
-    text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    background: rgba(26, 26, 26, 0.95) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    color: #ffffff !important;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.5) !important;
 }
 
 .content-actions button.delete:hover {
-    background: linear-gradient(135deg, #d50000, #c51162) !important;
-    border-color: rgba(255, 23, 68, 0.5) !important;
+    background: rgba(45, 45, 45, 0.95) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8) !important;
 }
 
 .debug-panel {

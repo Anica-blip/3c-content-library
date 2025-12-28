@@ -12,7 +12,7 @@
     <style>
         :root {
             --bg-primary: #0a0e27;
-            --bg-secondary: #374151;
+            --bg-secondary: rgba(26, 26, 26, 0.95);
             --text-primary: #ffffff;
             --text-secondary: #e0e0e0;
             --text-tertiary: #b0b0b0;
@@ -21,7 +21,7 @@
             --purple-light: #9b59b6;
             --purple-medium: #8e44ad;
             --purple-dark: #663399;
-            --folder-bg: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+            --folder-bg: linear-gradient(135deg, rgba(26, 26, 26, 0.95) 0%, rgba(45, 45, 45, 0.95) 100%);
             --folder-icon: #9b59b6;
         }
         
@@ -299,7 +299,7 @@
         }
         
         .pdf-modal-content {
-            background: #374151;
+            background: rgba(26, 26, 26, 0.95);
             width: 95%;
             max-width: 1200px;
             height: 90vh;
@@ -316,7 +316,7 @@
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
-            background: #374151;
+            background: rgba(26, 26, 26, 0.95);
         }
         
         .pdf-modal-title {
@@ -1094,9 +1094,9 @@
                 return;
             }
             
-            console.log('✅ Displaying root folders only');
+            console.log('✅ Displaying ONLY root folders on main page');
             
-            // Get ONLY root folders (no parentId, depth 0) - like admin.html
+            // Get ONLY root folders (no parentId, depth 0)
             const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0);
             
             let html = '';
@@ -1104,7 +1104,7 @@
                 const subfolders = library.folders.filter(f => f.parentId === folder.id);
                 const contentCount = getTotalContentCount(folder.id);
                 
-                // Show sub-folders count and items count like admin.html
+                // Show sub-folders count and items count
                 const subfolderCount = subfolders.length;
                 const itemCount = contentCount;
                 
