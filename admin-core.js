@@ -698,27 +698,55 @@ function updateFolderSelects() {
     
     selects.forEach(select => {
         const currentValue = select.value;
+        const isParentSelect = select.id === 'parentFolder';
+        
         select.innerHTML = '<option value="">-- Select Folder --</option>';
         
-        // Build hierarchical folder list - only show root folders for parent selection
+        if (folders.length === 0) return;
+        
+        // Get root folders (no parent_id)
         const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
         
-        // Add folders with indentation for sub-folders
-        folders.forEach(folder => {
-            const option = document.createElement('option');
-            option.value = folder.id;
+        // Add folders hierarchically
+        rootFolders.forEach(rootFolder => {
+            // Add root folder
+            const rootOption = document.createElement('option');
+            rootOption.value = rootFolder.id;
+            rootOption.textContent = `📁 ${rootFolder.title} (${rootFolder.item_count || 0} items)`;
+            select.appendChild(rootOption);
             
-            // Add indentation based on depth
-            const indent = '  '.repeat(folder.depth || 0);
-            const prefix = folder.depth > 0 ? '└─ ' : '';
+            // Get and add sub-folders for this root
+            const subFolders = folders.filter(f => f.parent_id === rootFolder.id).sort((a, b) => a.title.localeCompare(b.title));
             
-            option.textContent = `${indent}${prefix}${folder.title} (${folder.item_count || 0} items)`;
-            select.appendChild(option);
+            subFolders.forEach(subFolder => {
+                const subOption = document.createElement('option');
+                subOption.value = subFolder.id;
+                subOption.textContent = `  └─ 📂 ${subFolder.title} (${subFolder.item_count || 0} items)`;
+                select.appendChild(subOption);
+            });
         });
         
-        // Restore selection
-        if (currentValue) {
-            select.value = currentValue;
+        // For parent folder dropdown, only show root folders
+        if (isParentSelect) {
+            const parentCurrentValue = select.value;
+            select.innerHTML = '<option value="">-- Select Parent Folder --</option>';
+            
+            rootFolders.forEach(rootFolder => {
+                const option = document.createElement('option');
+                option.value = rootFolder.id;
+                option.textContent = `📁 ${rootFolder.title}`;
+                select.appendChild(option);
+            });
+            
+            // Restore selection for parent dropdown
+            if (parentCurrentValue) {
+                select.value = parentCurrentValue;
+            }
+        } else {
+            // Restore selection for content folder dropdown
+            if (currentValue) {
+                select.value = currentValue;
+            }
         }
     });
 }

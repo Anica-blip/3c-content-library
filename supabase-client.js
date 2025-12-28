@@ -538,7 +538,7 @@ class SupabaseClient {
             .select('*')
             .eq('content_id', contentId)
             .eq('content_table', contentTable)
-            .eq('is_approved', true)
+            // Remove is_approved filter to show all comments immediately
             .order('created_at', { ascending: false });
         
         if (error) throw error;
@@ -559,7 +559,7 @@ class SupabaseClient {
                 author_name: authorName,
                 author_email: authorEmail,
                 comment_text: commentText,
-                is_approved: false // Requires admin approval
+                is_approved: true // Auto-approve comments to appear immediately
             })
             .select()
             .single();
@@ -579,7 +579,7 @@ class SupabaseClient {
             .select('*', { count: 'exact', head: true })
             .eq('content_id', contentId)
             .eq('content_table', contentTable)
-            .eq('is_approved', true);
+            // Remove is_approved filter to count all comments
         
         if (error) throw error;
         return count || 0;
