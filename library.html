@@ -1122,39 +1122,61 @@
                 return;
             }
             
-            console.log('✅ Displaying ONLY root folders on main page');
+            console.log('✅ Displaying all folders and sub-folders');
             
-            // Get ONLY root folders (no parentId, depth 0)
+            // Build hierarchical folder structure
             const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0);
             
-            let html = '';
-            rootFolders.forEach(folder => {
+            function renderFolderWithChildren(folder, level = 0) {
                 const subfolders = library.folders.filter(f => f.parentId === folder.id);
+                const hasSubfolders = subfolders.length > 0;
                 const contentCount = getTotalContentCount(folder.id);
                 
-                // Show sub-folders count and items count
-                const subfolderCount = subfolders.length;
-                const itemCount = contentCount;
+                let itemCount, itemLabel;
+                if (hasSubfolders) {
+                    itemCount = subfolders.length;
+                    itemLabel = itemCount === 1 ? 'SUB-FOLDER' : 'SUB-FOLDERS';
+                } else {
+                    itemCount = contentCount;
+                    itemLabel = itemCount === 1 ? 'ITEM' : 'ITEMS';
+                }
                 
-                html += `
-                    <div class="content-card folder-card" onclick="openFolder('${folder.slug}')">
-                        <div class="content-thumbnail">
-                            ${folder.thumbnail ? 
-                                `<div class="thumbnail-placeholder" style="background-image: url('${folder.thumbnail}'); width: 100%; height: 100%; background-size: cover; background-position: center; border-radius: 8px;"></div>` : 
-                                '<div style="font-size: 32px;">📁</div>'
-                            }
+                const folderIcon = level > 0 ? '📂' : '📁';
+                const folderTypeLabel = level > 0 ? 'Sub-Folder' : 'Root Folder';
+                
+                // Create wrapper for folder and its children
+                let html = `
+                    <div class="folder-group" style="grid-column: 1 / -1; display: contents;">
+                        <div class="content-card folder-card ${level > 0 ? 'subfolder-card' : ''}" 
+                             onclick="openFolder('${folder.slug}')" 
+                             style="${level > 0 ? 'margin-left: ' + (level * 30) + 'px; width: calc(100% - ' + (level * 30) + 'px);' : ''}">
+                            <div class="content-thumbnail">
+                                ${folder.thumbnail ? 
+                                    `<div class="thumbnail-placeholder" style="background-image: url('${folder.thumbnail}'); width: 100%; height: 100%; background-size: cover; background-position: center; border-radius: 8px;"></div>` : 
+                                    `<div class="type-icon">${folderIcon}</div>`
+                                }
+                            </div>
+                            <div class="content-info">
+                                <div class="content-title">${level > 0 ? '└─ ' : ''}${folder.title}</div>
+                                <div class="content-type">${itemCount} ${itemLabel} • ${folderTypeLabel}</div>
+                            </div>
                         </div>
-                        <div class="content-info">
-                            <div class="content-title">${folder.title}</div>
-                            <div class="content-type">${subfolderCount} sub-folders, ${itemCount} items</div>
-                        </div>
-                    </div>
                 `;
-            });
+                
+                // Recursively render subfolders
+                if (hasSubfolders) {
+                    subfolders.forEach(subfolder => {
+                        html += renderFolderWithChildren(subfolder, level + 1);
+                    });
+                }
+                
+                html += `</div>`;
+                return html;
+            }
+            
+            const html = rootFolders.map(folder => renderFolderWithChildren(folder)).join('');
             
             document.getElementById('contentList').innerHTML = html;
-            
-            // Clear viewer content
             let contentArea = document.getElementById('viewerContent');
             if (!contentArea) {
                 contentArea = document.createElement('div');
@@ -1162,7 +1184,12 @@
                 const viewer = document.getElementById('viewer');
                 viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
             }
-            contentArea.innerHTML = '<div class="no-content"><h2>Select a Folder</h2><p>Click on a folder to view its contents</p></div>';
+            contentArea.innerHTML = `
+                <div class="no-content">
+                    <h2>Browse Folders</h2>
+                    <p>Select a folder from the sidebar to view its contents</p>
+                </div>
+            `;
         }
         
         function openFolder(folderSlug) {

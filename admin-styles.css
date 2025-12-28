@@ -57,12 +57,12 @@ body {
 }
 
 .section {
-    background: rgba(55, 65, 81, 0.4);
+    background: rgba(26, 26, 26, 0.95);
     backdrop-filter: blur(10px);
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 20px;
-    border: 1px solid rgba(139, 92, 246, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
