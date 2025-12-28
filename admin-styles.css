@@ -29,10 +29,11 @@ body {
 }
 
 .header h1 {
-    color: #ffffff;
+    color: #9b59b6; /* Light purple title */
     font-size: 22px;
     font-weight: 600;
     letter-spacing: -0.5px;
+    text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);
 }
 
 .debug-toggle {
