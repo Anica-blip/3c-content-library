@@ -227,6 +227,13 @@
             text-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
         }
         
+        .content-slug {
+            font-size: 9px;
+            color: #9b59b6;
+            font-weight: 400;
+            margin-top: 2px;
+        }
+        
         .viewer {
             background: var(--bg-secondary);
             padding: 30px;
@@ -502,10 +509,12 @@
             }
             
             .pdf-controls button {
-                padding: 6px 10px;
-                font-size: 12px;
-                flex: 1 1 auto;
-                min-width: 70px;
+                padding: 8px;
+                font-size: 16px;
+                flex: 0 0 auto;
+                min-width: 36px;
+                width: 36px;
+                height: 36px;
             }
             
             .pdf-controls .page-info {
@@ -1122,61 +1131,41 @@
                 return;
             }
             
-            console.log('✅ Displaying all folders and sub-folders');
+            console.log('✅ Displaying only root folders');
             
-            // Build hierarchical folder structure
+            // Get only root folders (like admin.html)
             const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0);
             
-            function renderFolderWithChildren(folder, level = 0) {
+            let html = '';
+            rootFolders.forEach(folder => {
                 const subfolders = library.folders.filter(f => f.parentId === folder.id);
-                const hasSubfolders = subfolders.length > 0;
-                const contentCount = getTotalContentCount(folder.id);
+                const subfoldersCount = subfolders.length;
+                const contentCount = library.content.filter(c => c.folderId === folder.id).length;
                 
-                let itemCount, itemLabel;
-                if (hasSubfolders) {
-                    itemCount = subfolders.length;
-                    itemLabel = itemCount === 1 ? 'SUB-FOLDER' : 'SUB-FOLDERS';
+                // Count label shows subfolders + content items (like admin.html)
+                let countLabel = '';
+                if (subfoldersCount > 0) {
+                    countLabel = `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`;
                 } else {
-                    itemCount = contentCount;
-                    itemLabel = itemCount === 1 ? 'ITEM' : 'ITEMS';
+                    countLabel = `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
                 }
                 
-                const folderIcon = level > 0 ? '📂' : '📁';
-                const folderTypeLabel = level > 0 ? 'Sub-Folder' : 'Root Folder';
-                
-                // Create wrapper for folder and its children
-                let html = `
-                    <div class="folder-group" style="grid-column: 1 / -1; display: contents;">
-                        <div class="content-card folder-card ${level > 0 ? 'subfolder-card' : ''}" 
-                             onclick="openFolder('${folder.slug}')" 
-                             style="${level > 0 ? 'margin-left: ' + (level * 30) + 'px; width: calc(100% - ' + (level * 30) + 'px);' : ''}">
-                            <div class="content-thumbnail">
-                                ${folder.thumbnail ? 
-                                    `<div class="thumbnail-placeholder" style="background-image: url('${folder.thumbnail}'); width: 100%; height: 100%; background-size: cover; background-position: center; border-radius: 8px;"></div>` : 
-                                    `<div class="type-icon">${folderIcon}</div>`
-                                }
-                            </div>
-                            <div class="content-info">
-                                <div class="content-title">${level > 0 ? '└─ ' : ''}${folder.title}</div>
-                                <div class="content-type">${itemCount} ${itemLabel} • ${folderTypeLabel}</div>
-                            </div>
+                html += `
+                    <div class="content-card folder-card" onclick="openFolderSidebar('${folder.id}')">
+                        <div class="content-thumbnail">
+                            <div style="font-size: 32px;">📁</div>
                         </div>
+                        <div class="content-info">
+                            <div class="content-title">${folder.title}</div>
+                            <div class="content-type">${countLabel}</div>
+                            <div class="content-slug">${folder.slug}</div>
+                        </div>
+                    </div>
                 `;
-                
-                // Recursively render subfolders
-                if (hasSubfolders) {
-                    subfolders.forEach(subfolder => {
-                        html += renderFolderWithChildren(subfolder, level + 1);
-                    });
-                }
-                
-                html += `</div>`;
-                return html;
-            }
-            
-            const html = rootFolders.map(folder => renderFolderWithChildren(folder)).join('');
+            });
             
             document.getElementById('contentList').innerHTML = html;
+            
             let contentArea = document.getElementById('viewerContent');
             if (!contentArea) {
                 contentArea = document.createElement('div');
@@ -1186,14 +1175,154 @@
             }
             contentArea.innerHTML = `
                 <div class="no-content">
-                    <h2>Browse Folders</h2>
-                    <p>Select a folder from the sidebar to view its contents</p>
+                    <h2>Welcome to 3C Public Library</h2>
+                    <p>Select a folder to view its contents</p>
                 </div>
             `;
         }
         
         function openFolder(folderSlug) {
             window.location.href = `?folder=${folderSlug}`;
+        }
+        
+        function openFolderSidebar(folderId) {
+            const folder = library.folders.find(f => f.id === folderId);
+            if (!folder) return;
+            
+            const folderContent = library.content.filter(c => c.folderId === folderId);
+            const subfolders = library.folders.filter(f => f.parentId === folderId);
+            
+            // Update folder title
+            document.getElementById('folderTitle').textContent = folder.title;
+            
+            // Build sidebar content
+            let sidebarHtml = '';
+            
+            // Show subfolders first if they exist
+            if (subfolders.length > 0) {
+                sidebarHtml += '<div style="margin-bottom: 20px;"><h4 style="color: #9b59b6; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(155, 89, 182, 0.2); padding-bottom: 8px;">📂 Subfolders</h4>';
+                
+                subfolders.forEach(subfolder => {
+                    const subfolderContent = library.content.filter(c => c.folderId === subfolder.id);
+                    
+                    sidebarHtml += `
+                        <div class="subfolder-card" onclick="showSubfolderContent('${subfolder.id}')" style="background: rgba(26, 26, 26, 0.95); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="font-size: 24px;">📂</div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div>
+                                    <div style="font-size: 11px; color: #808080;">${subfolderContent.length} item${subfolderContent.length !== 1 ? 's' : ''} • ${subfolder.slug}</div>
+                                </div>
+                                <div style="color: #9b59b6; font-size: 18px;">→</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                sidebarHtml += '</div>';
+            }
+            
+            // Show content items if no subfolders or folder has direct content
+            if (folderContent.length === 0 && subfolders.length === 0) {
+                sidebarHtml += '<p style="color: #999; text-align: center; padding: 40px 20px;">No content or subfolders yet.</p>';
+            } else if (folderContent.length > 0) {
+                sidebarHtml += '<div><h4 style="color: #9b59b6; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(155, 89, 182, 0.2); padding-bottom: 8px;">📄 Content Items</h4>';
+                
+                folderContent.forEach(content => {
+                    sidebarHtml += `
+                        <div class="content-item" onclick="openFolder('${folder.slug}'); viewContent('${content.slug}')" style="background: rgba(26, 26, 26, 0.95); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="font-size: 24px;">📄</div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #ffffff; font-size: 14px;">${content.title}</div>
+                                    <div style="font-size: 11px; color: #808080;">${content.slug}</div>
+                                </div>
+                                <div style="color: #9b59b6; font-size: 18px;">→</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                sidebarHtml += '</div>';
+            }
+            
+            // Update sidebar
+            document.getElementById('contentList').innerHTML = sidebarHtml;
+            
+            // Show back button in viewer area
+            let contentArea = document.getElementById('viewerContent');
+            if (!contentArea) {
+                contentArea = document.createElement('div');
+                contentArea.id = 'viewerContent';
+                const viewer = document.getElementById('viewer');
+                viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
+            }
+            contentArea.innerHTML = `
+                <div class="no-content">
+                    <button onclick="displayAllFolders()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-bottom: 20px;">← Back to All Folders</button>
+                    <h2>${folder.title}</h2>
+                    <p>${subfolders.length > 0 ? 'Select a subfolder to view its contents' : 'Select content from the sidebar'}</p>
+                </div>
+            `;
+        }
+        
+        function showSubfolderContent(subfolderId) {
+            const subfolder = library.folders.find(f => f.id === subfolderId);
+            if (!subfolder) return;
+            
+            const folderContent = library.content.filter(c => c.folderId === subfolderId);
+            
+            // Update folder title
+            document.getElementById('folderTitle').textContent = subfolder.title;
+            
+            // Show content as square thumbnails in the main area
+            let contentHtml = `
+                <div style="margin-bottom: 20px;">
+                    <button onclick="openFolderSidebar('${subfolder.parentId}')" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">← Back to Parent Folder</button>
+                </div>
+                <div class="content-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px;">
+            `;
+            
+            if (folderContent.length === 0) {
+                contentHtml += '<p style="color: #999; grid-column: 1 / -1; text-align: center; padding: 40px;">No content in this folder yet.</p>';
+            } else {
+                folderContent.forEach(content => {
+                    const thumbnailUrl = content.thumbnail || '';
+                    contentHtml += `
+                        <div class="content-card" onclick="window.location.href='?folder=${subfolder.slug}&content=${content.slug}'" style="background: rgba(26, 26, 26, 0.95); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; cursor: pointer; overflow: hidden; aspect-ratio: 1;">
+                            <div style="width: 100%; aspect-ratio: 1; background: ${thumbnailUrl ? `url('${thumbnailUrl}') center/cover` : 'rgba(155, 89, 182, 0.2)'}; display: flex; align-items: center; justify-content: center;">
+                                ${!thumbnailUrl ? '<div style="font-size: 32px;">📄</div>' : ''}
+                            </div>
+                            <div style="padding: 10px;">
+                                <div style="font-weight: 600; color: #ffffff; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${content.title}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            contentHtml += '</div>';
+            
+            // Update viewer content
+            let contentArea = document.getElementById('viewerContent');
+            if (!contentArea) {
+                contentArea = document.createElement('div');
+                contentArea.id = 'viewerContent';
+                const viewer = document.getElementById('viewer');
+                viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
+            }
+            contentArea.innerHTML = contentHtml;
+            
+            // Update sidebar to show we're in a subfolder
+            document.getElementById('contentList').innerHTML = `
+                <div style="padding: 10px;">
+                    <p style="color: #9b59b6; font-size: 12px; margin-bottom: 10px;">Currently viewing:</p>
+                    <div style="background: rgba(26, 26, 26, 0.95); border: 1px solid rgba(155, 89, 182, 0.3); border-radius: 8px; padding: 12px;">
+                        <div style="font-weight: 600; color: #ffffff;">${subfolder.title}</div>
+                        <div style="font-size: 11px; color: #808080;">${folderContent.length} item${folderContent.length !== 1 ? 's' : ''}</div>
+                    </div>
+                </div>
+            `;
         }
         
         function viewContent(contentSlug) {
@@ -1224,8 +1353,9 @@
             const shareButton = pdfOnlyMode ? '' : `
                 <button onclick="copyShareLink()" 
                         style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; 
-                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 18px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">
-                    📋
+                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);"
+                        title="Copy Link">
+                    ⧉
                 </button>
             `;
             
