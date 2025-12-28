@@ -707,24 +707,15 @@ function updateFolderSelects() {
         // Get root folders (no parent_id)
         const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
         
-        // Add folders hierarchically
-        rootFolders.forEach(rootFolder => {
-            // Add root folder
-            const rootOption = document.createElement('option');
-            rootOption.value = rootFolder.id;
-            rootOption.textContent = `📁 ${rootFolder.title} (${rootFolder.item_count || 0} items)`;
-            select.appendChild(rootOption);
-            
-            // Get and add sub-folders for this root
-            const subFolders = folders.filter(f => f.parent_id === rootFolder.id).sort((a, b) => a.title.localeCompare(b.title));
-            
-            subFolders.forEach(subFolder => {
-                const subOption = document.createElement('option');
-                subOption.value = subFolder.id;
-                subOption.textContent = `  └─ 📂 ${subFolder.title} (${subFolder.item_count || 0} items)`;
-                select.appendChild(subOption);
+        // For content folder dropdown - show ONLY root folders
+        if (!isParentSelect) {
+            rootFolders.forEach(rootFolder => {
+                const option = document.createElement('option');
+                option.value = rootFolder.id;
+                option.textContent = `📁 ${rootFolder.title} (${rootFolder.item_count || 0} items)`;
+                select.appendChild(option);
             });
-        });
+        }
         
         // For parent folder dropdown, only show root folders
         if (isParentSelect) {

@@ -12,7 +12,7 @@
     <style>
         :root {
             --bg-primary: #0a0e27;
-            --bg-secondary: #4a5568;
+            --bg-secondary: #374151;
             --text-primary: #ffffff;
             --text-secondary: #e0e0e0;
             --text-tertiary: #b0b0b0;
@@ -21,7 +21,7 @@
             --purple-light: #9b59b6;
             --purple-medium: #8e44ad;
             --purple-dark: #663399;
-            --folder-bg: linear-gradient(135deg, #4a5568 0%, #718096 100%);
+            --folder-bg: linear-gradient(135deg, #374151 0%, #4b5563 100%);
             --folder-icon: #9b59b6;
         }
         
@@ -165,7 +165,7 @@
         
         .content-thumbnail {
             width: 100%;
-            height: 60px;
+            height: 100%;
             background: var(--bg-primary);
             display: flex;
             align-items: center;
@@ -177,6 +177,7 @@
             background-position: center;
             background-repeat: no-repeat;
             position: relative;
+            aspect-ratio: 1;
         }
         
         /* Loading placeholder for thumbnails */
@@ -298,7 +299,7 @@
         }
         
         .pdf-modal-content {
-            background: #4a5568;
+            background: #374151;
             width: 95%;
             max-width: 1200px;
             height: 90vh;
@@ -315,7 +316,7 @@
             justify-content: space-between;
             align-items: center;
             flex-shrink: 0;
-            background: #4a5568;
+            background: #374151;
         }
         
         .pdf-modal-title {
@@ -824,15 +825,15 @@
             <div class="pdf-modal-header">
                 <div class="pdf-modal-title" id="pdfTitle">PDF Viewer</div>
                 <div class="pdf-controls">
-                    <button onclick="changePage(-1)" id="prevPage" style="padding: 8px 12px; font-size: 16px;">⬅️</button>
+                    <button onclick="changePage(-1)" id="prevPage">‹</button>
                     <span class="page-info">
                         Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
                     </span>
-                    <button onclick="changePage(1)" id="nextPage" style="padding: 8px 12px; font-size: 16px;">➡️</button>
-                    <button onclick="zoomPDF(-0.1)" style="padding: 8px 12px; font-size: 16px;">🔍➖</button>
-                    <button onclick="zoomPDF(0.1)" style="padding: 8px 12px; font-size: 16px;">🔍➕</button>
-                    <button onclick="downloadPDF()" style="background: linear-gradient(135deg, #4caf50, #66bb6a); color: white; box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3); padding: 8px 12px; font-size: 16px;">⬇️</button>
-                    <button class="close-modal" onclick="closePDFModal(); event.stopPropagation();" style="background: #6c757d; color: white; padding: 8px 12px; font-size: 16px;">❌</button>
+                    <button onclick="changePage(1)" id="nextPage">›</button>
+                    <button onclick="zoomPDF(-0.1)">−</button>
+                    <button onclick="zoomPDF(0.1)">+</button>
+                    <button onclick="downloadPDF()" style="background: linear-gradient(135deg, #4caf50, #66bb6a); color: white; box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">⏷</button>
+                    <button class="close-modal" onclick="closePDFModal(); event.stopPropagation();" style="background: #6c757d; color: white;">✕</button>
                 </div>
             </div>
             
@@ -1093,58 +1094,39 @@
                 return;
             }
             
-            console.log('✅ Displaying', library.folders.length, 'folders');
+            console.log('✅ Displaying root folders only');
             
-            // Build hierarchical folder structure
+            // Get ONLY root folders (no parentId, depth 0) - like admin.html
             const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0);
             
-            function renderFolderWithChildren(folder, level = 0) {
+            let html = '';
+            rootFolders.forEach(folder => {
                 const subfolders = library.folders.filter(f => f.parentId === folder.id);
-                const hasSubfolders = subfolders.length > 0;
                 const contentCount = getTotalContentCount(folder.id);
                 
-                let itemCount, itemLabel;
-                if (hasSubfolders) {
-                    itemCount = subfolders.length;
-                    itemLabel = itemCount === 1 ? 'FOLDER' : 'FOLDERS';
-                } else {
-                    itemCount = contentCount;
-                    itemLabel = itemCount === 1 ? 'ITEM' : 'ITEMS';
-                }
+                // Show sub-folders count and items count like admin.html
+                const subfolderCount = subfolders.length;
+                const itemCount = contentCount;
                 
-                const folderIcon = level > 0 ? '📂' : '📁';
-                const folderTypeLabel = level > 0 ? 'Sub-Root' : 'Root';
-                
-                // Create wrapper for folder and its children
-                let html = `
-                    <div class="folder-group" style="grid-column: 1 / -1; display: contents;">
-                        <div class="content-card folder-card ${level > 0 ? 'subfolder-card' : ''}" 
-                             onclick="openFolder('${folder.slug}')" 
-                             style="${level > 0 ? 'margin-left: ' + (level * 30) + 'px; width: calc(100% - ' + (level * 30) + 'px);' : ''}">
-                            <div class="content-thumbnail">
-                                <div class="type-icon">${folderIcon}</div>
-                            </div>
-                            <div class="content-info">
-                                <div class="content-title">${level > 0 ? '└─ ' : ''}${folder.name}</div>
-                                <div class="content-type">${itemCount} ${itemLabel} • ${folderTypeLabel}</div>
-                            </div>
+                html += `
+                    <div class="content-card folder-card" onclick="openFolder('${folder.slug}')">
+                        <div class="content-thumbnail">
+                            ${folder.thumbnail ? 
+                                `<div class="thumbnail-placeholder" style="background-image: url('${folder.thumbnail}'); width: 100%; height: 100%; background-size: cover; background-position: center; border-radius: 8px;"></div>` : 
+                                '<div style="font-size: 32px;">📁</div>'
+                            }
                         </div>
+                        <div class="content-info">
+                            <div class="content-title">${folder.title}</div>
+                            <div class="content-type">${subfolderCount} sub-folders, ${itemCount} items</div>
+                        </div>
+                    </div>
                 `;
-                
-                // Recursively render subfolders
-                if (hasSubfolders) {
-                    subfolders.forEach(subfolder => {
-                        html += renderFolderWithChildren(subfolder, level + 1);
-                    });
-                }
-                
-                html += `</div>`;
-                return html;
-            }
-            
-            const html = rootFolders.map(folder => renderFolderWithChildren(folder)).join('');
+            });
             
             document.getElementById('contentList').innerHTML = html;
+            
+            // Clear viewer content
             let contentArea = document.getElementById('viewerContent');
             if (!contentArea) {
                 contentArea = document.createElement('div');
@@ -1152,12 +1134,7 @@
                 const viewer = document.getElementById('viewer');
                 viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
             }
-            contentArea.innerHTML = `
-                <div class="no-content">
-                    <h2>Browse Folders</h2>
-                    <p>Select a folder from the sidebar to view its contents</p>
-                </div>
-            `;
+            contentArea.innerHTML = '<div class="no-content"><h2>Select a Folder</h2><p>Click on a folder to view its contents</p></div>';
         }
         
         function openFolder(folderSlug) {
@@ -1192,7 +1169,7 @@
             const shareButton = pdfOnlyMode ? '' : `
                 <button onclick="copyShareLink()" 
                         style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; 
-                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">
+                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 18px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">
                     📋
                 </button>
             `;
