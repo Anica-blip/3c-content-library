@@ -18,11 +18,11 @@
             --text-tertiary: #b0b0b0;
             --border-color: #444;
             --shadow: rgba(0,0,0,0.3);
-            --purple-light: #e91e63;
-            --purple-medium: #f06292;
-            --purple-dark: #f48fb1;
+            --purple-light: #9b59b6;
+            --purple-medium: #8e44ad;
+            --purple-dark: #663399;
             --folder-bg: linear-gradient(135deg, #1a237e 0%, #283593 100%);
-            --folder-icon: #e91e63;
+            --folder-icon: #9b59b6;
         }
         
         
@@ -64,10 +64,10 @@
         }
         
         .header h1 { 
-            color: #e91e63; /* Neon purple to match theme */
+            color: #9b59b6; /* Light purple to match theme */
             font-size: 24px;
             margin: 0;
-            text-shadow: 0 0 10px rgba(233, 30, 99, 0.5);
+            text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);
         }
         
         
@@ -149,15 +149,15 @@
         }
         
         .content-card.subfolder-card {
-            background: linear-gradient(135deg, #283593 0%, #3949ab 100%);
-            border: 2px solid #e91e63;
-            box-shadow: 0 2px 6px rgba(233, 30, 99, 0.2);
+            background: linear-gradient(135deg, #666666 0%, #808080 100%);
+            border: 2px solid #9b59b6;
+            box-shadow: 0 2px 6px rgba(155, 89, 182, 0.2);
         }
         
         
         .content-card.subfolder-card:hover {
             transform: translateY(-3px) scale(1.01);
-            box-shadow: 0 6px 16px rgba(233, 30, 99, 0.3);
+            box-shadow: 0 6px 16px rgba(155, 89, 182, 0.3);
         }
         
         .content-thumbnail {
@@ -312,8 +312,8 @@
         .pdf-modal-title {
             font-size: 18px;
             font-weight: 600;
-            color: #e91e63;
-            text-shadow: 0 0 10px rgba(233, 30, 99, 0.5);
+            color: #9b59b6;
+            text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);
         }
         
         .pdf-controls {
@@ -323,19 +323,19 @@
         }
         
         .pdf-controls button {
-            background: linear-gradient(135deg, #e91e63, #f06292);
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
             color: white;
             border: none;
             padding: 8px 15px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
-            box-shadow: 0 2px 8px rgba(233, 30, 99, 0.3);
+            box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);
         }
         
         .pdf-controls button:hover {
-            background: linear-gradient(135deg, #d81b60, #ec407a);
-            box-shadow: 0 4px 12px rgba(233, 30, 99, 0.4);
+            background: linear-gradient(135deg, #8e44ad, #663399);
+            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
         }
         
         .pdf-controls button:disabled {
@@ -815,15 +815,15 @@
             <div class="pdf-modal-header">
                 <div class="pdf-modal-title" id="pdfTitle">PDF Viewer</div>
                 <div class="pdf-controls">
-                    <button onclick="changePage(-1)" id="prevPage">Previous</button>
+                    <button onclick="changePage(-1)" id="prevPage">⬅️ Previous</button>
                     <span class="page-info">
                         Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
                     </span>
-                    <button onclick="changePage(1)" id="nextPage">Next</button>
-                    <button onclick="zoomPDF(-0.1)">Zoom -</button>
-                    <button onclick="zoomPDF(0.1)">Zoom +</button>
-                    <button onclick="downloadPDF()" style="background: linear-gradient(135deg, #4caf50, #66bb6a); color: white; box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">📥 Download</button>
-                    <button class="close-modal" onclick="closePDFModal(); event.stopPropagation();">✕ Close</button>
+                    <button onclick="changePage(1)" id="nextPage">Next ➡️</button>
+                    <button onclick="zoomPDF(-0.1)">🔍➖</button>
+                    <button onclick="zoomPDF(0.1)">🔍➕</button>
+                    <button onclick="downloadPDF()" style="background: linear-gradient(135deg, #4caf50, #66bb6a); color: white; box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">⬇️ Download</button>
+                    <button class="close-modal" onclick="closePDFModal(); event.stopPropagation();">❌ Close</button>
                 </div>
             </div>
             
@@ -1182,8 +1182,8 @@
             // In PDF-only mode, show share button
             const shareButton = pdfOnlyMode ? '' : `
                 <button onclick="copyShareLink()" 
-                        style="background: linear-gradient(135deg, #e91e63, #f06292); color: white; border: none; padding: 8px 16px; 
-                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; box-shadow: 0 2px 8px rgba(233, 30, 99, 0.3);">
+                        style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 16px; 
+                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">
                     📋 Copy PDF Link
                 </button>
             `;
@@ -1201,7 +1201,7 @@
                 viewerHtml = `
                     <div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${content.url.replace(/`/g, '\\`')}\`, \`${content.title.replace(/`/g, '\\`')}\`, \`${content.id}\`)">
                         <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                        <div style="font-size: 18px; color: #e91e63; font-weight: 600; text-shadow: 0 0 10px rgba(233, 30, 99, 0.5);">
+                        <div style="font-size: 18px; color: #9b59b6; font-weight: 600; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
                             📄 Click to view PDF
                         </div>
                     </div>
@@ -1224,8 +1224,8 @@
             const params = getUrlParams();
             const backButton = !pdfOnlyMode && params.folder ? `
                 <button onclick="window.location.href='?folder=${params.folder}'" 
-                        style="background: linear-gradient(135deg, #e91e63, #f06292); color: white; border: none; padding: 10px 20px; 
-                               border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 14px; box-shadow: 0 2px 8px rgba(233, 30, 99, 0.3);">
+                        style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 10px 20px; 
+                               border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">
                     ← Back to Folder
                 </button>
             ` : '';
@@ -1588,31 +1588,6 @@
             });
         }
         
-        // Dark mode toggle
-        function toggleDarkMode() {
-            document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            const btn = document.getElementById('darkModeBtn');
-            
-            if (isDark) {
-                btn.innerHTML = '☀️ Light Mode';
-                localStorage.setItem('darkMode', 'enabled');
-            } else {
-                btn.innerHTML = '🌙 Dark Mode';
-                localStorage.setItem('darkMode', 'disabled');
-            }
-        }
-        
-        // Load dark mode preference
-        function loadDarkModePreference() {
-            const darkMode = localStorage.getItem('darkMode');
-            if (darkMode === 'enabled') {
-                document.body.classList.add('dark-mode');
-                document.getElementById('darkModeBtn').innerHTML = '☀️ Light Mode';
-            }
-        }
-        
-        loadDarkModePreference();
         
         // Lazy load thumbnails using Intersection Observer for better performance
         let thumbnailObserver;
