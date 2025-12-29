@@ -98,6 +98,60 @@
             align-items: center;
         }
         
+        .folders-section {
+            margin-bottom: 40px;
+        }
+        
+        .folders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .folder-card-item {
+            background: var(--bg-secondary);
+            border: 2px solid rgba(155, 89, 182, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 12px;
+        }
+        
+        .folder-card-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(155, 89, 182, 0.3);
+            border-color: rgba(155, 89, 182, 0.6);
+        }
+        
+        .folder-icon {
+            font-size: 48px;
+            margin-bottom: 8px;
+        }
+        
+        .folder-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+        
+        .folder-details {
+            font-size: 12px;
+            color: #9b59b6;
+            margin-bottom: 4px;
+        }
+        
+        .folder-slug {
+            font-size: 11px;
+            color: #808080;
+            font-family: monospace;
+        }
         
         .content-grid {
             display: grid;
@@ -789,16 +843,20 @@
     </div>
     
     <div class="container">
-        <div class="layout">
-            <div class="sidebar" id="sidebar">
-                <h2 id="folderTitle">Select Content</h2>
-                <div class="content-grid" id="contentList"></div>
-            </div>
-            
+        <!-- Folders and Content Section -->
+        <div class="folders-section">
+            <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                📁 Folders and Content
+            </h2>
+            <div id="foldersGrid" class="folders-grid"></div>
+        </div>
+        
+        <!-- Content Viewer (hidden by default, shown when viewing content) -->
+        <div id="contentViewer" style="display: none;">
             <div class="viewer" id="viewer">
                 <div class="no-content">
                     <h2>Welcome to 3C Public Library</h2>
-                    <p>Select content from the sidebar to view</p>
+                    <p>Select content to view</p>
                 </div>
                 
                 <!-- Comments Section (appears below content) -->
@@ -1113,7 +1171,10 @@
         
         function displayAllFolders() {
             console.log('📁 displayAllFolders called, folders:', library.folders);
-            document.getElementById('folderTitle').textContent = 'All Folders';
+            
+            // Hide content viewer, show folders section
+            document.getElementById('contentViewer').style.display = 'none';
+            document.querySelector('.folders-section').style.display = 'block';
             
             // Hide comments section
             document.getElementById('commentsSection').style.display = 'none';
@@ -1134,8 +1195,8 @@
             
             console.log('✅ Displaying only root folders');
             
-            // Get only root folders (like admin.html)
-            const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0);
+            // Get only root folders sorted alphabetically
+            const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0).sort((a, b) => a.title.localeCompare(b.title));
             
             let html = '';
             rootFolders.forEach(folder => {
@@ -1152,34 +1213,16 @@
                 }
                 
                 html += `
-                    <div class="content-card folder-card" onclick="window.location.href='?folder=${folder.slug}'">
-                        <div class="content-thumbnail">
-                            <div style="font-size: 32px;">📁</div>
-                        </div>
-                        <div class="content-info">
-                            <div class="content-title">${folder.title}</div>
-                            <div class="content-type">${countLabel}</div>
-                            <div class="content-slug">${folder.slug}</div>
-                        </div>
+                    <div class="folder-card-item" onclick="window.location.href='?folder=${folder.slug}'">
+                        <div class="folder-icon">📁</div>
+                        <div class="folder-title">${folder.title}</div>
+                        <div class="folder-details">${countLabel}</div>
+                        <div class="folder-slug">${folder.slug}</div>
                     </div>
                 `;
             });
             
-            document.getElementById('contentList').innerHTML = html;
-            
-            let contentArea = document.getElementById('viewerContent');
-            if (!contentArea) {
-                contentArea = document.createElement('div');
-                contentArea.id = 'viewerContent';
-                const viewer = document.getElementById('viewer');
-                viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
-            }
-            contentArea.innerHTML = `
-                <div class="no-content">
-                    <h2>Welcome to 3C Public Library</h2>
-                    <p>Select a folder to view its contents</p>
-                </div>
-            `;
+            document.getElementById('foldersGrid').innerHTML = html;
         }
         
         function openFolder(folderSlug) {
