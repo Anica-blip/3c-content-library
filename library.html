@@ -1109,70 +1109,42 @@
                 return;
             }
             
+            // Hide folders section, show content viewer with left/right layout
+            document.querySelector('.folders-section').style.display = 'none';
+            document.getElementById('contentViewer').style.display = 'block';
+            document.getElementById('folderSidebar').style.display = 'none'; // Close folder sidebar
+            
             currentFolder = findFolderBySlug(folderSlug);
             if (!currentFolder) {
-                document.getElementById('contentList').innerHTML = '<p style="color: #999;">Folder not found</p>';
-                let contentArea = document.getElementById('viewerContent');
-                if (!contentArea) {
-                    contentArea = document.createElement('div');
-                    contentArea.id = 'viewerContent';
-                    const viewer = document.getElementById('viewer');
-                    viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
-                }
-                contentArea.innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>';
-                document.getElementById('commentsSection').style.display = 'none';
+                document.getElementById('viewer').innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>';
                 return;
             }
             
-            document.getElementById('folderTitle').textContent = currentFolder.title;
-            
-            // Show sidebar and populate sub-folders if this is a root folder
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar) {
-                sidebar.style.display = 'block';
-                
-                // Check if this is a root folder and has sub-folders
-                const subfolders = library.folders.filter(f => f.parentId === currentFolder.id);
-                
-                if (subfolders.length > 0) {
-                    // Show sub-folders in sidebar
-                    let sidebarHTML = '<h3>Sub-Folders</h3><div class="subfolder-list">';
-                    subfolders.forEach(subfolder => {
-                        const subContent = library.content.filter(c => c.folderId === subfolder.id);
-                        sidebarHTML += `
-                            <div class="subfolder-item" onclick="window.location.href='?folder=${subfolder.slug}'" style="cursor: pointer; padding: 10px; margin: 5px 0; background: rgba(26, 26, 26, 0.95); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.2);">
-                                <div style="font-weight: 600; color: #ffffff; text-shadow: 0 0 6px rgba(255, 255, 255, 0.5);">${subfolder.title}</div>
-                                <div style="font-size: 12px; color: #ffffff; margin-top: 4px;">${subContent.length} items</div>
-                            </div>
-                        `;
-                    });
-                    sidebarHTML += '</div>';
-                    sidebar.innerHTML = sidebarHTML;
-                } else {
-                    // No sub-folders
-                    sidebar.innerHTML = '<h3>Sub-Folders</h3><p style="color: #999;">No sub-folders</p>';
-                }
-            }
-            
+            // Get folder content
             let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
-            
-            // Sort by order property
             folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
             
+            // Create left/right layout
+            const viewer = document.getElementById('viewer');
+            viewer.innerHTML = `
+                <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
+                    <div class="sidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px);">
+                        <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 15px;">${currentFolder.title}</h2>
+                        <div class="content-grid" id="contentList"></div>
+                    </div>
+                    <div id="viewerContent" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px);">
+                        <div class="no-content"><h2>Welcome to 3C Public Library</h2><p>Select content from the sidebar to view</p></div>
+                    </div>
+                </div>
+                <div class="comments-section" id="commentsSection" style="display: none;"></div>
+            `;
+            
             if (folderContent.length === 0) {
-                document.getElementById('contentList').innerHTML = '<p style="color: #999;">No content in this folder</p>';
-                let contentArea = document.getElementById('viewerContent');
-                if (!contentArea) {
-                    contentArea = document.createElement('div');
-                    contentArea.id = 'viewerContent';
-                    const viewer = document.getElementById('viewer');
-                    viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
-                }
-                contentArea.innerHTML = '<div class="no-content"><h2>Empty Folder</h2><p>No content in this folder yet.</p></div>';
-                document.getElementById('commentsSection').style.display = 'none';
+                document.getElementById('contentList').innerHTML = '<p style="color: #999;">No content</p>';
                 return;
             }
             
+            // Build thumbnail grid for left sidebar
             const html = folderContent.map(item => {
                 let thumbnailAttr = '';
                 let thumbnailContent = '';
