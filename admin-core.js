@@ -720,17 +720,27 @@ function updateFolderSelects() {
                 select.appendChild(option);
             });
         } else {
-            // For content folder dropdown - show ALL folders with indentation for sub-folders
-            folders.forEach(folder => {
-                const option = document.createElement('option');
-                option.value = folder.id;
+            // For content folder dropdown - show folders hierarchically grouped by root folder
+            // Get root folders sorted alphabetically
+            const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
+            
+            rootFolders.forEach(rootFolder => {
+                // Add root folder
+                const rootOption = document.createElement('option');
+                rootOption.value = rootFolder.id;
+                const rootContentCount = folders.filter(c => c.id === rootFolder.id)[0]?.item_count || 0;
+                rootOption.textContent = `📁 ${rootFolder.title} (${rootContentCount} items)`;
+                select.appendChild(rootOption);
                 
-                // Add indentation based on depth
-                const indent = '  '.repeat(folder.depth || 0);
-                const prefix = folder.depth > 0 ? '└─ ' : '';
-                
-                option.textContent = `${indent}${prefix}${folder.title} (${folder.item_count || 0} items)`;
-                select.appendChild(option);
+                // Add sub-folders under this root folder
+                const subfolders = folders.filter(f => f.parent_id === rootFolder.id).sort((a, b) => a.title.localeCompare(b.title));
+                subfolders.forEach(subfolder => {
+                    const subOption = document.createElement('option');
+                    subOption.value = subfolder.id;
+                    const subContentCount = subfolder.item_count || 0;
+                    subOption.textContent = `  └─ ${subfolder.title} (${subContentCount} items)`;
+                    select.appendChild(subOption);
+                });
             });
         }
         
