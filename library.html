@@ -153,6 +153,51 @@
             font-family: monospace;
         }
         
+        .folder-sidebar {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 400px;
+            height: 100vh;
+            background: var(--bg-secondary);
+            box-shadow: -4px 0 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(155, 89, 182, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            z-index: 10;
+        }
+        
+        .sidebar-body {
+            padding: 20px;
+        }
+        
+        .subfolder-card {
+            background: rgba(40, 40, 40, 0.5);
+            border: 1px solid rgba(155, 89, 182, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .subfolder-card:hover {
+            background: rgba(50, 50, 50, 0.7);
+            border-color: rgba(155, 89, 182, 0.6);
+            transform: translateX(-4px);
+        }
+        
         .content-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -851,6 +896,15 @@
             <div id="foldersGrid" class="folders-grid"></div>
         </div>
         
+        <!-- Folder Sidebar (for sub-folders) -->
+        <div id="folderSidebar" class="folder-sidebar" style="display: none;">
+            <div class="sidebar-header">
+                <div id="sidebarFolderTitle"></div>
+                <button onclick="closeFolderSidebar()" style="background: transparent; border: none; color: #ffffff; font-size: 24px; cursor: pointer; padding: 0;">×</button>
+            </div>
+            <div class="sidebar-body" id="sidebarContent"></div>
+        </div>
+        
         <!-- Content Viewer (hidden by default, shown when viewing content) -->
         <div id="contentViewer" style="display: none;">
             <div class="viewer" id="viewer">
@@ -1213,7 +1267,7 @@
                 }
                 
                 html += `
-                    <div class="folder-card-item" onclick="window.location.href='?folder=${folder.slug}'">
+                    <div class="folder-card-item" onclick="openFolderSidebar('${folder.id}')">
                         <div class="folder-icon">📁</div>
                         <div class="folder-title">${folder.title}</div>
                         <div class="folder-details">${countLabel}</div>
@@ -1227,6 +1281,56 @@
         
         function openFolder(folderSlug) {
             window.location.href = `?folder=${folderSlug}`;
+        }
+        
+        function openFolderSidebar(folderId) {
+            const folder = library.folders.find(f => f.id === folderId);
+            if (!folder) return;
+            
+            const subfolders = library.folders.filter(f => f.parentId === folderId).sort((a, b) => a.title.localeCompare(b.title));
+            const folderContent = library.content.filter(c => c.folderId === folderId);
+            
+            document.getElementById('sidebarFolderTitle').innerHTML = `
+                <div>
+                    <h3 style="margin: 0; color: #9b59b6; font-size: 18px;">${folder.title}</h3>
+                    <div style="font-size: 12px; color: #808080; margin-top: 4px;">${folder.slug}</div>
+                </div>
+            `;
+            
+            let contentHtml = '';
+            
+            if (subfolders.length > 0) {
+                contentHtml += '<h4 style="color: #9b59b6; font-size: 14px; margin-bottom: 12px;">📂 Sub-folders</h4>';
+                subfolders.forEach(subfolder => {
+                    const subContent = library.content.filter(c => c.folderId === subfolder.id);
+                    contentHtml += `
+                        <div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="font-size: 24px;">📂</div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div>
+                                    <div style="font-size: 11px; color: #808080;">${subContent.length} items</div>
+                                </div>
+                                <div style="color: #9b59b6; font-size: 18px;">→</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else if (folderContent.length === 0) {
+                contentHtml = '<p style="color: #999; text-align: center; padding: 40px;">No sub-folders or content yet.</p>';
+            }
+            
+            if (folderContent.length > 0 && subfolders.length === 0) {
+                contentHtml = '<p style="color: #9b59b6;">This folder has direct content. Click to view:</p>';
+                contentHtml += `<button onclick="window.location.href='?folder=${folder.slug}'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; width: 100%;">View Content</button>`;
+            }
+            
+            document.getElementById('sidebarContent').innerHTML = contentHtml;
+            document.getElementById('folderSidebar').style.display = 'block';
+        }
+        
+        function closeFolderSidebar() {
+            document.getElementById('folderSidebar').style.display = 'none';
         }
         
         function viewContent(contentSlug) {
