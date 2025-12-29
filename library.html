@@ -1373,8 +1373,8 @@
             
             // Add back button for navigating between content
             const params = getUrlParams();
-            const backButton = !pdfOnlyMode && params.folder ? `
-                <button onclick="window.location.href='?folder=${params.folder}'" 
+            const backButton = !pdfOnlyMode ? `
+                <button onclick="window.location.href='library.html'" 
                         style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; 
                                border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">
                     ← Back
@@ -1396,10 +1396,33 @@
                 <h2 style="font-size: 18px;">${content.title}${shareButton}</h2>
                 ${content.description ? `<div class="viewer-desc">${content.description}</div>` : ''}
                 <div class="embed-container" style="${content.type === 'pdf' ? 'height: auto; border: none;' : ''}">${viewerHtml}</div>
+                
+                <!-- Comments Section Below PDF Thumbnail -->
+                <div class="comments-section" style="margin-top: 40px;">
+                    <div class="comments-header">
+                        <h3>💬 Comments</h3>
+                        <span class="comment-count" id="commentCount">0</span>
+                    </div>
+                    
+                    <!-- Comment Form -->
+                    <div class="comment-form">
+                        <div id="commentSuccessMsg" class="comment-success" style="display: none;">
+                            ✅ Thank you! Your comment has been posted successfully.
+                        </div>
+                        <input type="text" id="commentAuthorName" placeholder="Your Name *" required>
+                        <input type="email" id="commentAuthorEmail" placeholder="Your Email (optional, for notifications)">
+                        <textarea id="commentText" placeholder="Write your comment here... *" required></textarea>
+                        <button onclick="submitComment()" id="submitCommentBtn">Post Comment</button>
+                    </div>
+                    
+                    <!-- Comments List -->
+                    <div class="comments-list" id="commentsList">
+                        <div class="no-comments">No comments yet. Be the first to comment!</div>
+                    </div>
+                </div>
             `;
             
-            // Show and load comments section
-            document.getElementById('commentsSection').style.display = 'block';
+            // Load comments for this content
             loadComments(content.id);
         }
         
