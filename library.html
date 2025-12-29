@@ -208,7 +208,7 @@
         .content-card {
             background: var(--bg-secondary);
             border-radius: 12px;
-            overflow: hidden;
+            overflow: visible;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
             border: 2px solid transparent;
@@ -862,6 +862,25 @@
             font-size: 18px;
             font-weight: 600;
         }
+        
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .layout {
+                grid-template-columns: 1fr !important;
+            }
+            
+            #leftSidebar {
+                display: block !important;
+            }
+            
+            .right-viewer {
+                display: none !important;
+            }
+            
+            .right-viewer.active {
+                display: block !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1086,16 +1105,8 @@
             
             // If view=pdf-only, hide sidebar and folder nav, show only PDF
             if (viewMode === 'pdf-only' && contentSlug) {
-                document.querySelector('.sidebar').style.display = 'none';
-                document.querySelector('.layout').style.gridTemplateColumns = '1fr';
-                
-                // Hide only the subtitle, keep the header visible
-                const noContentP = document.querySelector('.no-content p');
-                if (noContentP) noContentP.style.display = 'none';
-                
-                // Also hide folder navigation if it exists
-                const folderNav = document.getElementById('folderNav');
-                if (folderNav) folderNav.style.display = 'none';
+                document.querySelector('.folders-section').style.display = 'none';
+                document.getElementById('contentViewer').style.display = 'block';
                 
                 const content = findContentBySlug(contentSlug);
                 if (content) {
@@ -1130,11 +1141,11 @@
             const viewer = document.getElementById('viewer');
             viewer.innerHTML = `
                 <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
-                    <div class="sidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px);">
+                    <div class="sidebar" id="leftSidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px);">
                         <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 15px;">${currentFolder.title}</h2>
                         <div class="content-grid" id="contentList"></div>
                     </div>
-                    <div id="viewerContent" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px);">
+                    <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px); display: none;">
                         <div class="no-content"><h2>Welcome to 3C Public Library</h2><p>Select content from the sidebar to view</p></div>
                     </div>
                 </div>
@@ -1383,13 +1394,21 @@
             ` : '';
             
             // Create or update content area (preserve comments section)
+            const viewer = document.getElementById('viewer');
+            if (pdfOnlyMode) {
+                viewer.innerHTML = '<div id="viewerContent" style="max-width: 800px; margin: 0 auto; padding: 20px;"></div>';
+            }
             let contentArea = document.getElementById('viewerContent');
-            if (!contentArea) {
-                // Create content area if it doesn't exist
-                const viewer = document.getElementById('viewer');
-                contentArea = document.createElement('div');
-                contentArea.id = 'viewerContent';
-                viewer.insertBefore(contentArea, document.getElementById('commentsSection'));
+            
+            // Show right sidebar on mobile when content is clicked
+            if (contentArea) {
+                contentArea.style.display = 'block';
+                contentArea.classList.add('active');
+                // On mobile, hide left sidebar when viewing content
+                const leftSidebar = document.getElementById('leftSidebar');
+                if (leftSidebar && window.innerWidth <= 768) {
+                    leftSidebar.style.display = 'none';
+                }
             }
             
             contentArea.innerHTML = `
