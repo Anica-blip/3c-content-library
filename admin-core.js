@@ -694,50 +694,49 @@ function resetContentForm() {
 
 // ==================== UI DISPLAY ====================
 function updateFolderSelects() {
-    const selects = document.querySelectorAll('#parentFolder, #contentFolder');
+    const selects = ['contentFolder', 'filterFolder', 'parentFolder'];
     
-    selects.forEach(select => {
-        const currentValue = select.value;
-        const isParentSelect = select.id === 'parentFolder';
+    selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (!select) return;
         
-        select.innerHTML = '<option value="">-- Select Folder --</option>';
+        const currentValue = select.value;
+        const isParentSelect = selectId === 'parentFolder';
+        
+        // Keep first option
+        const firstOption = select.options[0];
+        select.innerHTML = '';
+        select.appendChild(firstOption);
         
         if (folders.length === 0) return;
         
-        // Get root folders (no parent_id)
-        const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
-        
-        // For content folder dropdown - show ONLY root folders
-        if (!isParentSelect) {
-            rootFolders.forEach(rootFolder => {
+        // For parent folder dropdown, only show root folders
+        if (isParentSelect) {
+            const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
+            rootFolders.forEach(folder => {
                 const option = document.createElement('option');
-                option.value = rootFolder.id;
-                option.textContent = `📁 ${rootFolder.title} (${rootFolder.item_count || 0} items)`;
+                option.value = folder.id;
+                option.textContent = `📁 ${folder.title}`;
+                select.appendChild(option);
+            });
+        } else {
+            // For content folder dropdown - show ALL folders with indentation for sub-folders
+            folders.forEach(folder => {
+                const option = document.createElement('option');
+                option.value = folder.id;
+                
+                // Add indentation based on depth
+                const indent = '  '.repeat(folder.depth || 0);
+                const prefix = folder.depth > 0 ? '└─ ' : '';
+                
+                option.textContent = `${indent}${prefix}${folder.title} (${folder.item_count || 0} items)`;
                 select.appendChild(option);
             });
         }
         
-        // For parent folder dropdown, only show root folders
-        if (isParentSelect) {
-            const parentCurrentValue = select.value;
-            select.innerHTML = '<option value="">-- Select Parent Folder --</option>';
-            
-            rootFolders.forEach(rootFolder => {
-                const option = document.createElement('option');
-                option.value = rootFolder.id;
-                option.textContent = `📁 ${rootFolder.title}`;
-                select.appendChild(option);
-            });
-            
-            // Restore selection for parent dropdown
-            if (parentCurrentValue) {
-                select.value = parentCurrentValue;
-            }
-        } else {
-            // Restore selection for content folder dropdown
-            if (currentValue) {
-                select.value = currentValue;
-            }
+        // Restore selection
+        if (currentValue) {
+            select.value = currentValue;
         }
     });
 }
