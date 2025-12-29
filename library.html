@@ -210,10 +210,9 @@
             border-radius: 12px;
             overflow: hidden;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
             border: 2px solid transparent;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            aspect-ratio: 1;
         }
         
         .content-card:hover {
@@ -223,6 +222,9 @@
         
         .content-card.active {
             border-color: var(--purple-medium);
+            background: linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(142, 68, 173, 0.2));
+            box-shadow: 0 0 16px rgba(155, 89, 182, 0.6);
+            transform: scale(1.05);
         }
         
         .content-card.folder-card {
@@ -1158,11 +1160,10 @@
                 }
                 
                 return `
-                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.slug}')">
-                        <div class="content-thumbnail" ${thumbnailAttr}>${thumbnailContent}</div>
-                        <div class="content-info">
-                            <div class="content-title">${item.title}</div>
-                            <div class="content-type">${item.type.toUpperCase()}</div>
+                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.slug}')" style="display: flex; flex-direction: column; height: auto;">
+                        <div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0;">${thumbnailContent}</div>
+                        <div class="content-info" style="padding: 8px; text-align: center;">
+                            <div class="content-title" style="font-size: 12px; color: #ffffff; line-height: 1.3;">${item.title}</div>
                         </div>
                     </div>
                 `;
