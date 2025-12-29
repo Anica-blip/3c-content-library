@@ -885,6 +885,7 @@
                 const folders = await supabaseClient.getFolders();
                 library.folders = folders.map(f => ({
                     id: f.id,
+                    title: f.title,
                     name: f.title,
                     slug: f.custom_url || f.slug,
                     customUrl: f.custom_url,
