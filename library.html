@@ -880,6 +880,10 @@
                 display: block !important;
             }
             
+            #leftSidebar.hidden {
+                display: none !important;
+            }
+            
             .right-viewer {
                 position: fixed;
                 top: 0;
@@ -1432,7 +1436,7 @@
             // Add back button for navigating between content
             const params = getUrlParams();
             const backButton = !pdfOnlyMode ? `
-                <button onclick="window.location.href='library.html'" 
+                <button onclick="hideContentViewer()" 
                         style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; 
                                border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">
                     ← Back
@@ -1453,7 +1457,7 @@
                 // On mobile, hide left sidebar when viewing content
                 const leftSidebar = document.getElementById('leftSidebar');
                 if (leftSidebar && window.innerWidth <= 768) {
-                    leftSidebar.style.display = 'none';
+                    leftSidebar.classList.add('hidden');
                 }
             }
             
@@ -1616,6 +1620,24 @@
         function closePDFModal() {
             document.getElementById('pdfModal').classList.remove('active');
             pdfDoc = null;
+        }
+        
+        function hideContentViewer() {
+            const viewer = document.querySelector('.right-viewer');
+            const leftSidebar = document.getElementById('leftSidebar');
+            
+            if (viewer) {
+                viewer.classList.remove('active');
+            }
+            
+            if (leftSidebar) {
+                leftSidebar.classList.remove('hidden');
+            }
+            
+            // On desktop, just reload to go back to main page
+            if (window.innerWidth > 768) {
+                window.location.href = 'library.html';
+            }
         }
         
         // Close modal on escape key
