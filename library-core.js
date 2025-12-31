@@ -211,6 +211,9 @@ async function openContent(contentData) {
         case 'pdf':
             openPdfViewer(content);
             break;
+        case 'flipbook':
+            openFlipbookViewer(content);
+            break;
         case 'video':
             openMediaPlayer(content, 'video');
             break;
@@ -288,6 +291,13 @@ function closeMediaPlayer() {
     
     modal.classList.remove('active');
     container.innerHTML = '';
+}
+
+// ==================== FLIPBOOK VIEWER ====================
+function openFlipbookViewer(content) {
+    // Open flipbook viewer in new window with content ID
+    const flipbookUrl = `flipbook-viewer.html?content=${content.id}`;
+    window.open(flipbookUrl, '_blank', 'width=1200,height=800');
 }
 
 // ==================== LINK MODAL (DRAGGABLE) ====================
@@ -386,6 +396,7 @@ function escapeHtml(text) {
 function getTypeIcon(type) {
     const icons = {
         pdf: '📄',
+        flipbook: '📖',
         video: '🎥',
         image: '🖼️',
         audio: '🎵',
