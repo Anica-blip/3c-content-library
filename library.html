@@ -1383,9 +1383,7 @@
             // CHECK FOR INTERACTIVE PDF - Redirect to flipbook viewer
             if (content.type === 'pdf' && content.project_json) {
                 console.log('🎯 Interactive PDF detected! Redirecting to flipbook viewer...');
-                const params = getUrlParams();
-                const folderParam = params.folder ? `&folder=${params.folder}` : '';
-                window.location.href = `flipbook-viewer.html?content=${content.id}${folderParam}`;
+                window.location.href = `flipbook-viewer.html?content=${content.id}`;
                 return;
             }
             

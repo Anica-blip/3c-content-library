@@ -33,8 +33,7 @@ const closeMediaBtn = document.getElementById('close-media');
 function getUrlParams() {
     const params = new URLSearchParams(window.location.search);
     return {
-        content: params.get('content'),
-        folder: params.get('folder')
+        content: params.get('content')
     };
 }
 

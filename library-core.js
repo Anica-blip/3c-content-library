@@ -295,7 +295,7 @@ function closeMediaPlayer() {
 
 // ==================== FLIPBOOK VIEWER ====================
 function openFlipbookViewer(content) {
-    // Open flipbook viewer in new window with content ID
+    // Open flipbook viewer in new window with content ID only (standalone viewer)
     const flipbookUrl = `flipbook-viewer.html?content=${content.id}`;
     window.open(flipbookUrl, '_blank', 'width=1200,height=800');
 }

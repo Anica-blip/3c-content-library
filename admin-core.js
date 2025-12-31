@@ -533,24 +533,47 @@ async function saveContent(event) {
     try {
         let fileUrl = urlInput;
         let thumbnailUrl = null;
+        let projectJson = null;
         
         // Check if R2 is enabled
         const useR2 = CONFIG && CONFIG.features && CONFIG.features.useCloudflareR2;
         
         // Handle file upload
         if (currentFile) {
-            debugLog('📤 Uploading file to R2...');
-            if (useR2) {
+            // Special handling for flipbook JSON files
+            if (type === 'flipbook' && currentFile.type === 'application/json') {
+                debugLog('📖 Processing flipbook JSON file...');
                 try {
-                    const result = await r2Storage.uploadContent(currentFile);
-                    fileUrl = result.url;
-                    debugLog('✅ File uploaded: ' + fileUrl);
+                    const jsonText = await currentFile.text();
+                    const jsonData = JSON.parse(jsonText);
+                    
+                    // Store JSON content in project_json field
+                    projectJson = jsonText;
+                    
+                    // No file URL needed - JSON is stored in project_json
+                    fileUrl = null;
+                    
+                    debugLog('✅ Flipbook JSON parsed and stored (self-contained)');
                 } catch (error) {
-                    debugLog('❌ R2 upload failed, using base64 fallback');
-                    fileUrl = await fileToBase64(currentFile);
+                    debugLog('❌ Failed to parse JSON: ' + error.message);
+                    showAlert('error', 'Invalid JSON file: ' + error.message);
+                    return;
                 }
             } else {
-                fileUrl = await fileToBase64(currentFile);
+                // Regular file upload for non-flipbook content
+                debugLog('📤 Uploading file to R2...');
+                if (useR2) {
+                    try {
+                        const result = await r2Storage.uploadContent(currentFile);
+                        fileUrl = result.url;
+                        debugLog('✅ File uploaded: ' + fileUrl);
+                    } catch (error) {
+                        debugLog('❌ R2 upload failed, using base64 fallback');
+                        fileUrl = await fileToBase64(currentFile);
+                    }
+                } else {
+                    fileUrl = await fileToBase64(currentFile);
+                }
             }
         }
         
@@ -569,7 +592,7 @@ async function saveContent(event) {
             }
         }
         
-        if (!fileUrl && !externalUrl) {
+        if (!fileUrl && !externalUrl && !projectJson) {
             showAlert('error', 'Please upload a file or enter a URL');
             return;
         }
@@ -585,6 +608,11 @@ async function saveContent(event) {
             file_size: currentFile ? currentFile.size : null,
             custom_url: customURL
         };
+        
+        // Add project_json for flipbook documents
+        if (projectJson) {
+            contentData.project_json = projectJson;
+        }
         
         if (editMode) {
             // Update existing content
