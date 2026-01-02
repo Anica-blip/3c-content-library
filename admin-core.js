@@ -550,7 +550,7 @@ async function saveContent(event) {
                     // Store JSON content in project_json field for backward compatibility
                     projectJson = jsonText;
                     
-                    // Upload JSON file to Cloudflare R2 for public access
+                    // Upload JSON file to Cloudflare R2 (MUST be Cloudflare URL, not base64)
                     debugLog('📤 Uploading flipbook JSON to R2...');
                     if (useR2) {
                         try {
@@ -558,11 +558,13 @@ async function saveContent(event) {
                             fileUrl = result.url;
                             debugLog('✅ Flipbook JSON uploaded to R2: ' + fileUrl);
                         } catch (error) {
-                            debugLog('❌ R2 upload failed, JSON stored in database only');
-                            fileUrl = null;
+                            debugLog('❌ R2 upload failed: ' + error.message);
+                            showAlert('error', 'Failed to upload JSON to Cloudflare R2: ' + error.message);
+                            return;
                         }
                     } else {
-                        fileUrl = null;
+                        showAlert('error', 'Cloudflare R2 is required for flipbook uploads');
+                        return;
                     }
                     
                     debugLog('✅ Flipbook JSON parsed and stored');
@@ -572,7 +574,7 @@ async function saveContent(event) {
                     return;
                 }
             } else {
-                // Regular file upload for non-flipbook content
+                // Regular file upload for non-flipbook content (PDF, images, etc.)
                 debugLog('📤 Uploading file to R2...');
                 if (useR2) {
                     try {
@@ -613,11 +615,11 @@ async function saveContent(event) {
             folder_id: folderId,
             title: title,
             type: type,
-            url: fileUrl || null,
+            url: fileUrl || (editMode && !currentFile ? allContent.find(c => c.id === contentId)?.url : null),
             external_url: externalUrl || null,
-            thumbnail_url: thumbnailUrl,
+            thumbnail_url: thumbnailUrl || (editMode && !currentThumbnail ? allContent.find(c => c.id === contentId)?.thumbnail_url : null),
             description: description,
-            file_size: currentFile ? currentFile.size : null,
+            file_size: currentFile ? currentFile.size : (editMode ? allContent.find(c => c.id === contentId)?.file_size : null),
             custom_url: customURL
         };
         
@@ -662,13 +664,18 @@ function editContent(contentId) {
     document.getElementById('contentFormTitle').textContent = '✏️ Edit Content';
     document.getElementById('saveButton').textContent = '💾 Update Content';
     
-    // Fill form
+    // Fill form with ALL existing data
     document.getElementById('contentFolder').value = content.folder_id;
     document.getElementById('contentTitle').value = content.title;
     document.getElementById('contentType').value = content.type;
     document.getElementById('contentUrl').value = content.url || '';
     document.getElementById('externalUrl').value = content.external_url || '';
     document.getElementById('contentDescription').value = content.description || '';
+    document.getElementById('contentCustomURL').value = content.custom_url || '';
+    
+    // Store existing URLs so they don't get lost if user doesn't re-upload
+    currentFile = null; // Clear file input
+    currentThumbnail = null; // Clear thumbnail input
     
     // Show thumbnail if exists
     if (content.thumbnail_url) {
@@ -815,15 +822,22 @@ function displayFoldersGrid() {
     }
     
     // Separate public and private folders
-    const publicRootFolders = folders.filter(f => 
-        !f.parent_id && f.folder_type === 'root' && f.is_public !== false
-    ).sort((a, b) => a.title.localeCompare(b.title));
+    // Note: is_public defaults to true, so we check explicitly for false
+    const publicRootFolders = folders.filter(f => {
+        const isRoot = !f.parent_id && f.folder_type === 'root';
+        const isPublic = f.is_public !== false; // true or null = public
+        console.log(`Folder "${f.title}": is_public=${f.is_public}, isRoot=${isRoot}, isPublic=${isPublic}`);
+        return isRoot && isPublic;
+    }).sort((a, b) => a.title.localeCompare(b.title));
     
-    const privateRootFolders = folders.filter(f => 
-        !f.parent_id && f.folder_type === 'root' && f.is_public === false
-    ).sort((a, b) => a.title.localeCompare(b.title));
+    const privateRootFolders = folders.filter(f => {
+        const isRoot = !f.parent_id && f.folder_type === 'root';
+        const isPrivate = f.is_public === false; // explicitly false = private
+        return isRoot && isPrivate;
+    }).sort((a, b) => a.title.localeCompare(b.title));
     
-    console.log('📊 Public folders:', publicRootFolders.length, 'Private folders:', privateRootFolders.length);
+    console.log('📊 Public folders:', publicRootFolders.length, publicRootFolders.map(f => f.title));
+    console.log('📊 Private folders:', privateRootFolders.length, privateRootFolders.map(f => f.title));
     
     // Render PUBLIC folders
     if (publicRootFolders.length === 0) {
