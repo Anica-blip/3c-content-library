@@ -95,6 +95,15 @@ class R2Storage {
     }
 
     /**
+     * Upload flipbook JSON to R2
+     * @param {File} file - Flipbook JSON file
+     * @returns {Promise<Object>} Upload result
+     */
+    async uploadFlipbook(file) {
+        return this.uploadFile(file, 'flipbooks', 'flipbook');
+    }
+
+    /**
      * Get file type category from MIME type
      * @param {string} mimeType - File MIME type
      * @returns {string|null} File type category
@@ -107,6 +116,12 @@ class R2Storage {
                 return type;
             }
         }
+        
+        // Allow JSON files for flipbooks
+        if (mimeType === 'application/json') {
+            return 'flipbook';
+        }
+        
         return null;
     }
 

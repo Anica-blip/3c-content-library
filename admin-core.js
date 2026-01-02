@@ -547,13 +547,25 @@ async function saveContent(event) {
                     const jsonText = await currentFile.text();
                     const jsonData = JSON.parse(jsonText);
                     
-                    // Store JSON content in project_json field
+                    // Store JSON content in project_json field for backward compatibility
                     projectJson = jsonText;
                     
-                    // No file URL needed - JSON is stored in project_json
-                    fileUrl = null;
+                    // Upload JSON file to Cloudflare R2 for public access
+                    debugLog('📤 Uploading flipbook JSON to R2...');
+                    if (useR2) {
+                        try {
+                            const result = await r2Storage.uploadFlipbook(currentFile);
+                            fileUrl = result.url;
+                            debugLog('✅ Flipbook JSON uploaded to R2: ' + fileUrl);
+                        } catch (error) {
+                            debugLog('❌ R2 upload failed, JSON stored in database only');
+                            fileUrl = null;
+                        }
+                    } else {
+                        fileUrl = null;
+                    }
                     
-                    debugLog('✅ Flipbook JSON parsed and stored (self-contained)');
+                    debugLog('✅ Flipbook JSON parsed and stored');
                 } catch (error) {
                     debugLog('❌ Failed to parse JSON: ' + error.message);
                     showAlert('error', 'Invalid JSON file: ' + error.message);
@@ -910,13 +922,27 @@ function openFolderSidebar(folderId) {
         contentHtml += '<div><h4 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(139, 92, 246, 0.2); padding-bottom: 8px;">📄 Content Items</h4>';
         
         folderContent.forEach((content, index) => {
-            const thumbnailHtml = content.thumbnail_url 
-                ? `<img src="${content.thumbnail_url}" class="content-thumbnail" alt="Thumbnail">`
-                : `<div class="content-thumbnail" style="background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 24px;">${getTypeIcon(content.type)}</div>`;
+            // For flipbooks, show web view image instead of thumbnail container
+            let thumbnailHtml;
+            if (content.type === 'flipbook') {
+                thumbnailHtml = content.thumbnail_url 
+                    ? `<img src="${content.thumbnail_url}" style="width: 100%; max-width: 150px; height: auto; border-radius: 8px; object-fit: cover;" alt="Thumbnail">`
+                    : `<div style="width: 100%; max-width: 150px; height: 200px; background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 48px; border-radius: 8px;">📖</div>`;
+            } else {
+                thumbnailHtml = content.thumbnail_url 
+                    ? `<img src="${content.thumbnail_url}" class="content-thumbnail" alt="Thumbnail">`
+                    : `<div class="content-thumbnail" style="background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 24px;">${getTypeIcon(content.type)}</div>`;
+            }
             
             const canMoveUp = index > 0;
             const canMoveDown = index < folderContent.length - 1;
             const isInteractive = content.project_json ? ' 📖 Interactive' : '';
+            
+            // For flipbooks, add "Click to view flipbook" link
+            let viewFlipbookLink = '';
+            if (content.type === 'flipbook' && content.url) {
+                viewFlipbookLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Click to view flipbook</a></div>`;
+            }
             
             contentHtml += `
                 <div class="content-card" style="margin-bottom: 10px;">
@@ -925,8 +951,9 @@ function openFolderSidebar(folderId) {
                         <div class="content-title">${escapeHtml(content.title)}${isInteractive}</div>
                         <div class="content-meta">Type: ${content.type.toUpperCase()} | Views: ${content.view_count || 0}</div>
                         <div class="content-meta">🔗 URL: <strong style="color: #007bff;">${content.custom_url || content.slug || 'auto-generated'}</strong></div>
-                        ${content.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(content.url)}" target="_blank" style="color: #007bff;">${truncateURL(content.url)}</a></div>` : '<div class="content-meta" style="color: #dc3545;">⚠️ No file URL</div>'}
+                        ${content.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(content.url)}" target="_blank" style="color: #007bff;">${truncateURL(content.url)}</a></div>` : '<div class="content-meta" style="color: #dc3545;">⚠️ No file URL (Missing)</div>'}
                         ${content.description ? `<div class="content-meta">${escapeHtml(content.description)}</div>` : ''}
+                        ${viewFlipbookLink}
                     </div>
                     <div class="content-actions">
                         ${canMoveUp ? `<button onclick="moveContentUp('${content.id}')">↑</button>` : ''}

@@ -1,6 +1,7 @@
 /**
  * 3C Content Library - Flipbook Viewer
- * Cloned from interactive-pdf builder for public viewing
+ * Enhanced version with 2x rendering quality and popup functions
+ * Version: 2025-01-02 - Integrated from interactive-pdf
  */
 
 // PDF.js worker
@@ -9,7 +10,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 // Global state
 let currentPage = 1;
 let totalPages = 0;
-let scale = 1.5; // 100% zoom
+let scale = 0.48; // Default 48% zoom for optimal viewing
 let manifest = null;
 let pageCanvases = [];
 let flipbookInitialized = false;
@@ -19,6 +20,10 @@ let contentData = null;
 // A4 dimensions at 96 DPI (standard web DPI)
 const A4_WIDTH_PX = 794;  // 210mm at 96 DPI
 const A4_HEIGHT_PX = 1123; // 297mm at 96 DPI
+
+// Editor canvas dimensions (75% of A4 - this is what the editor uses)
+const EDITOR_WIDTH_PX = 595;  // 794 * 0.75
+const EDITOR_HEIGHT_PX = 842;  // 1123 * 0.75
 
 // DOM elements
 const loading = document.getElementById('loading');
@@ -33,7 +38,8 @@ const closeMediaBtn = document.getElementById('close-media');
 function getUrlParams() {
     const params = new URLSearchParams(window.location.search);
     return {
-        content: params.get('content')
+        content: params.get('content'),
+        manifest: params.get('manifest')
     };
 }
 
@@ -44,21 +50,29 @@ async function init() {
     try {
         const params = getUrlParams();
         contentId = params.content;
+        const manifestUrl = params.manifest;
 
-        if (!contentId) {
-            alert('No content ID provided');
+        // Priority 1: Load from manifest URL (Cloudflare R2)
+        if (manifestUrl) {
+            console.log('Loading from manifest URL (Cloudflare R2):', manifestUrl);
+            await loadManifestFromUrl(manifestUrl);
+        }
+        // Priority 2: Load from content ID (Supabase)
+        else if (contentId) {
+            console.log('Loading from content ID (Supabase):', contentId);
+            // Initialize Supabase
+            if (!supabaseClient.isConnected) {
+                await supabaseClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
+            }
+            // Load content from Supabase
+            await loadContentFromSupabase(contentId);
+        }
+        else {
+            alert('No flipbook data provided. Use ?manifest=URL or ?content=ID');
             loading.classList.add('hidden');
             goBack();
             return;
         }
-
-        // Initialize Supabase
-        if (!supabaseClient.isConnected) {
-            await supabaseClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
-        }
-
-        // Load content from Supabase
-        await loadContentFromSupabase(contentId);
 
         loading.classList.add('hidden');
     } catch (error) {
@@ -66,6 +80,29 @@ async function init() {
         alert('Failed to load flipbook: ' + error.message);
         loading.classList.add('hidden');
         goBack();
+    }
+}
+
+/**
+ * Load manifest JSON from URL (for Cloudflare R2)
+ */
+async function loadManifestFromUrl(url) {
+    try {
+        console.log('📥 Fetching manifest from:', url);
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const manifestData = await response.json();
+        console.log('✅ Manifest loaded from URL:', manifestData.title || 'Untitled');
+        console.log('📄 Pages:', manifestData.pages?.length || 0);
+        
+        await initFromManifest(manifestData);
+    } catch (error) {
+        console.error('❌ Failed to load manifest from URL:', error);
+        throw new Error(`Failed to load flipbook manifest: ${error.message}`);
     }
 }
 
@@ -124,6 +161,17 @@ async function loadContentFromSupabase(id) {
  */
 async function initFromManifest(manifestData) {
     manifest = manifestData;
+    
+    // Sort pages by pageNumber to ensure correct order
+    if (manifest.pages && manifest.pages.length > 0) {
+        manifest.pages.sort((a, b) => {
+            const pageA = a.pageNumber || 0;
+            const pageB = b.pageNumber || 0;
+            return pageA - pageB;
+        });
+        console.log('📄 Pages sorted by pageNumber:', manifest.pages.map(p => p.pageNumber || '?').join(', '));
+    }
+    
     totalPages = manifest.pages ? manifest.pages.length : 0;
     
     if (totalPages === 0) {
@@ -131,56 +179,91 @@ async function initFromManifest(manifestData) {
     }
     
     document.getElementById('total-pages').textContent = totalPages;
-    document.getElementById('zoom-level').textContent = Math.round((scale / 1.5) * 100) + '%';
+    document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
     
-    console.log('Rendering', totalPages, 'pages...');
+    console.log('🎨 Rendering', totalPages, 'pages at', Math.round(scale * 100) + '% zoom');
     
-    // Create canvases from page backgrounds
+    // Render all pages at current scale with 2x quality
+    await renderPagesAtScale();
+    
+    // Initialize flipbook
+    initFlipbook();
+    
+    // Setup event listeners
+    setupEventListeners();
+}
+
+/**
+ * Render all pages at the current scale with 2x resolution for quality
+ */
+async function renderPagesAtScale() {
     pageCanvases = [];
     
-    for (const page of manifest.pages) {
+    // Calculate actual display dimensions at current zoom
+    const pageWidth = Math.round(A4_WIDTH_PX * scale);
+    const pageHeight = Math.round(A4_HEIGHT_PX * scale);
+    
+    console.log('   Page dimensions:', pageWidth, 'x', pageHeight, 'px');
+    
+    for (let i = 0; i < manifest.pages.length; i++) {
+        const page = manifest.pages[i];
         const canvas = document.createElement('canvas');
         const img = new Image();
         img.crossOrigin = 'anonymous';
         
         await new Promise((resolve, reject) => {
             img.onload = () => {
-                // Calculate canvas size based on A4 proportions
-                const targetWidth = A4_WIDTH_PX * scale;
-                const targetHeight = A4_HEIGHT_PX * scale;
-                
-                canvas.width = targetWidth;
-                canvas.height = targetHeight;
+                // Render at 2x resolution for quality, then scale display with CSS
+                const renderScale = 2;
+                canvas.width = pageWidth * renderScale;
+                canvas.height = pageHeight * renderScale;
                 
                 const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 
-                resolve();
-            };
-            img.onerror = () => {
-                // If image fails to load, create blank A4 canvas
-                console.warn('Failed to load background for page', page.pageNumber);
-                canvas.width = A4_WIDTH_PX * scale;
-                canvas.height = A4_HEIGHT_PX * scale;
-                
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Set CSS display size to actual zoom size
+                canvas.style.width = pageWidth + 'px';
+                canvas.style.height = pageHeight + 'px';
                 
                 resolve();
             };
             
-            // Handle different background formats
-            if (page.background && page.background.startsWith('data:')) {
-                img.src = page.background;
-            } else if (page.backgroundData) {
-                img.src = page.backgroundData;
+            img.onerror = (error) => {
+                console.warn('❌ Failed to load background for page', i + 1);
+                const renderScale = 2;
+                canvas.width = pageWidth * renderScale;
+                canvas.height = pageHeight * renderScale;
+                canvas.style.width = pageWidth + 'px';
+                canvas.style.height = pageHeight + 'px';
+                
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                resolve();
+            };
+            
+            // Get background source
+            let backgroundSource = null;
+            if (page.backgroundData) {
+                backgroundSource = page.backgroundData;
+            } else if (page.background && page.background.startsWith('data:')) {
+                backgroundSource = page.background;
             } else if (page.background) {
-                img.src = page.background;
+                backgroundSource = page.background;
+            }
+            
+            if (backgroundSource) {
+                img.src = backgroundSource;
             } else {
-                // No background - create blank
-                canvas.width = A4_WIDTH_PX * scale;
-                canvas.height = A4_HEIGHT_PX * scale;
+                // Create blank canvas
+                const renderScale = 2;
+                canvas.width = pageWidth * renderScale;
+                canvas.height = pageHeight * renderScale;
+                canvas.style.width = pageWidth + 'px';
+                canvas.style.height = pageHeight + 'px';
+                
                 const ctx = canvas.getContext('2d');
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -189,14 +272,9 @@ async function initFromManifest(manifestData) {
         });
         
         pageCanvases.push(canvas);
-        console.log('Rendered page:', page.pageNumber);
     }
     
-    // Initialize flipbook
-    initFlipbook();
-    
-    // Setup event listeners
-    setupEventListeners();
+    console.log('✅ All pages rendered at', Math.round(scale * 100) + '% with 2x quality');
 }
 
 /**
@@ -208,17 +286,32 @@ function initFlipbook() {
     // Clear existing content
     flipbook.empty();
     
+    // Get actual page dimensions from CSS-styled canvas
+    const pageWidth = Math.round(A4_WIDTH_PX * scale);
+    const pageHeight = Math.round(A4_HEIGHT_PX * scale);
+    
+    console.log('📖 Initializing flipbook with page size:', pageWidth, 'x', pageHeight);
+    
     // Add pages to flipbook
     pageCanvases.forEach((canvas, index) => {
         const pageDiv = $('<div class="page"></div>');
         
-        // Add canvas
+        // Ensure canvas fills the page div
+        $(canvas).css({
+            'display': 'block',
+            'width': '100%',
+            'height': '100%'
+        });
+        
         pageDiv.append(canvas);
         
-        // Add interactive overlay if page has elements
-        if (manifest.pages[index].elements && manifest.pages[index].elements.length > 0) {
-            const overlay = createInteractiveOverlay(manifest.pages[index], canvas.width, canvas.height);
-            pageDiv.append(overlay);
+        // Add interactive elements overlay
+        if (manifest && manifest.pages && manifest.pages[index]) {
+            const pageData = manifest.pages[index];
+            if (pageData.elements && pageData.elements.length > 0) {
+                console.log('🎯 Page', index + 1, '- Rendering', pageData.elements.length, 'elements');
+                renderInteractiveElements(pageDiv, pageData.elements, pageWidth, pageHeight);
+            }
         }
         
         // Add page number
@@ -228,15 +321,12 @@ function initFlipbook() {
         flipbook.append(pageDiv);
     });
     
-    // Calculate dimensions
-    const pageWidth = pageCanvases[0].width;
-    const pageHeight = pageCanvases[0].height;
-    
-    // Initialize turn.js
+    // Initialize turn.js with correct dimensions
     flipbook.turn({
         width: pageWidth * 2, // Double width for spread
         height: pageHeight,
         autoCenter: true,
+        display: 'double',
         gradients: true,
         elevation: 50,
         acceleration: true,
@@ -249,15 +339,24 @@ function initFlipbook() {
                     event.preventDefault();
                     return false;
                 }
-                currentPage = page;
-                updatePageInfo();
+                try {
+                    currentPage = page;
+                    updatePageInfo();
+                } catch (error) {
+                    console.error('Error during page turn:', error);
+                    return true;
+                }
             },
             turned: function(event, page, view) {
-                // Ensure page sync is maintained
                 currentPage = page;
                 updatePageInfo();
             },
             start: function(event, pageObject, corner) {
+                // Prevent turn if element is being clicked
+                if ($(event.target).closest('.interactive-element').length > 0) {
+                    event.preventDefault();
+                    return false;
+                }
                 // Prevent interaction if media overlay is active
                 if (mediaOverlay.classList.contains('active')) {
                     event.preventDefault();
@@ -270,135 +369,236 @@ function initFlipbook() {
     flipbookInitialized = true;
     updatePageInfo();
     
-    console.log('Flipbook initialized at', Math.round((scale / 1.5) * 100) + '% zoom');
+    console.log('✅ Flipbook initialized at', Math.round(scale * 100) + '% zoom');
 }
 
 /**
- * Create interactive overlay for a page
+ * Render interactive elements as overlays on page
+ * Elements are positioned based on editor coordinates (595px x 842px canvas)
  */
-function createInteractiveOverlay(pageData, canvasWidth, canvasHeight) {
-    const overlay = $('<div class="interactive-overlay"></div>');
+function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
+    // Filter out only positioned elements (ignore element container metadata)
+    const positionedElements = elements.filter(element => {
+        return (element.x !== undefined && element.x !== null) && 
+               (element.y !== undefined && element.y !== null) &&
+               element.type !== 'container' &&
+               element.type !== 'element-container';
+    });
     
-    if (!pageData.elements || pageData.elements.length === 0) {
-        return overlay;
-    }
+    if (positionedElements.length === 0) return;
     
-    // Calculate scale factor from original A4 size to current canvas size
-    const scaleX = canvasWidth / A4_WIDTH_PX;
-    const scaleY = canvasHeight / A4_HEIGHT_PX;
+    console.log('🎯 Rendering', positionedElements.length, 'elements on page');
     
-    pageData.elements.forEach(element => {
-        const el = $('<div class="interactive-element"></div>');
+    positionedElements.forEach((element, idx) => {
+        // Element positions are saved relative to editor canvas (595px x 842px)
+        // We need to scale them to current viewer size (pageWidth x pageHeight)
+        const scaleX = pageWidth / EDITOR_WIDTH_PX;
+        const scaleY = pageHeight / EDITOR_HEIGHT_PX;
         
-        // Scale position and size
-        el.css({
-            left: (element.x * scaleX) + 'px',
-            top: (element.y * scaleY) + 'px',
-            width: (element.width * scaleX) + 'px',
-            height: (element.height * scaleY) + 'px'
+        if (idx === 0) {
+            console.log('🔍 Element scaling:');
+            console.log('   Editor canvas:', EDITOR_WIDTH_PX, 'x', EDITOR_HEIGHT_PX);
+            console.log('   Viewer page:', pageWidth, 'x', pageHeight);
+            console.log('   Scale factors:', scaleX.toFixed(3), 'x', scaleY.toFixed(3));
+        }
+        
+        // Scale element position and size to match current page size
+        const scaledX = element.x * scaleX;
+        const scaledY = element.y * scaleY;
+        const scaledWidth = (element.width || 100) * scaleX;
+        const scaledHeight = (element.height || 40) * scaleY;
+        
+        const elementDiv = $('<div></div>').css({
+            position: 'absolute',
+            left: scaledX + 'px',
+            top: scaledY + 'px',
+            width: scaledWidth + 'px',
+            height: scaledHeight + 'px',
+            cursor: 'pointer',
+            zIndex: 10
         });
         
         // Handle different element types
-        switch (element.type) {
-            case 'video':
-                el.css({
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer'
-                });
-                el.html('<div style="width: 60px; height: 60px; border-radius: 50%; background: transparent; border: 3px solid rgba(139, 92, 246, 0.3); display: flex; align-items: center; justify-content: center; transition: all 0.3s;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="margin-left: 3px;"><path d="M8 5v14l11-7z" fill="#a78bfa" stroke="#a78bfa" stroke-width="2" stroke-linejoin="round"/></svg></div>');
-                el.on('click', (e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    playMedia(element, 'video');
-                });
-                el.on('mouseenter', function() {
-                    $(this).find('div').css({
-                        'border-color': 'rgba(139, 92, 246, 0.6)',
-                        'transform': 'scale(1.1)'
-                    });
-                });
-                el.on('mouseleave', function() {
-                    $(this).find('div').css({
-                        'border-color': 'rgba(139, 92, 246, 0.3)',
-                        'transform': 'scale(1)'
-                    });
-                });
-                break;
-                
-            case 'audio':
-                el.css({
-                    border: '2px solid #8b5cf6',
-                    borderRadius: '8px',
-                    background: 'rgba(139, 92, 246, 0.1)'
-                });
-                el.html('<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #8b5cf6; font-size: 20px;">🔊</div>');
-                el.on('click', (e) => {
-                    e.stopPropagation();
-                    playMedia(element, 'audio');
-                });
-                break;
-                
-            case 'image':
-                el.css({
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-                });
-                if (element.url) {
-                    el.html(`<img src="${element.url}" style="width: 100%; height: 100%; object-fit: cover;">`);
+        if (element.type === '3c-button' && element.imagePath) {
+            // 3C Button with image
+            const img = $('<img>').attr('src', element.imagePath).css({
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                cursor: 'pointer',
+                transition: 'transform 0.2s'
+            }).hover(
+                function() { $(this).css('transform', 'scale(1.05)'); },
+                function() { $(this).css('transform', 'scale(1)'); }
+            );
+            
+            img.on('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                try {
+                    if (element.url) {
+                        if (isVideoUrl(element.url)) {
+                            playMedia(element, 'video');
+                        } else {
+                            const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no,scrollbars=yes,resizable=yes');
+                            if (!popup) {
+                                alert('Please allow popups for this site to open links');
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error handling button click:', error);
                 }
-                break;
-                
-            case 'button':
-                el.css({
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: '600',
-                    fontSize: '14px',
-                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
-                });
-                el.text(element.text || 'Click Me');
-                el.on('click', (e) => {
-                    e.stopPropagation();
+            });
+            
+            elementDiv.append(img);
+        } else if (element.type === 'button') {
+            // Regular button
+            const button = $('<button></button>')
+                .text(element.text || 'Click')
+                .css({
+                    width: '100%',
+                    height: '100%',
+                    background: element.backgroundColor || '#667eea',
+                    color: element.textColor || '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: Math.round((element.fontSize || 14) * scaleX) + 'px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                    transition: 'all 0.2s'
+                })
+                .hover(
+                    function() { $(this).css('transform', 'scale(1.05)'); },
+                    function() { $(this).css('transform', 'scale(1)'); }
+                );
+            
+            button.on('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                try {
                     if (element.url) {
-                        window.open(element.url, '_blank');
+                        if (isVideoUrl(element.url)) {
+                            playMedia(element, 'video');
+                        } else {
+                            window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
+                        }
+                    } else if (element.videoUrl || element.streamId) {
+                        playMedia(element, 'video');
                     }
-                });
-                break;
-                
-            case 'hotspot':
-                el.css({
-                    background: 'rgba(139, 92, 246, 0.2)',
-                    border: '2px dashed #8b5cf6',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#8b5cf6',
-                    fontSize: '24px'
-                });
-                el.html('👆');
-                el.on('click', (e) => {
-                    e.stopPropagation();
+                } catch (error) {
+                    console.error('Error handling button click:', error);
+                }
+            });
+            
+            elementDiv.append(button);
+        } else if (element.type === 'hotspot' || element.type === 'link') {
+            // Invisible clickable area
+            elementDiv.css({
+                background: 'transparent',
+                border: '2px dashed rgba(102, 126, 234, 0.3)'
+            }).hover(
+                function() { $(this).css('background', 'rgba(102, 126, 234, 0.1)'); },
+                function() { $(this).css('background', 'transparent'); }
+            );
+            
+            elementDiv.on('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                try {
                     if (element.url) {
-                        window.open(element.url, '_blank');
-                    } else if (element.text) {
-                        alert(element.text);
+                        if (isVideoUrl(element.url)) {
+                            playMedia(element, 'video');
+                        } else {
+                            window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
+                        }
                     }
-                });
-                break;
+                } catch (error) {
+                    console.error('Error handling element click:', error);
+                }
+            });
+        } else if (element.type === 'video' || element.type === 'cloudflare-stream') {
+            // Video with play button
+            const videoContainer = $('<div></div>').css({
+                width: '100%',
+                height: '100%',
+                position: 'relative',
+                overflow: 'hidden',
+                borderRadius: '8px',
+                background: 'rgba(0, 0, 0, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            });
+            
+            const playBtn = $('<div></div>').css({
+                width: Math.round(64 * scaleX) + 'px',
+                height: Math.round(64 * scaleX) + 'px',
+                background: 'rgba(139, 92, 246, 0.3)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+            }).html('<svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="margin-left: 3px;"><path d="M8 5v14l11-7z" fill="#a78bfa" stroke="#a78bfa" stroke-width="2" stroke-linejoin="round"/></svg>');
+            
+            playBtn.hover(
+                function() { $(this).css({'transform': 'scale(1.15)', 'background': 'rgba(139, 92, 246, 0.6)'}); },
+                function() { $(this).css({'transform': 'scale(1)', 'background': 'rgba(139, 92, 246, 0.3)'}); }
+            );
+            
+            videoContainer.append(playBtn);
+            
+            videoContainer.on('click', function(e) {
+                e.stopPropagation();
+                playMedia(element, 'video');
+            });
+            
+            elementDiv.append(videoContainer);
         }
         
-        overlay.append(el);
+        pageDiv.append(elementDiv);
     });
+}
+
+/**
+ * Detect if URL is a video platform link
+ */
+function isVideoUrl(url) {
+    if (!url) return false;
+    const videoPatterns = [
+        /youtube\.com\/watch/i,
+        /youtu\.be\//i,
+        /vimeo\.com\//i,
+        /\.mp4$/i,
+        /\.webm$/i,
+        /\.ogg$/i,
+        /\.mov$/i,
+        /cloudflarestream\.com/i
+    ];
+    return videoPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Convert video URL to embed iframe URL
+ */
+function getVideoEmbedUrl(url) {
+    // YouTube
+    let match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\?]+)/);
+    if (match) {
+        return `https://www.youtube.com/embed/${match[1]}?autoplay=1`;
+    }
     
-    return overlay;
+    // Vimeo
+    match = url.match(/vimeo\.com\/(\d+)/);
+    if (match) {
+        return `https://player.vimeo.com/video/${match[1]}?autoplay=1`;
+    }
+    
+    return null;
 }
 
 /**
@@ -415,37 +615,72 @@ function playMedia(element, type) {
         mediaPlayerWrapper.innerHTML = '';
         
         if (type === 'video') {
-            if (element.url && (element.url.includes('youtube.com') || element.url.includes('youtu.be'))) {
-                // YouTube video
-                const videoId = extractYouTubeId(element.url);
-                if (!videoId) {
-                    throw new Error('Invalid YouTube URL');
+            const videoUrl = element.url || element.videoUrl || element.mediaUrl || element.iframeUrl;
+            
+            if (!videoUrl && !element.streamId) {
+                console.error('No video URL found in element:', element);
+                alert('Video URL not found. Please check the element configuration.');
+                if (flipbookInitialized) {
+                    $('#flipbook').turn('disable', false);
                 }
+                return;
+            }
+            
+            // Cloudflare Stream
+            if (element.type === 'cloudflare-stream' && element.streamId) {
+                const streamElement = document.createElement('stream');
+                streamElement.setAttribute('src', element.streamId);
+                streamElement.setAttribute('controls', '');
+                streamElement.setAttribute('autoplay', '');
+                if (element.poster) {
+                    streamElement.setAttribute('poster', element.poster);
+                }
+                mediaPlayerWrapper.appendChild(streamElement);
+            }
+            // Cloudflare Stream iframe
+            else if (videoUrl && (videoUrl.includes('/iframe') || videoUrl.includes('cloudflarestream.com'))) {
                 const iframe = document.createElement('iframe');
-                iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+                iframe.src = videoUrl;
                 iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
                 iframe.allowFullscreen = true;
                 iframe.style.width = '100%';
                 iframe.style.height = '100%';
                 iframe.style.border = 'none';
                 mediaPlayerWrapper.appendChild(iframe);
-            } else if (element.url) {
-                // Direct video
-                const video = document.createElement('video');
-                video.src = element.url;
-                video.controls = true;
-                video.autoplay = true;
-                video.style.width = '100%';
-                video.style.maxHeight = '80vh';
-                video.onerror = () => {
-                    console.error('Video failed to load:', element.url);
-                    mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px;">Failed to load video. Please check the URL.</div>';
-                };
-                mediaPlayerWrapper.appendChild(video);
+            }
+            // YouTube/Vimeo
+            else if (videoUrl) {
+                const embedUrl = getVideoEmbedUrl(videoUrl);
+                if (embedUrl) {
+                    const iframe = document.createElement('iframe');
+                    iframe.src = embedUrl;
+                    iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+                    iframe.allowFullscreen = true;
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.border = 'none';
+                    mediaPlayerWrapper.appendChild(iframe);
+                } else {
+                    // Direct video file
+                    const video = document.createElement('video');
+                    video.src = videoUrl;
+                    video.controls = true;
+                    video.autoplay = true;
+                    video.style.width = '100%';
+                    video.style.height = 'auto';
+                    if (element.thumbnailUrl || element.poster) {
+                        video.poster = element.thumbnailUrl || element.poster;
+                    }
+                    video.onerror = () => {
+                        console.error('Video failed to load:', videoUrl);
+                        mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px;">Failed to load video. Please check the URL.</div>';
+                    };
+                    mediaPlayerWrapper.appendChild(video);
+                }
             }
         } else if (type === 'audio') {
             const audio = document.createElement('audio');
-            audio.src = element.url;
+            audio.src = element.url || element.mediaUrl;
             audio.controls = true;
             audio.autoplay = true;
             audio.style.width = '100%';
@@ -467,14 +702,6 @@ function playMedia(element, type) {
     }
 }
 
-/**
- * Extract YouTube video ID
- */
-function extractYouTubeId(url) {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-}
 
 /**
  * Close media overlay
@@ -527,19 +754,21 @@ function setupEventListeners() {
         }
     });
     
-    // Zoom controls
-    $('#zoom-in').on('click', async () => {
-        scale += 0.375; // 25% increment (1.5 * 0.25 = 0.375)
-        $('#zoom-level').text(Math.round((scale / 1.5) * 100) + '%');
-        await reloadFlipbook();
+    // Zoom controls - properly re-render at new scale
+    $('#zoom-in').on('click', () => {
+        console.log('🔍 Zoom in clicked');
+        scale += 0.05; // Increase by 5%
+        scale = Math.round(scale * 100) / 100;
+        if (scale > 1.5) scale = 1.5; // Max 150%
+        reloadFlipbook();
     });
     
-    $('#zoom-out').on('click', async () => {
-        if (scale > 0.75) { // Minimum 50% zoom
-            scale -= 0.375;
-            $('#zoom-level').text(Math.round((scale / 1.5) * 100) + '%');
-            await reloadFlipbook();
-        }
+    $('#zoom-out').on('click', () => {
+        console.log('🔍 Zoom out clicked');
+        scale -= 0.05; // Decrease by 5%
+        scale = Math.round(scale * 100) / 100;
+        if (scale < 0.3) scale = 0.3; // Min 30%
+        reloadFlipbook();
     });
     
     // Back button
@@ -577,16 +806,46 @@ function setupEventListeners() {
  */
 async function reloadFlipbook() {
     loading.classList.remove('hidden');
+    console.log('🔄 Reloading flipbook at', Math.round(scale * 100) + '% zoom');
     
-    // Destroy existing flipbook
-    if (flipbookInitialized) {
-        $('#flipbook').turn('destroy');
+    // Update zoom display
+    document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
+    
+    try {
+        // Store current page before destroying
+        const savedPage = currentPage;
+        
+        // Destroy existing flipbook
+        if (flipbookInitialized) {
+            $('#flipbook').turn('destroy');
+            flipbookInitialized = false;
+        }
+        
+        // Re-render pages at new scale
+        await renderPagesAtScale();
+        initFlipbook();
+        
+        // Restore page position after reload
+        if (savedPage > 1) {
+            setTimeout(() => {
+                $('#flipbook').turn('page', savedPage);
+            }, 100);
+        }
+        
+        // Resize container to fit new dimensions
+        const pageWidth = Math.round(A4_WIDTH_PX * scale);
+        const pageHeight = Math.round(A4_HEIGHT_PX * scale);
+        $('#flipbook').css({
+            width: (pageWidth * 2) + 'px',
+            height: pageHeight + 'px'
+        });
+        
+        console.log('✅ Flipbook reloaded at', Math.round(scale * 100) + '%');
+    } catch (error) {
+        console.error('❌ Error reloading flipbook:', error);
+    } finally {
+        loading.classList.add('hidden');
     }
-    
-    // Re-render from manifest
-    await initFromManifest(manifest);
-    
-    loading.classList.add('hidden');
 }
 
 /**
