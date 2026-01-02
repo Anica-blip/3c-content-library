@@ -800,64 +800,89 @@ function displayContent() {
 }
 
 function displayFoldersGrid() {
-    const container = document.getElementById('folderContentList');
+    const publicContainer = document.getElementById('folderContentList');
+    const privateContainer = document.getElementById('privateFolderContentList');
     
-    if (!container) {
-        console.error('folderContentList container not found');
+    if (!publicContainer || !privateContainer) {
+        console.error('Folder containers not found');
         return;
     }
     
     if (folders.length === 0) {
-        container.innerHTML = '<p style="color: #999;">No folders created yet. Create a folder above to get started.</p>';
+        publicContainer.innerHTML = '<p style="color: #999;">No public folders created yet.</p>';
+        privateContainer.innerHTML = '<p style="color: #999;">No private folders created yet.</p>';
         return;
     }
     
-    // Get only root folders (folders with no parent_id AND folder_type is 'root')
-    console.log('📊 All folders from database:', folders.map(f => ({ 
-        title: f.title, 
-        type: f.folder_type, 
-        parent_id: f.parent_id,
-        has_parent: !!f.parent_id,
-        id: f.id
-    })));
+    // Separate public and private folders
+    const publicRootFolders = folders.filter(f => 
+        !f.parent_id && f.folder_type === 'root' && f.is_public !== false
+    ).sort((a, b) => a.title.localeCompare(b.title));
     
-    const rootFolders = folders.filter(f => {
-        const isRoot = !f.parent_id && f.folder_type === 'root';
-        console.log(`Folder "${f.title}": parent_id=${f.parent_id}, type=${f.folder_type}, isRoot=${isRoot}`);
-        return isRoot;
-    }).sort((a, b) => a.title.localeCompare(b.title));
+    const privateRootFolders = folders.filter(f => 
+        !f.parent_id && f.folder_type === 'root' && f.is_public === false
+    ).sort((a, b) => a.title.localeCompare(b.title));
     
-    console.log('✅ Root folders to display:', rootFolders.length, rootFolders.map(f => f.title));
+    console.log('📊 Public folders:', publicRootFolders.length, 'Private folders:', privateRootFolders.length);
     
-    // Render folders as grid (only root folders)
-    let html = '<div class="folders-grid">';
+    // Render PUBLIC folders
+    if (publicRootFolders.length === 0) {
+        publicContainer.innerHTML = '<p style="color: #999;">No public folders created yet.</p>';
+    } else {
+        let publicHtml = '<div class="folders-grid">';
+        publicRootFolders.forEach(folder => {
+            const contentCount = allContent.filter(c => c.folder_id === folder.id).length;
+            const subfolders = folders.filter(f => f.parent_id === folder.id);
+            const subfoldersCount = subfolders.length;
+            const displayURL = folder.custom_url || folder.slug;
+            
+            let countLabel = subfoldersCount > 0 
+                ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`
+                : `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
+            
+            publicHtml += `
+                <div class="folder-grid-card" onclick="openFolderSidebar('${folder.id}')">
+                    <div class="folder-icon">📁</div>
+                    <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
+                    <div class="folder-grid-meta">${countLabel}</div>
+                    <div class="folder-grid-url">${displayURL}</div>
+                </div>
+            `;
+        });
+        publicHtml += '</div>';
+        publicContainer.innerHTML = publicHtml;
+    }
     
-    rootFolders.forEach(folder => {
-        const contentCount = allContent.filter(c => c.folder_id === folder.id).length;
-        const subfolders = folders.filter(f => f.parent_id === folder.id);
-        const subfoldersCount = subfolders.length;
-        const displayURL = folder.custom_url || folder.slug;
-        
-        // Count label shows subfolders + content items
-        let countLabel = '';
-        if (subfoldersCount > 0) {
-            countLabel = `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`;
-        } else {
-            countLabel = `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
-        }
-        
-        html += `
-            <div class="folder-grid-card" onclick="openFolderSidebar('${folder.id}')">
-                <div class="folder-icon">📁</div>
-                <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
-                <div class="folder-grid-meta">${countLabel}</div>
-                <div class="folder-grid-url">${displayURL}</div>
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    container.innerHTML = html;
+    // Render PRIVATE folders
+    if (privateRootFolders.length === 0) {
+        privateContainer.innerHTML = '<p style="color: #999;">No private folders created yet. Set is_public=false when creating a folder.</p>';
+    } else {
+        let privateHtml = '<div class="folders-grid">';
+        privateRootFolders.forEach(folder => {
+            const contentCount = allContent.filter(c => c.folder_id === folder.id).length;
+            const subfolders = folders.filter(f => f.parent_id === folder.id);
+            const subfoldersCount = subfolders.length;
+            const displayURL = folder.custom_url || folder.slug;
+            
+            let countLabel = subfoldersCount > 0 
+                ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`
+                : `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
+            
+            privateHtml += `
+                <div class="folder-grid-card" onclick="openFolderSidebar('${folder.id}')" style="border-color: #e74c3c;">
+                    <div class="folder-icon">🔒</div>
+                    <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
+                    <div class="folder-grid-meta">${countLabel}</div>
+                    <div class="folder-grid-url">${displayURL}</div>
+                    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(231, 76, 60, 0.2);">
+                        <button onclick="event.stopPropagation(); managePasswords('${folder.id}')" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;">🔑 Passwords</button>
+                    </div>
+                </div>
+            `;
+        });
+        privateHtml += '</div>';
+        privateContainer.innerHTML = privateHtml;
+    }
 }
 
 // Folder sidebar management
@@ -1130,6 +1155,151 @@ function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 }
+
+// ==================== PASSWORD MANAGEMENT ====================
+
+async function managePasswords(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    
+    document.getElementById('passwordFolderId').value = folderId;
+    document.getElementById('passwordModal').classList.add('active');
+    
+    // Load existing passwords
+    await loadFolderPasswords(folderId);
+    
+    // Generate initial password
+    generateNewPassword();
+}
+
+async function loadFolderPasswords(folderId) {
+    const container = document.getElementById('passwordsList');
+    container.innerHTML = '<p style="color: #999;">Loading passwords...</p>';
+    
+    try {
+        const { data, error } = await supabaseClient.client
+            .from('folder_passwords')
+            .select('*')
+            .eq('folder_id', folderId)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p style="color: #999;">No passwords created yet.</p>';
+            return;
+        }
+        
+        let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
+        data.forEach(pwd => {
+            const expiryText = pwd.expires_at 
+                ? `Expires: ${new Date(pwd.expires_at).toLocaleDateString()}`
+                : 'No expiration';
+            const userText = pwd.user_identifier || 'No user specified';
+            
+            html += `
+                <div style="background: #f5f5f5; padding: 12px; border-radius: 6px; border-left: 4px solid #e74c3c;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">🔑 ${pwd.password_plain || '••••••••'}</div>
+                            <div style="font-size: 12px; color: #666;">👤 ${userText}</div>
+                            <div style="font-size: 12px; color: #666;">📅 ${expiryText}</div>
+                            <div style="font-size: 11px; color: #999; margin-top: 4px;">Created: ${new Date(pwd.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <button onclick="deactivatePassword('${pwd.id}')" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">Deactivate</button>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading passwords:', error);
+        container.innerHTML = '<p style="color: #e74c3c;">Error loading passwords</p>';
+    }
+}
+
+function generateNewPassword() {
+    const password = PasswordUtils.generatePassword(12);
+    document.getElementById('newPasswordValue').value = password;
+}
+
+async function saveNewPassword() {
+    const folderId = document.getElementById('passwordFolderId').value;
+    const password = document.getElementById('newPasswordValue').value;
+    const userIdentifier = document.getElementById('newPasswordUser').value;
+    const expiresAt = document.getElementById('newPasswordExpiry').value;
+    
+    if (!password) {
+        alert('Please generate a password first');
+        return;
+    }
+    
+    try {
+        const passwordHash = await PasswordUtils.hashPassword(password);
+        
+        const { data, error } = await supabaseClient.client
+            .from('folder_passwords')
+            .insert({
+                folder_id: folderId,
+                password_hash: passwordHash,
+                password_plain: password, // Store plain for admin view (remove in production)
+                user_identifier: userIdentifier || null,
+                expires_at: expiresAt || null,
+                is_active: true
+            })
+            .select();
+        
+        if (error) throw error;
+        
+        alert(`✅ Password created successfully!\n\nPassword: ${password}\nUser: ${userIdentifier || 'Not specified'}\n\nShare this password with the user.`);
+        
+        // Reload passwords list
+        await loadFolderPasswords(folderId);
+        
+        // Reset form
+        document.getElementById('newPasswordUser').value = '';
+        document.getElementById('newPasswordExpiry').value = '';
+        generateNewPassword();
+        
+    } catch (error) {
+        console.error('Error saving password:', error);
+        alert('Failed to save password: ' + error.message);
+    }
+}
+
+async function deactivatePassword(passwordId) {
+    if (!confirm('Deactivate this password? Users will no longer be able to access the folder with it.')) {
+        return;
+    }
+    
+    try {
+        const { error } = await supabaseClient.client
+            .from('folder_passwords')
+            .update({ is_active: false })
+            .eq('id', passwordId);
+        
+        if (error) throw error;
+        
+        alert('✅ Password deactivated');
+        
+        // Reload passwords list
+        const folderId = document.getElementById('passwordFolderId').value;
+        await loadFolderPasswords(folderId);
+        
+    } catch (error) {
+        console.error('Error deactivating password:', error);
+        alert('Failed to deactivate password: ' + error.message);
+    }
+}
+
+function closePasswordModal() {
+    document.getElementById('passwordModal').classList.remove('active');
+}
+
+// ==================== UTILITY FUNCTIONS ====================
 
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';

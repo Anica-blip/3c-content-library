@@ -209,12 +209,21 @@
             </form>
         </div>
 
-        <!-- Manage Folders & Content (Combined) -->
+        <!-- Manage PUBLIC Folders & Content -->
         <div class="section">
-            <h2>📂 Manage Folders & Content</h2>
-            <p style="color: #666; margin-bottom: 15px;">Click on a folder card to view its content in the sidebar. Folders are sorted alphabetically.</p>
+            <h2>📂 Manage Public Folders & Content</h2>
+            <p style="color: #666; margin-bottom: 15px;">Public folders are visible to everyone. Click on a folder card to view its content in the sidebar.</p>
             <div id="folderContentList">
-                <p style="color: #999;">Loading folders...</p>
+                <p style="color: #999;">Loading public folders...</p>
+            </div>
+        </div>
+
+        <!-- Manage PRIVATE Folders & Content -->
+        <div class="section" style="margin-top: 40px; border-top: 3px solid #e74c3c; padding-top: 30px;">
+            <h2>🔒 Manage Private Folders & Content</h2>
+            <p style="color: #666; margin-bottom: 15px;">Private folders require password access. Each folder can have multiple passwords for different users.</p>
+            <div id="privateFolderContentList">
+                <p style="color: #999;">Loading private folders...</p>
             </div>
         </div>
     </div>
@@ -290,6 +299,52 @@
         </div>
     </div>
 
+    <!-- Password Management Modal -->
+    <div class="modal" id="passwordModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔑 Manage Folder Passwords</h2>
+                <button class="modal-close" onclick="closePasswordModal()">×</button>
+            </div>
+            <input type="hidden" id="passwordFolderId">
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="font-size: 16px; margin-bottom: 10px;">Active Passwords</h3>
+                <div id="passwordsList" style="max-height: 300px; overflow-y: auto;">
+                    <p style="color: #999;">Loading passwords...</p>
+                </div>
+            </div>
+            
+            <div style="border-top: 2px solid #e74c3c; padding-top: 20px; margin-top: 20px;">
+                <h3 style="font-size: 16px; margin-bottom: 10px;">Generate New Password</h3>
+                
+                <div class="form-group">
+                    <label>User Name/Email (Optional)</label>
+                    <input type="text" id="newPasswordUser" placeholder="e.g., john@example.com">
+                    <small>Identifier for who this password is for</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Password</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="newPasswordValue" readonly style="flex: 1; background: #f5f5f5;">
+                        <button onclick="generateNewPassword()" style="padding: 8px 16px;">🔄 Generate</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Expiration (Optional)</label>
+                    <input type="date" id="newPasswordExpiry">
+                    <small>Leave empty for no expiration</small>
+                </div>
+                
+                <button onclick="saveNewPassword()" style="background: #27ae60;">💾 Save Password</button>
+                <button class="secondary" onclick="closePasswordModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="password-utils.js"></script>
     <script src="admin-core.js"></script>
 </body>
 </html>

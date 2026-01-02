@@ -10,9 +10,28 @@ CREATE TABLE IF NOT EXISTS folders (
   description TEXT,
   is_public BOOLEAN DEFAULT true, -- true = content_public, false = content_private
   item_count INTEGER DEFAULT 0,
+  parent_id UUID REFERENCES folders(id) ON DELETE CASCADE, -- For nested folders
+  depth INTEGER DEFAULT 0, -- Folder nesting level
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- ==================== FOLDER ACCESS PASSWORDS TABLE ====================
+-- For password-protected private folder sharing
+CREATE TABLE IF NOT EXISTS folder_passwords (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  folder_id UUID NOT NULL REFERENCES folders(id) ON DELETE CASCADE,
+  password_hash TEXT NOT NULL, -- Hashed password
+  password_plain TEXT, -- Store plain for admin view (optional, remove in production)
+  user_identifier TEXT, -- Email or name of user this password is for
+  access_granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  expires_at TIMESTAMP WITH TIME ZONE, -- Optional expiration
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_folder_passwords_folder ON folder_passwords(folder_id);
+CREATE INDEX idx_folder_passwords_active ON folder_passwords(is_active);
 
 -- Index for faster slug lookups
 CREATE INDEX IF NOT EXISTS idx_folders_slug ON folders(slug);
@@ -29,13 +48,14 @@ CREATE TABLE IF NOT EXISTS content_public (
     table_name TEXT, -- Logical grouping name (e.g., 'anica_chats')
     slug TEXT, -- URL-friendly slug (e.g., 'anica-chats-01')
     title TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('pdf', 'video', 'image', 'audio', 'link')),
+    type TEXT NOT NULL CHECK (type IN ('pdf', 'video', 'image', 'audio', 'link', 'flipbook')),
     url TEXT, -- Primary content URL (R2, external, or base64)
     external_url TEXT, -- Additional external reference URL
     thumbnail_url TEXT,
     description TEXT,
     file_size BIGINT,
     metadata JSONB DEFAULT '{}',
+    project_json TEXT, -- For interactive flipbook JSON data
     display_order INTEGER DEFAULT 0,
     view_count INTEGER DEFAULT 0,
     last_page INTEGER, -- For PDFs, track last viewed page
@@ -56,13 +76,14 @@ CREATE TABLE IF NOT EXISTS content_private (
     table_name TEXT, -- Logical grouping name
     slug TEXT, -- URL-friendly slug (e.g., 'premium-course-01')
     title TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('pdf', 'video', 'image', 'audio', 'link')),
+    type TEXT NOT NULL CHECK (type IN ('pdf', 'video', 'image', 'audio', 'link', 'flipbook')),
     url TEXT,
     external_url TEXT,
     thumbnail_url TEXT,
     description TEXT,
     file_size BIGINT,
     metadata JSONB DEFAULT '{}',
+    project_json TEXT, -- For interactive flipbook JSON data
     display_order INTEGER DEFAULT 0,
     view_count INTEGER DEFAULT 0,
     last_page INTEGER,
@@ -162,6 +183,7 @@ ALTER TABLE folders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE content_public ENABLE ROW LEVEL SECURITY;
 ALTER TABLE content_private ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_interactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE folder_passwords ENABLE ROW LEVEL SECURITY;
 
 -- Public read access for folders and public content
 CREATE POLICY "Public read access for folders"
@@ -201,6 +223,17 @@ WITH CHECK (true);
 CREATE POLICY "Public read for interactions"
 ON user_interactions FOR SELECT
 USING (true);
+
+-- Admin full access for folder passwords
+CREATE POLICY "Admin full access for folder passwords"
+ON folder_passwords FOR ALL
+USING (true)
+WITH CHECK (true);
+
+-- Public can read active folder passwords (for validation)
+CREATE POLICY "Public read active folder passwords"
+ON folder_passwords FOR SELECT
+USING (is_active = true);
 
 -- ==================== HELPER FUNCTIONS ====================
 

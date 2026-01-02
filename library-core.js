@@ -478,3 +478,149 @@ function observeLazyThumbnails() {
 
 // Initialize on load
 initLazyLoading();
+
+// ==================== PRIVATE FOLDER PASSWORD MANAGEMENT ====================
+
+let pendingPrivateFolder = null;
+
+/**
+ * Check if folder is private and requires password
+ */
+function isFolderPrivate(folder) {
+    return folder && folder.is_public === false;
+}
+
+/**
+ * Prompt for password to access private folder
+ */
+function promptForFolderPassword(folder) {
+    pendingPrivateFolder = folder;
+    
+    const modal = document.getElementById('passwordPromptModal');
+    const folderNameEl = document.getElementById('passwordPromptFolderName');
+    const inputEl = document.getElementById('passwordPromptInput');
+    const errorEl = document.getElementById('passwordError');
+    
+    folderNameEl.textContent = `Enter password to access: ${folder.title}`;
+    inputEl.value = '';
+    errorEl.style.display = 'none';
+    
+    modal.style.display = 'flex';
+    inputEl.focus();
+    
+    // Allow Enter key to submit
+    inputEl.onkeypress = (e) => {
+        if (e.key === 'Enter') {
+            submitFolderPassword();
+        }
+    };
+}
+
+/**
+ * Submit and validate folder password
+ */
+async function submitFolderPassword() {
+    if (!pendingPrivateFolder) return;
+    
+    const inputEl = document.getElementById('passwordPromptInput');
+    const errorEl = document.getElementById('passwordError');
+    const password = inputEl.value.trim();
+    
+    if (!password) {
+        errorEl.textContent = 'Please enter a password';
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    try {
+        // Get active passwords for this folder
+        const { data: passwords, error } = await supabaseClient.client
+            .from('folder_passwords')
+            .select('*')
+            .eq('folder_id', pendingPrivateFolder.id)
+            .eq('is_active', true);
+        
+        if (error) throw error;
+        
+        if (!passwords || passwords.length === 0) {
+            errorEl.textContent = 'No active passwords for this folder';
+            errorEl.style.display = 'block';
+            return;
+        }
+        
+        // Check password against all active passwords
+        let passwordValid = false;
+        for (const pwd of passwords) {
+            // Check expiration
+            if (pwd.expires_at && new Date(pwd.expires_at) < new Date()) {
+                continue; // Skip expired passwords
+            }
+            
+            // Verify password
+            const isValid = await PasswordUtils.verifyPassword(password, pwd.password_hash);
+            if (isValid) {
+                passwordValid = true;
+                break;
+            }
+        }
+        
+        if (passwordValid) {
+            // Grant access
+            PasswordUtils.grantAccess(pendingPrivateFolder.id);
+            closePasswordPrompt();
+            
+            // Now open the folder
+            window.location.href = `?folder=${pendingPrivateFolder.slug}`;
+        } else {
+            errorEl.textContent = '❌ Invalid password';
+            errorEl.style.display = 'block';
+            inputEl.value = '';
+            inputEl.focus();
+        }
+        
+    } catch (error) {
+        console.error('Error validating password:', error);
+        errorEl.textContent = 'Error validating password';
+        errorEl.style.display = 'block';
+    }
+}
+
+/**
+ * Close password prompt modal
+ */
+function closePasswordPrompt() {
+    const modal = document.getElementById('passwordPromptModal');
+    modal.style.display = 'none';
+    pendingPrivateFolder = null;
+}
+
+/**
+ * Check if user has access to private folder
+ */
+function checkPrivateFolderAccess(folder) {
+    if (!isFolderPrivate(folder)) {
+        return true; // Public folder, always accessible
+    }
+    
+    // Check if user has already unlocked this folder
+    return PasswordUtils.hasAccess(folder.id);
+}
+
+/**
+ * Handle folder click - check if private and prompt for password
+ */
+function handleFolderClick(folderSlug) {
+    const folder = folders.find(f => f.slug === folderSlug);
+    if (!folder) {
+        window.location.href = `?folder=${folderSlug}`;
+        return;
+    }
+    
+    if (isFolderPrivate(folder) && !checkPrivateFolderAccess(folder)) {
+        // Private folder without access - prompt for password
+        promptForFolderPassword(folder);
+    } else {
+        // Public folder or already has access
+        window.location.href = `?folder=${folderSlug}`;
+    }
+}
