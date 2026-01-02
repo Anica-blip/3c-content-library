@@ -88,7 +88,7 @@ async function init() {
  */
 async function loadManifestFromUrl(url) {
     try {
-        console.log('📥 Fetching manifest from:', url);
+        console.log(' Fetching manifest from:', url);
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -96,12 +96,12 @@ async function loadManifestFromUrl(url) {
         }
         
         const manifestData = await response.json();
-        console.log('✅ Manifest loaded from URL:', manifestData.title || 'Untitled');
-        console.log('📄 Pages:', manifestData.pages?.length || 0);
+        console.log(' Manifest loaded from URL:', manifestData.title || 'Untitled');
+        console.log(' Pages:', manifestData.pages?.length || 0);
         
         await initFromManifest(manifestData);
     } catch (error) {
-        console.error('❌ Failed to load manifest from URL:', error);
+        console.error(' Failed to load manifest from URL:', error);
         throw new Error(`Failed to load flipbook manifest: ${error.message}`);
     }
 }
@@ -169,7 +169,7 @@ async function initFromManifest(manifestData) {
             const pageB = b.pageNumber || 0;
             return pageA - pageB;
         });
-        console.log('📄 Pages sorted by pageNumber:', manifest.pages.map(p => p.pageNumber || '?').join(', '));
+        console.log(' Pages sorted by pageNumber:', manifest.pages.map(p => p.pageNumber || '?').join(', '));
     }
     
     totalPages = manifest.pages ? manifest.pages.length : 0;
@@ -231,7 +231,7 @@ async function renderPagesAtScale() {
             };
             
             img.onerror = (error) => {
-                console.warn('❌ Failed to load background for page', i + 1);
+                console.warn(' Failed to load background for page', i + 1);
                 const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
@@ -274,7 +274,7 @@ async function renderPagesAtScale() {
         pageCanvases.push(canvas);
     }
     
-    console.log('✅ All pages rendered at', Math.round(scale * 100) + '% with 2x quality');
+    console.log(' All pages rendered at', Math.round(scale * 100) + '% with 2x quality');
 }
 
 /**
@@ -309,7 +309,7 @@ function initFlipbook() {
         if (manifest && manifest.pages && manifest.pages[index]) {
             const pageData = manifest.pages[index];
             if (pageData.elements && pageData.elements.length > 0) {
-                console.log('🎯 Page', index + 1, '- Rendering', pageData.elements.length, 'elements');
+                console.log(' Page', index + 1, '- Rendering', pageData.elements.length, 'elements');
                 renderInteractiveElements(pageDiv, pageData.elements, pageWidth, pageHeight);
             }
         }
@@ -369,7 +369,7 @@ function initFlipbook() {
     flipbookInitialized = true;
     updatePageInfo();
     
-    console.log('✅ Flipbook initialized at', Math.round(scale * 100) + '% zoom');
+    console.log(' Flipbook initialized at', Math.round(scale * 100) + '% zoom');
 }
 
 /**
@@ -387,7 +387,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
     
     if (positionedElements.length === 0) return;
     
-    console.log('🎯 Rendering', positionedElements.length, 'elements on page');
+    console.log(' Rendering', positionedElements.length, 'elements on page');
     
     positionedElements.forEach((element, idx) => {
         // Element positions are saved relative to editor canvas (595px x 842px)
@@ -840,9 +840,9 @@ async function reloadFlipbook() {
             height: pageHeight + 'px'
         });
         
-        console.log('✅ Flipbook reloaded at', Math.round(scale * 100) + '%');
+        console.log(' Flipbook reloaded at', Math.round(scale * 100) + '%');
     } catch (error) {
-        console.error('❌ Error reloading flipbook:', error);
+        console.error(' Error reloading flipbook:', error);
     } finally {
         loading.classList.add('hidden');
     }
