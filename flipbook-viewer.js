@@ -244,11 +244,25 @@ function initFlipbook() {
         pages: totalPages,
         when: {
             turning: function(event, page, view) {
+                // Prevent page turning if media is playing
+                if (mediaOverlay.classList.contains('active')) {
+                    event.preventDefault();
+                    return false;
+                }
                 currentPage = page;
                 updatePageInfo();
             },
             turned: function(event, page, view) {
-                // Page turned
+                // Ensure page sync is maintained
+                currentPage = page;
+                updatePageInfo();
+            },
+            start: function(event, pageObject, corner) {
+                // Prevent interaction if media overlay is active
+                if (mediaOverlay.classList.contains('active')) {
+                    event.preventDefault();
+                    return false;
+                }
             }
         }
     });
@@ -288,14 +302,28 @@ function createInteractiveOverlay(pageData, canvasWidth, canvasHeight) {
         switch (element.type) {
             case 'video':
                 el.css({
-                    border: '2px solid #8b5cf6',
-                    borderRadius: '8px',
-                    background: 'rgba(139, 92, 246, 0.1)'
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
                 });
-                el.html('<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #8b5cf6; font-size: 24px;">▶</div>');
+                el.html('<div style="width: 60px; height: 60px; border-radius: 50%; background: transparent; border: 3px solid rgba(139, 92, 246, 0.3); display: flex; align-items: center; justify-content: center; transition: all 0.3s;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="margin-left: 3px;"><path d="M8 5v14l11-7z" fill="#a78bfa" stroke="#a78bfa" stroke-width="2" stroke-linejoin="round"/></svg></div>');
                 el.on('click', (e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     playMedia(element, 'video');
+                });
+                el.on('mouseenter', function() {
+                    $(this).find('div').css({
+                        'border-color': 'rgba(139, 92, 246, 0.6)',
+                        'transform': 'scale(1.1)'
+                    });
+                });
+                el.on('mouseleave', function() {
+                    $(this).find('div').css({
+                        'border-color': 'rgba(139, 92, 246, 0.3)',
+                        'transform': 'scale(1)'
+                    });
                 });
                 break;
                 
@@ -377,36 +405,66 @@ function createInteractiveOverlay(pageData, canvasWidth, canvasHeight) {
  * Play video/audio in overlay
  */
 function playMedia(element, type) {
-    mediaTitle.textContent = element.text || element.title || (type === 'video' ? 'Video' : 'Audio');
-    mediaPlayerWrapper.innerHTML = '';
-    
-    if (type === 'video') {
-        if (element.url && (element.url.includes('youtube.com') || element.url.includes('youtu.be'))) {
-            // YouTube video
-            const videoId = extractYouTubeId(element.url);
-            const iframe = document.createElement('iframe');
-            iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-            iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
-            iframe.allowFullscreen = true;
-            mediaPlayerWrapper.appendChild(iframe);
-        } else if (element.url) {
-            // Direct video
-            const video = document.createElement('video');
-            video.src = element.url;
-            video.controls = true;
-            video.autoplay = true;
-            mediaPlayerWrapper.appendChild(video);
+    try {
+        // Disable flipbook interaction to prevent page sync issues
+        if (flipbookInitialized) {
+            $('#flipbook').turn('disable', true);
         }
-    } else if (type === 'audio') {
-        const audio = document.createElement('audio');
-        audio.src = element.url;
-        audio.controls = true;
-        audio.autoplay = true;
-        audio.style.width = '100%';
-        mediaPlayerWrapper.appendChild(audio);
+        
+        mediaTitle.textContent = element.text || element.title || (type === 'video' ? 'Video' : 'Audio');
+        mediaPlayerWrapper.innerHTML = '';
+        
+        if (type === 'video') {
+            if (element.url && (element.url.includes('youtube.com') || element.url.includes('youtu.be'))) {
+                // YouTube video
+                const videoId = extractYouTubeId(element.url);
+                if (!videoId) {
+                    throw new Error('Invalid YouTube URL');
+                }
+                const iframe = document.createElement('iframe');
+                iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+                iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+                iframe.allowFullscreen = true;
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                mediaPlayerWrapper.appendChild(iframe);
+            } else if (element.url) {
+                // Direct video
+                const video = document.createElement('video');
+                video.src = element.url;
+                video.controls = true;
+                video.autoplay = true;
+                video.style.width = '100%';
+                video.style.maxHeight = '80vh';
+                video.onerror = () => {
+                    console.error('Video failed to load:', element.url);
+                    mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px;">Failed to load video. Please check the URL.</div>';
+                };
+                mediaPlayerWrapper.appendChild(video);
+            }
+        } else if (type === 'audio') {
+            const audio = document.createElement('audio');
+            audio.src = element.url;
+            audio.controls = true;
+            audio.autoplay = true;
+            audio.style.width = '100%';
+            audio.onerror = () => {
+                console.error('Audio failed to load:', element.url);
+                mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px;">Failed to load audio. Please check the URL.</div>';
+            };
+            mediaPlayerWrapper.appendChild(audio);
+        }
+        
+        mediaOverlay.classList.add('active');
+    } catch (error) {
+        console.error('Error playing media:', error);
+        alert('Failed to play media: ' + error.message);
+        // Re-enable flipbook if error occurs
+        if (flipbookInitialized) {
+            $('#flipbook').turn('disable', false);
+        }
     }
-    
-    mediaOverlay.classList.add('active');
 }
 
 /**
@@ -424,10 +482,16 @@ function extractYouTubeId(url) {
 function closeMedia() {
     mediaOverlay.classList.remove('active');
     
+    // Stop all media playback
     mediaPlayerWrapper.querySelectorAll('video, audio').forEach(media => {
         media.pause();
         media.currentTime = 0;
     });
+    
+    // Re-enable flipbook interaction
+    if (flipbookInitialized) {
+        $('#flipbook').turn('disable', false);
+    }
     
     setTimeout(() => {
         mediaPlayerWrapper.innerHTML = '';
@@ -440,19 +504,27 @@ function closeMedia() {
 function setupEventListeners() {
     // Navigation buttons
     $('#first-page').on('click', () => {
-        $('#flipbook').turn('page', 1);
+        if (!mediaOverlay.classList.contains('active')) {
+            $('#flipbook').turn('page', 1);
+        }
     });
     
     $('#prev-page').on('click', () => {
-        $('#flipbook').turn('previous');
+        if (!mediaOverlay.classList.contains('active')) {
+            $('#flipbook').turn('previous');
+        }
     });
     
     $('#next-page').on('click', () => {
-        $('#flipbook').turn('next');
+        if (!mediaOverlay.classList.contains('active')) {
+            $('#flipbook').turn('next');
+        }
     });
     
     $('#last-page').on('click', () => {
-        $('#flipbook').turn('page', totalPages);
+        if (!mediaOverlay.classList.contains('active')) {
+            $('#flipbook').turn('page', totalPages);
+        }
     });
     
     // Zoom controls
@@ -483,16 +555,19 @@ function setupEventListeners() {
     
     // Keyboard shortcuts
     $(document).on('keydown', (e) => {
-        if (e.key === 'ArrowLeft') {
-            $('#flipbook').turn('previous');
-        } else if (e.key === 'ArrowRight') {
-            $('#flipbook').turn('next');
-        } else if (e.key === 'Home') {
-            $('#flipbook').turn('page', 1);
-        } else if (e.key === 'End') {
-            $('#flipbook').turn('page', totalPages);
-        } else if (e.key === 'Escape') {
+        if (e.key === 'Escape') {
             closeMedia();
+        } else if (!mediaOverlay.classList.contains('active')) {
+            // Only allow navigation when media is not playing
+            if (e.key === 'ArrowLeft') {
+                $('#flipbook').turn('previous');
+            } else if (e.key === 'ArrowRight') {
+                $('#flipbook').turn('next');
+            } else if (e.key === 'Home') {
+                $('#flipbook').turn('page', 1);
+            } else if (e.key === 'End') {
+                $('#flipbook').turn('page', totalPages);
+            }
         }
     });
 }
