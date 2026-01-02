@@ -927,12 +927,21 @@
     </div>
     
     <div class="container">
-        <!-- Folders and Content Section -->
+        <!-- Public Folders Section -->
         <div class="folders-section">
             <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
                 📁 Folders and Content
             </h2>
             <div id="foldersGrid" class="folders-grid"></div>
+        </div>
+        
+        <!-- Private Folders Section -->
+        <div class="folders-section" style="margin-top: 40px; padding-top: 30px; border-top: 3px solid #e74c3c;">
+            <h2 style="color: #e74c3c; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                🔒 Private Folders
+            </h2>
+            <p style="color: #999; margin-bottom: 20px; font-size: 14px;">These folders require password access. Click on a folder to unlock it.</p>
+            <div id="privateFoldersGrid" class="folders-grid"></div>
         </div>
         
         <!-- Folder Sidebar (for sub-folders) -->
@@ -1001,17 +1010,29 @@
             <div class="pdf-modal-header">
                 <div class="pdf-modal-title" id="pdfTitle">PDF Viewer</div>
                 <div class="pdf-controls">
-                    <button onclick="changePage(-1)" id="prevPage">
+                    <button onclick="goToFirstPage()" id="firstPage" title="First Page">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="11 17 6 12 11 7"></polyline>
+                            <polyline points="18 17 13 12 18 7"></polyline>
+                        </svg>
+                    </button>
+                    <button onclick="changePage(-1)" id="prevPage" title="Previous Page">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="15 18 9 12 15 6"></polyline>
                         </svg>
                     </button>
                     <span class="page-info">
-                        Page <span id="currentPage">1</span> of <span id="totalPages">1</span>
+                        <span id="currentPage">1</span> / <span id="totalPages">1</span>
                     </span>
-                    <button onclick="changePage(1)" id="nextPage">
+                    <button onclick="changePage(1)" id="nextPage" title="Next Page">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                    <button onclick="goToLastPage()" id="lastPage" title="Last Page">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="13 17 18 12 13 7"></polyline>
+                            <polyline points="6 17 11 12 6 7"></polyline>
                         </svg>
                     </button>
                     <button onclick="zoomPDF(-0.1)">
@@ -1169,14 +1190,14 @@
             console.log('🔍 displayContent called with params:', { folderSlug, contentSlug, viewMode });
             console.log('Library state:', { folders: library.folders.length, content: library.content.length });
             
-            // If view=pdf-only, hide sidebar and folder nav, show only PDF
-            if (viewMode === 'pdf-only' && contentSlug) {
+            // If view=pdf-only or view=flipbook-only, hide sidebar and folder nav, show only content
+            if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && contentSlug) {
                 document.querySelector('.folders-section').style.display = 'none';
                 document.getElementById('contentViewer').style.display = 'block';
                 
                 const content = findContentBySlug(contentSlug);
                 if (content) {
-                    showViewer(content, true); // true = pdf-only mode
+                    showViewer(content, true); // true = standalone mode
                     return;
                 }
             }
@@ -1237,7 +1258,7 @@
                 }
                 
                 return `
-                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.slug}')" style="display: flex; flex-direction: column; height: auto;">
+                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.slug}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 15px;">
                         <div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0;">${thumbnailContent}</div>
                         <div class="content-info" style="padding: 10px 8px; text-align: left;">
                             <div class="content-title" style="font-size: 11px; color: #ffffff; line-height: 1.3; font-weight: 500;">${item.title}</div>
@@ -1601,9 +1622,37 @@
             updatePageButtons();
         }
         
+        function goToFirstPage() {
+            if (pdfDoc && currentPageNum !== 1) {
+                currentPageNum = 1;
+                document.getElementById('currentPage').textContent = currentPageNum;
+                const container = document.getElementById('pdfViewerContainer');
+                const pages = container.getElementsByClassName('pdf-page');
+                if (pages[0]) {
+                    pages[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                updatePageButtons();
+            }
+        }
+        
+        function goToLastPage() {
+            if (pdfDoc && currentPageNum !== pdfDoc.numPages) {
+                currentPageNum = pdfDoc.numPages;
+                document.getElementById('currentPage').textContent = currentPageNum;
+                const container = document.getElementById('pdfViewerContainer');
+                const pages = container.getElementsByClassName('pdf-page');
+                if (pages[currentPageNum - 1]) {
+                    pages[currentPageNum - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                updatePageButtons();
+            }
+        }
+        
         function updatePageButtons() {
+            document.getElementById('firstPage').disabled = currentPageNum <= 1;
             document.getElementById('prevPage').disabled = currentPageNum <= 1;
             document.getElementById('nextPage').disabled = currentPageNum >= pdfDoc.numPages;
+            document.getElementById('lastPage').disabled = currentPageNum >= pdfDoc.numPages;
         }
         
         async function zoomPDF(delta) {

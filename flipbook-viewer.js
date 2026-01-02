@@ -334,11 +334,6 @@ function initFlipbook() {
         pages: totalPages,
         when: {
             turning: function(event, page, view) {
-                // Prevent page turning if media is playing
-                if (mediaOverlay.classList.contains('active')) {
-                    event.preventDefault();
-                    return false;
-                }
                 try {
                     currentPage = page;
                     updatePageInfo();
@@ -354,11 +349,6 @@ function initFlipbook() {
             start: function(event, pageObject, corner) {
                 // Prevent turn if element is being clicked
                 if ($(event.target).closest('.interactive-element').length > 0) {
-                    event.preventDefault();
-                    return false;
-                }
-                // Prevent interaction if media overlay is active
-                if (mediaOverlay.classList.contains('active')) {
                     event.preventDefault();
                     return false;
                 }
@@ -436,18 +426,29 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 e.stopPropagation();
                 e.preventDefault();
                 try {
+                    console.log('🔘 3C Button clicked:', element);
                     if (element.url) {
+                        console.log('📍 Button URL:', element.url);
                         if (isVideoUrl(element.url)) {
+                            console.log('🎥 Detected as video URL, opening in popup...');
                             playMedia(element, 'video');
                         } else {
+                            console.log('🔗 Opening link in new window...');
                             const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no,scrollbars=yes,resizable=yes');
                             if (!popup) {
-                                alert('Please allow popups for this site to open links');
+                                console.error('❌ Popup blocked by browser');
+                                alert('⚠️ Popup Blocked\n\nPlease allow popups for this site to open links.\n\nURL: ' + element.url);
+                            } else {
+                                console.log('✅ Link opened successfully');
                             }
                         }
+                    } else {
+                        console.warn('⚠️ Button has no URL configured');
+                        alert('⚠️ Button Error\n\nThis button has no URL configured.');
                     }
                 } catch (error) {
-                    console.error('Error handling button click:', error);
+                    console.error('❌ Error handling button click:', error);
+                    alert('❌ Button Error\n\n' + error.message);
                 }
             });
             
@@ -478,17 +479,32 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 e.stopPropagation();
                 e.preventDefault();
                 try {
+                    console.log('🔘 Regular button clicked:', element);
                     if (element.url) {
+                        console.log('📍 Button URL:', element.url);
                         if (isVideoUrl(element.url)) {
+                            console.log('🎥 Detected as video URL, opening in popup...');
                             playMedia(element, 'video');
                         } else {
-                            window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
+                            console.log('🔗 Opening link in new window...');
+                            const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
+                            if (!popup) {
+                                console.error('❌ Popup blocked by browser');
+                                alert('⚠️ Popup Blocked\n\nPlease allow popups for this site.\n\nURL: ' + element.url);
+                            } else {
+                                console.log('✅ Link opened successfully');
+                            }
                         }
                     } else if (element.videoUrl || element.streamId) {
+                        console.log('🎥 Opening video from videoUrl/streamId...');
                         playMedia(element, 'video');
+                    } else {
+                        console.warn('⚠️ Button has no URL or video configured');
+                        alert('⚠️ Button Error\n\nThis button has no URL or video configured.');
                     }
                 } catch (error) {
-                    console.error('Error handling button click:', error);
+                    console.error('❌ Error handling button click:', error);
+                    alert('❌ Button Error\n\n' + error.message);
                 }
             });
             
@@ -507,15 +523,29 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 e.stopPropagation();
                 e.preventDefault();
                 try {
+                    console.log('🎯 Hotspot/Link clicked:', element);
                     if (element.url) {
+                        console.log('📍 Hotspot URL:', element.url);
                         if (isVideoUrl(element.url)) {
+                            console.log('🎥 Detected as video URL, opening in popup...');
                             playMedia(element, 'video');
                         } else {
-                            window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
+                            console.log('🔗 Opening link in new window...');
+                            const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
+                            if (!popup) {
+                                console.error('❌ Popup blocked by browser');
+                                alert('⚠️ Popup Blocked\n\nPlease allow popups for this site.\n\nURL: ' + element.url);
+                            } else {
+                                console.log('✅ Link opened successfully');
+                            }
                         }
+                    } else {
+                        console.warn('⚠️ Hotspot has no URL configured');
+                        alert('⚠️ Hotspot Error\n\nThis hotspot has no URL configured.');
                     }
                 } catch (error) {
-                    console.error('Error handling element click:', error);
+                    console.error('❌ Error handling hotspot click:', error);
+                    alert('❌ Hotspot Error\n\n' + error.message);
                 }
             });
         } else if (element.type === 'video' || element.type === 'cloudflare-stream') {
@@ -554,6 +584,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             
             videoContainer.on('click', function(e) {
                 e.stopPropagation();
+                console.log('🎬 Video element clicked:', element);
                 playMedia(element, 'video');
             });
             
@@ -577,7 +608,10 @@ function isVideoUrl(url) {
         /\.webm$/i,
         /\.ogg$/i,
         /\.mov$/i,
-        /cloudflarestream\.com/i
+        /cloudflarestream\.com/i,
+        /cloudflare\.com.*\/stream/i,
+        /r2\..*\.org.*\.(mp4|webm|mov)/i, // Cloudflare R2 video files
+        /customer-.*\.cloudflarestream\.com/i // Cloudflare Stream customer domains
     ];
     return videoPatterns.some(pattern => pattern.test(url));
 }
@@ -606,28 +640,29 @@ function getVideoEmbedUrl(url) {
  */
 function playMedia(element, type) {
     try {
-        // Disable flipbook interaction to prevent page sync issues
-        if (flipbookInitialized) {
-            $('#flipbook').turn('disable', true);
-        }
+        console.log('\n🎬 ========== PLAYING MEDIA ==========');
+        console.log('Element:', element);
+        console.log('Type:', type);
         
         mediaTitle.textContent = element.text || element.title || (type === 'video' ? 'Video' : 'Audio');
         mediaPlayerWrapper.innerHTML = '';
         
         if (type === 'video') {
             const videoUrl = element.url || element.videoUrl || element.mediaUrl || element.iframeUrl;
+            console.log('📍 Video URL:', videoUrl);
+            console.log('📍 Stream ID:', element.streamId);
+            console.log('📍 Element type:', element.type);
             
             if (!videoUrl && !element.streamId) {
-                console.error('No video URL found in element:', element);
-                alert('Video URL not found. Please check the element configuration.');
-                if (flipbookInitialized) {
-                    $('#flipbook').turn('disable', false);
-                }
+                console.error('❌ No video URL found in element');
+                console.error('Element details:', JSON.stringify(element, null, 2));
+                alert('❌ Video Error\n\nNo video URL found.\n\nElement type: ' + element.type + '\n\nPlease check the element configuration in the editor.');
                 return;
             }
             
             // Cloudflare Stream
             if (element.type === 'cloudflare-stream' && element.streamId) {
+                console.log('🎥 Using Cloudflare Stream element with ID:', element.streamId);
                 const streamElement = document.createElement('stream');
                 streamElement.setAttribute('src', element.streamId);
                 streamElement.setAttribute('controls', '');
@@ -635,10 +670,16 @@ function playMedia(element, type) {
                 if (element.poster) {
                     streamElement.setAttribute('poster', element.poster);
                 }
+                streamElement.onerror = (e) => {
+                    console.error('❌ Cloudflare Stream failed to load:', e);
+                    alert('❌ Video Error\n\nCloudflare Stream failed to load.\n\nStream ID: ' + element.streamId);
+                };
                 mediaPlayerWrapper.appendChild(streamElement);
+                console.log('✅ Cloudflare Stream element added to page');
             }
             // Cloudflare Stream iframe
             else if (videoUrl && (videoUrl.includes('/iframe') || videoUrl.includes('cloudflarestream.com'))) {
+                console.log('🎥 Using Cloudflare Stream iframe:', videoUrl);
                 const iframe = document.createElement('iframe');
                 iframe.src = videoUrl;
                 iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
@@ -646,12 +687,18 @@ function playMedia(element, type) {
                 iframe.style.width = '100%';
                 iframe.style.height = '100%';
                 iframe.style.border = 'none';
+                iframe.onerror = (e) => {
+                    console.error('❌ Cloudflare Stream iframe failed to load:', e);
+                    alert('❌ Video Error\n\nCloudflare Stream iframe failed to load.\n\nURL: ' + videoUrl);
+                };
                 mediaPlayerWrapper.appendChild(iframe);
+                console.log('✅ Cloudflare Stream iframe added to page');
             }
             // YouTube/Vimeo
             else if (videoUrl) {
                 const embedUrl = getVideoEmbedUrl(videoUrl);
                 if (embedUrl) {
+                    console.log('🎥 Using YouTube/Vimeo embed:', embedUrl);
                     const iframe = document.createElement('iframe');
                     iframe.src = embedUrl;
                     iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
@@ -659,46 +706,73 @@ function playMedia(element, type) {
                     iframe.style.width = '100%';
                     iframe.style.height = '100%';
                     iframe.style.border = 'none';
+                    iframe.onerror = (e) => {
+                        console.error('❌ YouTube/Vimeo iframe failed to load:', e);
+                        alert('❌ Video Error\n\nYouTube/Vimeo iframe failed to load.\n\nURL: ' + embedUrl);
+                    };
                     mediaPlayerWrapper.appendChild(iframe);
+                    console.log('✅ YouTube/Vimeo iframe added to page');
                 } else {
-                    // Direct video file
+                    // Direct video file (including Cloudflare R2 URLs)
+                    console.log('🎥 Using direct video file:', videoUrl);
                     const video = document.createElement('video');
                     video.src = videoUrl;
                     video.controls = true;
                     video.autoplay = true;
                     video.style.width = '100%';
                     video.style.height = 'auto';
+                    video.style.maxHeight = '100%';
+                    video.style.objectFit = 'contain';
+                    video.setAttribute('crossorigin', 'anonymous'); // Enable CORS for Cloudflare R2
                     if (element.thumbnailUrl || element.poster) {
                         video.poster = element.thumbnailUrl || element.poster;
+                        console.log('📸 Using poster:', element.thumbnailUrl || element.poster);
                     }
-                    video.onerror = () => {
-                        console.error('Video failed to load:', videoUrl);
-                        mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px;">Failed to load video. Please check the URL.</div>';
+                    video.onerror = (e) => {
+                        console.error('❌ Video failed to load:', videoUrl);
+                        console.error('Error details:', e);
+                        const errorMsg = '❌ Video Error\n\nFailed to load video file.\n\nURL: ' + videoUrl + '\n\nPossible causes:\n• File not found (404)\n• CORS not enabled on server\n• Invalid video format\n• Network error';
+                        mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px; background: rgba(231, 76, 60, 0.2); border-radius: 8px; margin: 20px;">' + errorMsg.replace(/\n/g, '<br>') + '</div>';
+                        alert(errorMsg);
+                    };
+                    video.onloadstart = () => {
+                        console.log('⏳ Video loading started:', videoUrl);
+                    };
+                    video.oncanplay = () => {
+                        console.log('✅ Video ready to play:', videoUrl);
                     };
                     mediaPlayerWrapper.appendChild(video);
+                    console.log('✅ Direct video element added to page');
                 }
             }
         } else if (type === 'audio') {
+            const audioUrl = element.url || element.mediaUrl;
+            console.log('🎵 Loading audio:', audioUrl);
             const audio = document.createElement('audio');
-            audio.src = element.url || element.mediaUrl;
+            audio.src = audioUrl;
             audio.controls = true;
             audio.autoplay = true;
             audio.style.width = '100%';
-            audio.onerror = () => {
-                console.error('Audio failed to load:', element.url);
-                mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px;">Failed to load audio. Please check the URL.</div>';
+            audio.onerror = (e) => {
+                console.error('❌ Audio failed to load:', audioUrl, e);
+                const errorMsg = '❌ Audio Error\n\nFailed to load audio file.\n\nURL: ' + audioUrl;
+                mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px; background: rgba(231, 76, 60, 0.2); border-radius: 8px; margin: 20px;">' + errorMsg.replace(/\n/g, '<br>') + '</div>';
+                alert(errorMsg);
+            };
+            audio.oncanplay = () => {
+                console.log('✅ Audio ready to play:', audioUrl);
             };
             mediaPlayerWrapper.appendChild(audio);
+            console.log('✅ Audio element added to page');
         }
         
         mediaOverlay.classList.add('active');
+        console.log('✅ Media overlay opened');
+        console.log('========================================\n');
     } catch (error) {
-        console.error('Error playing media:', error);
-        alert('Failed to play media: ' + error.message);
-        // Re-enable flipbook if error occurs
-        if (flipbookInitialized) {
-            $('#flipbook').turn('disable', false);
-        }
+        console.error('❌ CRITICAL ERROR playing media:', error);
+        console.error('Stack trace:', error.stack);
+        alert('❌ Critical Error\n\nFailed to play media.\n\nError: ' + error.message + '\n\nCheck browser console for details.');
     }
 }
 
@@ -715,11 +789,6 @@ function closeMedia() {
         media.currentTime = 0;
     });
     
-    // Re-enable flipbook interaction
-    if (flipbookInitialized) {
-        $('#flipbook').turn('disable', false);
-    }
-    
     setTimeout(() => {
         mediaPlayerWrapper.innerHTML = '';
     }, 300);
@@ -731,27 +800,19 @@ function closeMedia() {
 function setupEventListeners() {
     // Navigation buttons
     $('#first-page').on('click', () => {
-        if (!mediaOverlay.classList.contains('active')) {
-            $('#flipbook').turn('page', 1);
-        }
+        $('#flipbook').turn('page', 1);
     });
     
     $('#prev-page').on('click', () => {
-        if (!mediaOverlay.classList.contains('active')) {
-            $('#flipbook').turn('previous');
-        }
+        $('#flipbook').turn('previous');
     });
     
     $('#next-page').on('click', () => {
-        if (!mediaOverlay.classList.contains('active')) {
-            $('#flipbook').turn('next');
-        }
+        $('#flipbook').turn('next');
     });
     
     $('#last-page').on('click', () => {
-        if (!mediaOverlay.classList.contains('active')) {
-            $('#flipbook').turn('page', totalPages);
-        }
+        $('#flipbook').turn('page', totalPages);
     });
     
     // Zoom controls - properly re-render at new scale
@@ -773,6 +834,9 @@ function setupEventListeners() {
     
     // Back button
     $('#back-btn').on('click', goBack);
+    
+    // Download button
+    $('#download-btn').on('click', downloadFlipbook);
     
     // Close media
     closeMediaBtn.addEventListener('click', closeMedia);
@@ -857,6 +921,68 @@ function updatePageInfo() {
     // Update button states
     $('#first-page, #prev-page').prop('disabled', currentPage === 1);
     $('#next-page, #last-page').prop('disabled', currentPage === totalPages);
+}
+
+/**
+ * Download flipbook as PDF
+ */
+async function downloadFlipbook() {
+    try {
+        console.log('📥 Download button clicked');
+        
+        if (!manifest || !manifest.pages || manifest.pages.length === 0) {
+            alert('⚠️ No flipbook data available to download');
+            return;
+        }
+        
+        // Show loading indicator
+        loading.classList.remove('hidden');
+        
+        // Create a new jsPDF instance
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'px',
+            format: [A4_WIDTH_PX, A4_HEIGHT_PX]
+        });
+        
+        console.log('📄 Creating PDF with', manifest.pages.length, 'pages');
+        
+        // Add each page to the PDF
+        for (let i = 0; i < manifest.pages.length; i++) {
+            const page = manifest.pages[i];
+            
+            if (i > 0) {
+                pdf.addPage();
+            }
+            
+            // Get background image
+            if (page.background || page.backgroundData) {
+                const imgData = page.backgroundData || page.background;
+                try {
+                    pdf.addImage(imgData, 'PNG', 0, 0, A4_WIDTH_PX, A4_HEIGHT_PX);
+                } catch (error) {
+                    console.warn('⚠️ Could not add image for page', i + 1, error);
+                }
+            }
+            
+            console.log('✅ Added page', i + 1, 'to PDF');
+        }
+        
+        // Generate filename
+        const filename = (manifest.title || 'flipbook').replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+        
+        // Save the PDF
+        pdf.save(filename);
+        
+        loading.classList.add('hidden');
+        console.log('✅ PDF download complete:', filename);
+        
+    } catch (error) {
+        console.error('❌ Error downloading flipbook:', error);
+        loading.classList.add('hidden');
+        alert('❌ Download Error\n\nFailed to download flipbook.\n\nError: ' + error.message);
+    }
 }
 
 /**

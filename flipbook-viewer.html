@@ -15,6 +15,9 @@
     <!-- PDF.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     
+    <!-- jsPDF for download functionality -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
@@ -413,7 +416,7 @@
     <!-- Toolbar -->
     <div id="toolbar">
         <div id="toolbar-left">
-            <img src="https://r2.3c-public-library.org/logos/3c-logo.png" alt="" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 10px; object-fit: cover; background: white;">
+            <img src="3C Thread To Success logo.png" alt="3C Logo" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 10px; object-fit: cover; background: white;">
             <h2>3C Interactive Flipbook</h2>
         </div>
         
@@ -429,7 +432,7 @@
                     <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
             </button>
-            <span id="page-info">Page <span id="current-page">1</span> of <span id="total-pages">1</span></span>
+            <span id="page-info"><span id="current-page">1</span> / <span id="total-pages">1</span></span>
             <button id="next-page" class="btn btn-icon" title="Next Page">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="9 18 15 12 9 6"></polyline>
@@ -449,6 +452,13 @@
                     <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
                 <span>Back to Library</span>
+            </button>
+            <button class="btn btn-icon" id="download-btn" title="Download PDF" style="background: linear-gradient(135deg, #4caf50, #66bb6a); box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
             </button>
             <button class="btn btn-icon" id="zoom-out" title="Zoom Out">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

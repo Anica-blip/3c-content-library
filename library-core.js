@@ -135,21 +135,89 @@ async function loadSingleContent(contentId) {
 
 // ==================== UI DISPLAY ====================
 function displayFolders() {
-    const container = document.getElementById('folderList');
+    const publicContainer = document.getElementById('foldersGrid');
+    const privateContainer = document.getElementById('privateFoldersGrid');
     
-    if (folders.length === 0) {
-        container.innerHTML = '<p class="loading">No folders available</p>';
+    if (!publicContainer) {
+        console.error('Public folders container not found');
         return;
     }
     
-    const html = folders.map(folder => `
-        <div class="folder-item" data-folder-id="${folder.id}" onclick="selectFolder('${folder.id}')">
-            <div class="folder-item-title">${escapeHtml(folder.title)}</div>
-            <div class="folder-item-count">${folder.item_count || 0} items</div>
-        </div>
-    `).join('');
+    if (folders.length === 0) {
+        publicContainer.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No folders available</p>';
+        if (privateContainer) {
+            privateContainer.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No private folders available</p>';
+        }
+        return;
+    }
     
-    container.innerHTML = html;
+    // Separate public and private root folders
+    const publicRootFolders = folders.filter(f => {
+        const isRoot = !f.parent_id && f.folder_type === 'root';
+        const isPublic = f.is_public !== false; // true or null = public
+        return isRoot && isPublic;
+    }).sort((a, b) => a.title.localeCompare(b.title));
+    
+    const privateRootFolders = folders.filter(f => {
+        const isRoot = !f.parent_id && f.folder_type === 'root';
+        const isPrivate = f.is_public === false; // explicitly false = private
+        return isRoot && isPrivate;
+    }).sort((a, b) => a.title.localeCompare(b.title));
+    
+    console.log('📊 Public folders:', publicRootFolders.length, publicRootFolders.map(f => f.title));
+    console.log('📊 Private folders:', privateRootFolders.length, privateRootFolders.map(f => f.title));
+    
+    // Render PUBLIC folders
+    if (publicRootFolders.length === 0) {
+        publicContainer.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No public folders available</p>';
+    } else {
+        const publicHtml = publicRootFolders.map(folder => {
+            const subfolders = folders.filter(f => f.parent_id === folder.id);
+            const subfoldersCount = subfolders.length;
+            const displayURL = folder.custom_url || folder.slug;
+            
+            let countLabel = subfoldersCount > 0 
+                ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${folder.item_count || 0} item${folder.item_count !== 1 ? 's' : ''}`
+                : `${folder.item_count || 0} item${folder.item_count !== 1 ? 's' : ''}`;
+            
+            return `
+                <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')">
+                    <div class="folder-icon">📁</div>
+                    <div class="folder-title">${escapeHtml(folder.title)}</div>
+                    <div class="folder-details">${countLabel}</div>
+                    <div class="folder-slug">${displayURL}</div>
+                </div>
+            `;
+        }).join('');
+        publicContainer.innerHTML = publicHtml;
+    }
+    
+    // Render PRIVATE folders (if container exists)
+    if (privateContainer) {
+        if (privateRootFolders.length === 0) {
+            privateContainer.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No private folders available</p>';
+        } else {
+            const privateHtml = privateRootFolders.map(folder => {
+                const subfolders = folders.filter(f => f.parent_id === folder.id);
+                const subfoldersCount = subfolders.length;
+                const displayURL = folder.custom_url || folder.slug;
+                
+                let countLabel = subfoldersCount > 0 
+                    ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${folder.item_count || 0} item${folder.item_count !== 1 ? 's' : ''}`
+                    : `${folder.item_count || 0} item${folder.item_count !== 1 ? 's' : ''}`;
+                
+                return `
+                    <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')" style="border-color: rgba(231, 76, 60, 0.5);">
+                        <div class="folder-icon">🔒</div>
+                        <div class="folder-title">${escapeHtml(folder.title)}</div>
+                        <div class="folder-details">${countLabel}</div>
+                        <div class="folder-slug">${displayURL}</div>
+                    </div>
+                `;
+            }).join('');
+            privateContainer.innerHTML = privateHtml;
+        }
+    }
 }
 
 function displayContent(content) {
