@@ -1512,6 +1512,11 @@
         }
         
         function sharePDFLink(contentId) {
+            // Use custom_url if available, otherwise fall back to generated URL
+            if (currentContent && currentContent.custom_url) {
+                return currentContent.custom_url;
+            }
+            
             const baseUrl = window.location.origin + window.location.pathname;
             // Check if current content is a flipbook
             if (currentContent && currentContent.type === 'flipbook') {
