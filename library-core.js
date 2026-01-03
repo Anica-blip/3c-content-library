@@ -190,12 +190,17 @@ function displayFolders() {
                 ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${directItemCount} item${directItemCount !== 1 ? 's' : ''}`
                 : `${directItemCount} item${directItemCount !== 1 ? 's' : ''}`;
             
+            const viewContentButton = folder.table_name === 'anica_chats' 
+                ? `<button onclick="event.stopPropagation(); window.location.href='?folder=${folder.slug}';" style="margin-top: 8px; padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">📄 View Content</button>`
+                : '';
+            
             return `
                 <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')">
                     <div class="folder-icon">📁</div>
                     <div class="folder-title">${escapeHtml(folder.title)}</div>
                     <div class="folder-details">${countLabel}</div>
                     <div class="folder-slug">${displayURL}</div>
+                    ${viewContentButton}
                 </div>
             `;
         }).join('');
