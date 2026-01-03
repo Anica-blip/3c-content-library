@@ -147,11 +147,12 @@ function displayFolders() {
         return;
     }
     
-    // Only show PUBLIC root folders (is_public !== false)
+    // Only show PUBLIC root folders (is_public !== false) and exclude 'Testing' folder
     const publicRootFolders = folders.filter(f => {
         const isRoot = !f.parent_id && f.folder_type === 'root';
         const isPublic = f.is_public !== false; // true or null = public
-        return isRoot && isPublic;
+        const notTesting = f.title !== 'Testing' && f.slug !== 'intermediary_level.03'; // Exclude Testing folder
+        return isRoot && isPublic && notTesting;
     }).sort((a, b) => a.title.localeCompare(b.title));
     
     console.log('📊 Public folders:', publicRootFolders.length, publicRootFolders.map(f => f.title));
