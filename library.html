@@ -1396,7 +1396,7 @@
                     countLabel = `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
                 }
                 
-                const viewContentButton = folder.tableName === 'anica_chats' 
+                const viewContentButton = contentCount > 0
                     ? `<button onclick="event.stopPropagation(); window.location.href='?folder=${folder.slug}';" style="margin-top: 8px; padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">📄 View Content</button>`
                     : '';
                 

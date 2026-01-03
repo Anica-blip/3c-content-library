@@ -190,7 +190,7 @@ function displayFolders() {
                 ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${directItemCount} item${directItemCount !== 1 ? 's' : ''}`
                 : `${directItemCount} item${directItemCount !== 1 ? 's' : ''}`;
             
-            const viewContentButton = folder.table_name === 'anica_chats' 
+            const viewContentButton = directItemCount > 0
                 ? `<button onclick="event.stopPropagation(); window.location.href='?folder=${folder.slug}';" style="margin-top: 8px; padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">📄 View Content</button>`
                 : '';
             
