@@ -915,7 +915,7 @@
                 <h1>3C Public Library</h1>
             </div>
             <div class="header-right">
-                <a href="private-library.html" style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 500; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(231, 76, 60, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(231, 76, 60, 0.3)'">
+                <a id="privateLinkBtn" href="private-library.html" style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 500; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(231, 76, 60, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(231, 76, 60, 0.3)'">
                     🔒 Private Library
                 </a>
             </div>
@@ -1185,6 +1185,18 @@
             
             console.log('🔍 displayContent called with params:', { folderSlug, contentSlug, viewMode });
             console.log('Library state:', { folders: library.folders.length, content: library.content.length });
+            
+            // Control Private Library button visibility - ONLY show on main landing page
+            const privateLinkBtn = document.getElementById('privateLinkBtn');
+            if (privateLinkBtn) {
+                if (!folderSlug && !contentSlug) {
+                    // Main landing page - show button
+                    privateLinkBtn.style.display = 'flex';
+                } else {
+                    // Viewing folder or content - hide button
+                    privateLinkBtn.style.display = 'none';
+                }
+            }
             
             // If view=pdf-only or view=flipbook-only, hide sidebar and folder nav, show only content
             if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && contentSlug) {
@@ -1945,14 +1957,23 @@
                             const thumbnail = entry.target;
                             const bgImage = thumbnail.getAttribute('data-bg');
                             if (bgImage) {
-                                thumbnail.style.backgroundImage = `url('${bgImage}')`;
+                                // Preload image for faster display
+                                const img = new Image();
+                                img.decoding = 'async'; // Decode asynchronously for better performance
+                                img.onload = () => {
+                                    thumbnail.style.backgroundImage = `url('${bgImage}')`;
+                                    thumbnail.style.backgroundSize = 'cover';
+                                    thumbnail.style.backgroundPosition = 'center';
+                                };
+                                img.src = bgImage;
                                 thumbnail.removeAttribute('data-bg');
                                 thumbnailObserver.unobserve(thumbnail);
                             }
                         }
                     });
                 }, {
-                    rootMargin: '50px' // Start loading 50px before element is visible
+                    rootMargin: '200px', // Start loading 200px before element is visible for smoother experience
+                    threshold: 0.01 // Trigger as soon as 1% is visible
                 });
             }
         }
