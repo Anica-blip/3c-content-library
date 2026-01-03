@@ -1078,7 +1078,8 @@
         let pdfScale = parseFloat(localStorage.getItem('pdfZoomLevel')) || 0.75; // Default 75%, remember user preference
         let libraryCache = null;
         let cacheTimestamp = null;
-        const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+        const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache for faster updates
+        let contentCache = {}; // Cache content per folder
         
         async function loadData() {
             console.log('📚 Loading library data from Supabase...');
@@ -1112,27 +1113,8 @@
                     path: f.path
                 }));
                 
-                // Load all content in parallel for better performance
+                // Don't load all content upfront - load on-demand for faster initial page load
                 library.content = [];
-                const contentPromises = folders.map(folder => 
-                    supabaseClient.getContentByFolder(folder.id)
-                        .then(content => content.map(c => ({
-                            id: c.id,
-                            folderId: c.folder_id,
-                            title: c.title,
-                            type: c.type,
-                            url: c.url,
-                            slug: c.custom_url || c.slug,
-                            customUrl: c.custom_url,
-                            thumbnail: c.thumbnail_url,
-                            description: c.description,
-                            externalUrl: c.external_url,
-                            project_json: c.project_json  // Include for interactive PDFs
-                        })))
-                );
-                
-                const allContent = await Promise.all(contentPromises);
-                library.content = allContent.flat();
                 
                 // Cache the data
                 libraryCache = library;
@@ -1228,6 +1210,30 @@
                 return;
             }
             
+            // Load content for this folder on-demand if not already loaded
+            if (!contentCache[currentFolder.id]) {
+                try {
+                    const content = await supabaseClient.getContentByFolder(currentFolder.id);
+                    const mappedContent = content.map(c => ({
+                        id: c.id,
+                        folderId: c.folder_id,
+                        title: c.title,
+                        type: c.type,
+                        url: c.url,
+                        slug: c.custom_url || c.slug,
+                        customUrl: c.custom_url,
+                        thumbnail: c.thumbnail_url,
+                        description: c.description,
+                        externalUrl: c.external_url,
+                        project_json: c.project_json
+                    }));
+                    contentCache[currentFolder.id] = mappedContent;
+                    library.content = [...library.content, ...mappedContent];
+                } catch (error) {
+                    console.error('Error loading folder content:', error);
+                }
+            }
+            
             // Get folder content
             let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
             folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -1266,10 +1272,10 @@
                 }
                 
                 return `
-                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.slug}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 20px;">
-                        <div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0;">${thumbnailContent}</div>
-                        <div class="content-info" style="padding: 12px 10px; text-align: left; min-height: 50px;">
-                            <div class="content-title" style="font-size: 12px; color: #ffffff; line-height: 1.4; font-weight: 500; word-wrap: break-word;">${item.title}</div>
+                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.slug}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 25px;">
+                        <div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0; margin-bottom: 0;">${thumbnailContent}</div>
+                        <div class="content-info" style="padding: 12px 10px; text-align: left; min-height: 60px; margin-top: 0;">
+                            <div class="content-title" style="font-size: 12px; color: #ffffff; line-height: 1.4; font-weight: 500; word-wrap: break-word; margin: 0;">${item.title}</div>
                         </div>
                     </div>
                 `;
@@ -1328,8 +1334,12 @@
             
             console.log('✅ Displaying only root folders');
             
-            // Get only root folders sorted alphabetically
-            const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0).sort((a, b) => a.title.localeCompare(b.title));
+            // Get only root folders sorted alphabetically, exclude Testing folder
+            const rootFolders = library.folders.filter(f => {
+                const isRoot = !f.parentId && f.depth === 0;
+                const notTesting = f.title !== 'Testing' && f.slug !== 'intermediary_level.03';
+                return isRoot && notTesting;
+            }).sort((a, b) => a.title.localeCompare(b.title));
             
             let html = '';
             rootFolders.forEach(folder => {
