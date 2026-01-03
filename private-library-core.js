@@ -163,7 +163,7 @@ function displayFolders() {
         const html = privateRootFolders.map(folder => {
             const subfolders = folders.filter(f => f.parent_id === folder.id);
             const subfoldersCount = subfolders.length;
-            const displayURL = folder.custom_url || folder.slug;
+            const displayURL = folder.table_name;
             
             let countLabel = subfoldersCount > 0 
                 ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${folder.item_count || 0} item${folder.item_count !== 1 ? 's' : ''}`

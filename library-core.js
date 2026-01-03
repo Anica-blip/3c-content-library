@@ -181,7 +181,7 @@ function displayFolders() {
         const html = publicRootFolders.map(folder => {
             const subfolders = folders.filter(f => f.parent_id === folder.id);
             const subfoldersCount = subfolders.length;
-            const displayURL = folder.custom_url || folder.slug;
+            const displayURL = folder.table_name;
             
             // Use actual_item_count from database view (direct items only)
             const directItemCount = folder.actual_item_count || 0;

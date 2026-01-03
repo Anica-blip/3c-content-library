@@ -848,7 +848,7 @@ function displayFoldersGrid() {
             const contentCount = allContent.filter(c => c.folder_id === folder.id).length;
             const subfolders = folders.filter(f => f.parent_id === folder.id);
             const subfoldersCount = subfolders.length;
-            const displayURL = folder.custom_url || folder.slug;
+            const displayURL = folder.table_name;
             
             let countLabel = subfoldersCount > 0 
                 ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`
@@ -876,7 +876,7 @@ function displayFoldersGrid() {
             const contentCount = allContent.filter(c => c.folder_id === folder.id).length;
             const subfolders = folders.filter(f => f.parent_id === folder.id);
             const subfoldersCount = subfolders.length;
-            const displayURL = folder.custom_url || folder.slug;
+            const displayURL = folder.table_name;
             
             let countLabel = subfoldersCount > 0 
                 ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`
@@ -912,7 +912,7 @@ function openFolderSidebar(folderId) {
     
     // Update sidebar header
     const folderTypeLabel = folder.folder_type === 'sub_root' ? '📂 Sub-Root' : '📁 Root';
-    const displayURL = folder.custom_url || folder.slug;
+    const displayURL = folder.table_name;
     sidebarTitle.innerHTML = `
         <div style="flex: 1;">
             <h3 style="margin: 0; color: #a78bfa; font-size: 18px;">${escapeHtml(folder.title)} <span style="font-size: 12px; color: #999;">${folderTypeLabel}</span></h3>
@@ -935,7 +935,7 @@ function openFolderSidebar(folderId) {
         
         subfolders.forEach(subfolder => {
             const subfolderContent = allContent.filter(c => c.folder_id === subfolder.id);
-            const subfolderURL = subfolder.custom_url || subfolder.slug;
+            const subfolderURL = subfolder.table_name;
             
             contentHtml += `
                 <div class="subfolder-card" onclick="openFolderSidebar('${subfolder.id}')" style="background: rgba(40, 40, 40, 0.5); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;">
