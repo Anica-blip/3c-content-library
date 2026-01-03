@@ -1190,7 +1190,41 @@
                 document.querySelector('.folders-section').style.display = 'none';
                 document.getElementById('contentViewer').style.display = 'block';
                 
-                const content = findContentBySlug(contentSlug);
+                // Load content from Supabase if not in library
+                let content = findContentBySlug(contentSlug);
+                if (!content) {
+                    // Try to load from Supabase
+                    const loadContent = async () => {
+                        try {
+                            const { data, error } = await supabase
+                                .from('content')
+                                .select('*')
+                                .or(`id.eq.${contentSlug},slug.eq.${contentSlug}`)
+                                .eq('is_public', true)
+                                .single();
+                            
+                            if (!error && data) {
+                                content = {
+                                    id: data.id,
+                                    title: data.title,
+                                    slug: data.slug,
+                                    type: data.type,
+                                    folderId: data.folder_id,
+                                    url: data.url,
+                                    thumbnail: data.thumbnail,
+                                    description: data.description,
+                                    order: data.order
+                                };
+                                showViewer(content, true); // true = standalone mode
+                            }
+                        } catch (err) {
+                            console.error('Error loading content:', err);
+                        }
+                    };
+                    loadContent();
+                    return;
+                }
+                
                 if (content) {
                     showViewer(content, true); // true = standalone mode
                     return;
@@ -1247,11 +1281,11 @@
             const viewer = document.getElementById('viewer');
             viewer.innerHTML = `
                 <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
-                    <div class="sidebar" id="leftSidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px); width: 100%; max-width: 100%;">
+                    <div class="sidebar" id="leftSidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; width: 100%; max-width: 100%;">
                         <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 15px;">${currentFolder.title}</h2>
                         <div class="content-grid" id="contentList"></div>
                     </div>
-                    <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px); display: none; width: 100%; max-width: 100%;">
+                    <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; display: none; width: 100%; max-width: 100%;">
                         <div class="no-content"><h2>Welcome to 3C Public Library</h2><p>Select content from the sidebar to view</p></div>
                     </div>
                 </div>
@@ -1447,8 +1481,12 @@
                 });
             }
             
+            // Show View Content button if folder has content items
             if (folderContent.length > 0) {
                 const itemCount = folderContent.length;
+                if (subfolders.length > 0) {
+                    contentHtml += '<hr style="border: none; border-top: 1px solid rgba(155, 89, 182, 0.3); margin: 20px 0;">';
+                }
                 contentHtml += `<p style="color: #9b59b6; margin-top: 15px; font-size: 14px;">📄 This folder has ${itemCount} content item${itemCount !== 1 ? 's' : ''}. Click to view:</p>`;
                 contentHtml += `<button onclick="window.location.href='?folder=${folder.slug}'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(155, 89, 182, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(155, 89, 182, 0.3)'">📂 View Content (${itemCount})</button>`;
             }
