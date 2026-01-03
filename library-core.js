@@ -157,6 +157,23 @@ function displayFolders() {
     
     console.log('📊 Public folders:', publicRootFolders.length, publicRootFolders.map(f => f.title));
     
+    // Helper function to count all items recursively (including subfolders)
+    function getTotalItemCount(folderId) {
+        const folder = folders.find(f => f.id === folderId);
+        if (!folder) return 0;
+        
+        // Get direct items in this folder
+        let count = folder.actual_item_count || 0;
+        
+        // Add items from all subfolders recursively
+        const subfolders = folders.filter(f => f.parent_id === folderId);
+        for (const subfolder of subfolders) {
+            count += getTotalItemCount(subfolder.id);
+        }
+        
+        return count;
+    }
+    
     // Render PUBLIC folders only
     if (publicRootFolders.length === 0) {
         container.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No public folders available</p>';
@@ -166,9 +183,12 @@ function displayFolders() {
             const subfoldersCount = subfolders.length;
             const displayURL = folder.custom_url || folder.slug;
             
+            // Use actual_item_count from database view (direct items only)
+            const directItemCount = folder.actual_item_count || 0;
+            
             let countLabel = subfoldersCount > 0 
-                ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${folder.item_count || 0} item${folder.item_count !== 1 ? 's' : ''}`
-                : `${folder.item_count || 0} item${folder.item_count !== 1 ? 's' : ''}`;
+                ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${directItemCount} item${directItemCount !== 1 ? 's' : ''}`
+                : `${directItemCount} item${directItemCount !== 1 ? 's' : ''}`;
             
             return `
                 <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')">

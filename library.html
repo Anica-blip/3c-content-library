@@ -42,10 +42,13 @@
             margin-bottom: 20px;
         }
         
-        .header {
+        .header .container {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
         }
         
         .header-left {
@@ -511,6 +514,7 @@
             
             .header .container {
                 padding: 0 10px;
+                gap: 10px;
             }
             
             .header-left {
@@ -909,13 +913,13 @@
     </div>
     
     <div class="header">
-        <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="container">
             <div class="header-left">
                 <img src="3C Thread To Success logo.png" alt="3C Logo" class="logo-img">
                 <h1>3C Public Library</h1>
             </div>
             <div class="header-right">
-                <a id="privateLinkBtn" href="private-library.html" style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(231, 76, 60, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 10px rgba(231, 76, 60, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 6px rgba(231, 76, 60, 0.3)'">
+                <a id="privateLinkBtn" href="private-library.html" style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(231, 76, 60, 0.3); transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 10px rgba(231, 76, 60, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 6px rgba(231, 76, 60, 0.3)'">
                     🔒 Private
                 </a>
             </div>
@@ -1110,7 +1114,8 @@
                     folderType: f.folder_type,
                     parentId: f.parent_id,
                     depth: f.depth || 0,
-                    path: f.path
+                    path: f.path,
+                    actualItemCount: f.actual_item_count || 0
                 }));
                 
                 // Don't load all content upfront - load on-demand for faster initial page load
@@ -1243,7 +1248,15 @@
             viewer.innerHTML = `
                 <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
                     <div class="sidebar" id="leftSidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px);">
-                        <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 15px;">${currentFolder.title}</h2>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h2 style="color: #ffffff; font-size: 18px; margin: 0;">${currentFolder.title}</h2>
+                            <button onclick="copyFolderLink('${currentFolder.slug}')" 
+                                    style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 6px 10px; 
+                                           border-radius: 4px; cursor: pointer; font-size: 12px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);"
+                                    title="Copy Folder Link">
+                                🔗 Copy Link
+                            </button>
+                        </div>
                         <div class="content-grid" id="contentList"></div>
                     </div>
                     <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px); display: none;">
@@ -1272,7 +1285,7 @@
                 }
                 
                 return `
-                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.slug}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 25px;">
+                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.id}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 25px;">
                         <div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0; margin-bottom: 0;">${thumbnailContent}</div>
                         <div class="content-info" style="padding: 12px 10px; text-align: left; min-height: 60px; margin-top: 0;">
                             <div class="content-title" style="font-size: 12px; color: #ffffff; line-height: 1.4; font-weight: 500; word-wrap: break-word; margin: 0;">${item.title}</div>
@@ -1345,7 +1358,8 @@
             rootFolders.forEach(folder => {
                 const subfolders = library.folders.filter(f => f.parentId === folder.id);
                 const subfoldersCount = subfolders.length;
-                const contentCount = library.content.filter(c => c.folderId === folder.id).length;
+                // Use actual_item_count from database view (direct items in this folder only)
+                const contentCount = folder.actualItemCount || 0;
                 
                 // Count label shows subfolders + content items (like admin.html)
                 let countLabel = '';
@@ -1391,14 +1405,15 @@
             if (subfolders.length > 0) {
                 contentHtml += '<h4 style="color: #9b59b6; font-size: 14px; margin-bottom: 12px;">📂 Sub-folders</h4>';
                 subfolders.forEach(subfolder => {
-                    const subContent = library.content.filter(c => c.folderId === subfolder.id);
+                    // Use actual_item_count from database for accurate count
+                    const itemCount = subfolder.actualItemCount || 0;
                     contentHtml += `
                         <div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'">
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <div style="font-size: 24px;">📂</div>
                                 <div style="flex: 1;">
                                     <div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div>
-                                    <div style="font-size: 11px; color: #808080;">${subContent.length} items</div>
+                                    <div style="font-size: 11px; color: #808080;">${itemCount} items</div>
                                 </div>
                                 <div style="color: #9b59b6; font-size: 18px;">→</div>
                             </div>
@@ -1422,9 +1437,9 @@
             document.getElementById('folderSidebar').style.display = 'none';
         }
         
-        function viewContent(contentSlug) {
-            const params = getUrlParams();
-            window.location.href = `?folder=${params.folder}&content=${contentSlug}`;
+        function viewContent(contentId) {
+            // Load content as standalone page for fast loading
+            window.location.href = `?content=${contentId}`;
         }
         
         function sharePDFLink(contentSlug) {
@@ -1581,6 +1596,16 @@
                 alert('✅ PDF link copied to clipboard!\n\n' + shareLink);
             }).catch(err => {
                 prompt('Copy this link:', shareLink);
+            });
+        }
+        
+        function copyFolderLink(folderSlug) {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const folderLink = `${baseUrl}?folder=${folderSlug}`;
+            navigator.clipboard.writeText(folderLink).then(() => {
+                alert('✅ Folder link copied to clipboard!\n\n' + folderLink);
+            }).catch(err => {
+                prompt('Copy this link:', folderLink);
             });
         }
         
