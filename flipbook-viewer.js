@@ -10,7 +10,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 // Global state
 let currentPage = 1;
 let totalPages = 0;
-let scale = 0.48; // Default 48% zoom for optimal viewing
+let scale = 0.46; // Default 46% zoom for optimal viewing (fits viewport without scrolling)
 let manifest = null;
 let pageCanvases = [];
 let flipbookInitialized = false;
@@ -838,6 +838,15 @@ function setupEventListeners() {
     // Download button
     $('#download-btn').on('click', downloadFlipbook);
     
+    // Navigation arrows
+    $('#nav-arrow-left').on('click', () => {
+        $('#flipbook').turn('previous');
+    });
+    
+    $('#nav-arrow-right').on('click', () => {
+        $('#flipbook').turn('next');
+    });
+    
     // Close media
     closeMediaBtn.addEventListener('click', closeMedia);
     mediaOverlay.addEventListener('click', (e) => {
@@ -921,6 +930,26 @@ function updatePageInfo() {
     // Update button states
     $('#first-page, #prev-page').prop('disabled', currentPage === 1);
     $('#next-page, #last-page').prop('disabled', currentPage === totalPages);
+    
+    // Update navigation arrows visibility
+    const leftArrow = document.getElementById('nav-arrow-left');
+    const rightArrow = document.getElementById('nav-arrow-right');
+    
+    if (leftArrow) {
+        if (currentPage === 1) {
+            leftArrow.classList.add('hidden');
+        } else {
+            leftArrow.classList.remove('hidden');
+        }
+    }
+    
+    if (rightArrow) {
+        if (currentPage === totalPages) {
+            rightArrow.classList.add('hidden');
+        } else {
+            rightArrow.classList.remove('hidden');
+        }
+    }
 }
 
 /**

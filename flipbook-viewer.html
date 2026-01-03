@@ -163,6 +163,49 @@
             position: relative;
         }
 
+        /* Navigation Arrows */
+        .nav-arrow {
+            position: absolute;
+            bottom: 20px;
+            width: 60px;
+            height: 60px;
+            background: rgba(155, 89, 182, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+            border: 2px solid rgba(155, 89, 182, 0.3);
+        }
+
+        .nav-arrow:hover {
+            background: rgba(155, 89, 182, 0.3);
+            border-color: rgba(155, 89, 182, 0.6);
+            transform: scale(1.1);
+        }
+
+        .nav-arrow svg {
+            color: rgba(255, 255, 255, 0.8);
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+
+        #nav-arrow-left {
+            left: 20px;
+        }
+
+        #nav-arrow-right {
+            right: 20px;
+        }
+
+        /* Hide arrows on first/last page */
+        .nav-arrow.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
         .page {
             background: white;
             display: flex;
@@ -483,6 +526,17 @@
     <div id="flipbook-container">
         <div id="flipbook-wrapper">
             <div id="flipbook"></div>
+            <!-- Navigation Arrows -->
+            <div id="nav-arrow-left" class="nav-arrow" title="Previous Page">
+                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </div>
+            <div id="nav-arrow-right" class="nav-arrow" title="Next Page">
+                <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </div>
         </div>
     </div>
 
