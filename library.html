@@ -1382,6 +1382,8 @@
             const folder = library.folders.find(f => f.id === folderId);
             if (!folder) return;
             
+            console.log('🔍 Opening folder sidebar for:', folder.title, 'ID:', folderId);
+            
             const subfolders = library.folders.filter(f => f.parentId === folderId).sort((a, b) => a.title.localeCompare(b.title));
             
             // Load content from Supabase for this folder
@@ -1393,6 +1395,8 @@
                     .eq('folder_id', folderId)
                     .eq('is_public', true)
                     .order('order', { ascending: true });
+                
+                console.log('📦 Supabase query result:', { data, error, count: data?.length || 0 });
                 
                 if (!error && data) {
                     folderContent = data.map(item => ({
@@ -1406,9 +1410,12 @@
                         description: item.description,
                         order: item.order
                     }));
+                    console.log('✅ Loaded folder content:', folderContent.length, 'items');
+                } else if (error) {
+                    console.error('❌ Supabase error:', error);
                 }
             } catch (err) {
-                console.error('Error loading folder content:', err);
+                console.error('❌ Error loading folder content:', err);
             }
             
             document.getElementById('sidebarFolderTitle').innerHTML = `
@@ -1466,13 +1473,13 @@
             }
         }
         
-        function sharePDFLink(contentSlug) {
+        function sharePDFLink(contentId) {
             const baseUrl = window.location.origin + window.location.pathname;
             // Check if current content is a flipbook
             if (currentContent && currentContent.type === 'flipbook') {
-                return `${baseUrl}?content=${contentSlug}&view=flipbook-only`;
+                return `${baseUrl}?content=${contentId}&view=flipbook-only`;
             }
-            return `${baseUrl}?content=${contentSlug}&view=pdf-only`;
+            return `${baseUrl}?content=${contentId}&view=pdf-only`;
         }
         
         function showViewer(content, pdfOnlyMode = false) {
@@ -1615,7 +1622,7 @@
         
         function copyShareLink() {
             if (!currentContent) return;
-            const shareLink = sharePDFLink(currentContent.slug);
+            const shareLink = sharePDFLink(currentContent.id);
             navigator.clipboard.writeText(shareLink).then(() => {
                 alert('✅ Link copied to clipboard!\n\n' + shareLink);
             }).catch(err => {
@@ -1625,7 +1632,7 @@
         
         function openShareLink() {
             if (!currentContent) return;
-            const shareLink = sharePDFLink(currentContent.slug);
+            const shareLink = sharePDFLink(currentContent.id);
             window.open(shareLink, '_blank');
         }
         
