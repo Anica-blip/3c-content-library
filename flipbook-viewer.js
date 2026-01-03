@@ -479,10 +479,21 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 e.stopPropagation();
                 e.preventDefault();
                 try {
-                    console.log('🔘 Regular button clicked:', element);
+                    console.log('\n🔘 ========== BUTTON CLICKED ==========');
+                    console.log('Element type:', element.type);
+                    console.log('Element object:', JSON.stringify(element, null, 2));
+                    console.log('Element.url:', element.url);
+                    console.log('Element.videoUrl:', element.videoUrl);
+                    console.log('Element.mediaUrl:', element.mediaUrl);
+                    console.log('Element.iframeUrl:', element.iframeUrl);
+                    console.log('Element.streamId:', element.streamId);
+                    
                     if (element.url) {
                         console.log('📍 Button URL:', element.url);
-                        if (isVideoUrl(element.url)) {
+                        const isVideo = isVideoUrl(element.url);
+                        console.log('🔍 isVideoUrl() result:', isVideo);
+                        
+                        if (isVideo) {
                             console.log('🎥 Detected as video URL, opening in popup...');
                             playMedia(element, 'video');
                         } else {
@@ -500,10 +511,13 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                         playMedia(element, 'video');
                     } else {
                         console.warn('⚠️ Button has no URL or video configured');
-                        alert('⚠️ Button Error\n\nThis button has no URL or video configured.');
+                        console.log('Available element properties:', Object.keys(element));
+                        alert('⚠️ Button Error\n\nThis button has no URL or video configured.\n\nElement type: ' + element.type);
                     }
+                    console.log('========================================\n');
                 } catch (error) {
                     console.error('❌ Error handling button click:', error);
+                    console.error('Stack trace:', error.stack);
                     alert('❌ Button Error\n\n' + error.message);
                 }
             });
@@ -584,7 +598,13 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             
             videoContainer.on('click', function(e) {
                 e.stopPropagation();
-                console.log('🎬 Video element clicked:', element);
+                console.log('\n🎬 ========== VIDEO ELEMENT CLICKED ==========');
+                console.log('Element type:', element.type);
+                console.log('Element object:', JSON.stringify(element, null, 2));
+                console.log('Element.url:', element.url);
+                console.log('Element.videoUrl:', element.videoUrl);
+                console.log('Element.mediaUrl:', element.mediaUrl);
+                console.log('========================================\n');
                 playMedia(element, 'video');
             });
             
