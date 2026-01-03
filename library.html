@@ -1248,15 +1248,7 @@
             viewer.innerHTML = `
                 <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
                     <div class="sidebar" id="leftSidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <h2 style="color: #ffffff; font-size: 18px; margin: 0;">${currentFolder.title}</h2>
-                            <button onclick="copyFolderLink('${currentFolder.slug}')" 
-                                    style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 6px 10px; 
-                                           border-radius: 4px; cursor: pointer; font-size: 12px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);"
-                                    title="Copy Folder Link">
-                                🔗 Copy Link
-                            </button>
-                        </div>
+                        <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 15px;">${currentFolder.title}</h2>
                         <div class="content-grid" id="contentList"></div>
                     </div>
                     <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px); display: none;">
@@ -1420,13 +1412,15 @@
                         </div>
                     `;
                 });
-            } else if (folderContent.length === 0) {
-                contentHtml = '<p style="color: #999; text-align: center; padding: 40px;">No sub-folders or content yet.</p>';
             }
             
             if (folderContent.length > 0 && subfolders.length === 0) {
-                contentHtml = '<p style="color: #9b59b6;">This folder has direct content. Click to view:</p>';
-                contentHtml += `<button onclick="window.location.href='?folder=${folder.slug}'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; width: 100%;">View Content</button>`;
+                contentHtml += '<p style="color: #9b59b6; margin-top: 15px;">This folder has direct content. Click to view:</p>';
+                contentHtml += `<button onclick="window.location.href='?folder=${folder.slug}'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px;">View Content</button>`;
+            }
+            
+            if (folderContent.length === 0 && subfolders.length === 0) {
+                contentHtml = '<p style="color: #999; text-align: center; padding: 40px;">No sub-folders or content yet.</p>';
             }
             
             document.getElementById('sidebarContent').innerHTML = contentHtml;
@@ -1437,9 +1431,12 @@
             document.getElementById('folderSidebar').style.display = 'none';
         }
         
-        function viewContent(contentId) {
-            // Load content as standalone page for fast loading
-            window.location.href = `?content=${contentId}`;
+        function viewContent(contentSlug) {
+            // Show content in right sidebar
+            const content = findContentBySlug(contentSlug, currentFolder.id);
+            if (content) {
+                showViewer(content);
+            }
         }
         
         function sharePDFLink(contentSlug) {
