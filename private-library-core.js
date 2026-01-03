@@ -147,20 +147,20 @@ function displayFolders() {
         return;
     }
     
-    // Only show PUBLIC root folders (is_public !== false)
-    const publicRootFolders = folders.filter(f => {
+    // Only show PRIVATE root folders (is_public === false)
+    const privateRootFolders = folders.filter(f => {
         const isRoot = !f.parent_id && f.folder_type === 'root';
-        const isPublic = f.is_public !== false; // true or null = public
-        return isRoot && isPublic;
+        const isPrivate = f.is_public === false; // explicitly false = private
+        return isRoot && isPrivate;
     }).sort((a, b) => a.title.localeCompare(b.title));
     
-    console.log('📊 Public folders:', publicRootFolders.length, publicRootFolders.map(f => f.title));
+    console.log('🔒 Private folders:', privateRootFolders.length, privateRootFolders.map(f => f.title));
     
-    // Render PUBLIC folders only
-    if (publicRootFolders.length === 0) {
-        container.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No public folders available</p>';
+    // Render PRIVATE folders only
+    if (privateRootFolders.length === 0) {
+        container.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No private folders available</p>';
     } else {
-        const html = publicRootFolders.map(folder => {
+        const html = privateRootFolders.map(folder => {
             const subfolders = folders.filter(f => f.parent_id === folder.id);
             const subfoldersCount = subfolders.length;
             const displayURL = folder.custom_url || folder.slug;
@@ -170,8 +170,8 @@ function displayFolders() {
                 : `${folder.item_count || 0} item${folder.item_count !== 1 ? 's' : ''}`;
             
             return `
-                <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')">
-                    <div class="folder-icon">📁</div>
+                <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')" style="border-color: rgba(231, 76, 60, 0.5);">
+                    <div class="folder-icon">🔒</div>
                     <div class="folder-title">${escapeHtml(folder.title)}</div>
                     <div class="folder-details">${countLabel}</div>
                     <div class="folder-slug">${displayURL}</div>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3C Public Library</title>
+    <title>3C Private Library</title>
     <link rel="icon" type="image/png" href="favicon1.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -912,11 +912,11 @@
         <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
             <div class="header-left">
                 <img src="3C Thread To Success logo.png" alt="3C Logo" class="logo-img">
-                <h1>3C Public Library</h1>
+                <h1>🔒 3C Private Library</h1>
             </div>
             <div class="header-right">
-                <a href="private-library.html" style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 500; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(231, 76, 60, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(231, 76, 60, 0.3)'">
-                    🔒 Private Library
+                <a href="library.html" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 500; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(155, 89, 182, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(155, 89, 182, 0.3)'">
+                    📁 Public Library
                 </a>
             </div>
         </div>
@@ -932,11 +932,12 @@
     </div>
     
     <div class="container">
-        <!-- Folders Section -->
+        <!-- Private Folders Section -->
         <div class="folders-section">
-            <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-                📁 Folders and Content
+            <h2 style="color: #e74c3c; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                🔒 Private Folders
             </h2>
+            <p style="color: #999; margin-bottom: 20px; font-size: 14px;">These folders require password access. Click on a folder to unlock it.</p>
             <div id="foldersGrid" class="folders-grid"></div>
         </div>
         
@@ -1109,7 +1110,9 @@
                     folderType: f.folder_type,
                     parentId: f.parent_id,
                     depth: f.depth || 0,
-                    path: f.path
+                    path: f.path,
+                    isPublic: f.is_public,
+                    password: f.password
                 }));
                 
                 // Load all content in parallel for better performance
@@ -1314,10 +1317,10 @@
                 return;
             }
             
-            console.log('✅ Displaying only root folders');
+            console.log('🔒 Displaying only PRIVATE root folders');
             
-            // Get only root folders sorted alphabetically
-            const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0).sort((a, b) => a.title.localeCompare(b.title));
+            // Get only PRIVATE root folders (is_public === false) sorted alphabetically
+            const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0 && f.isPublic === false).sort((a, b) => a.title.localeCompare(b.title));
             
             let html = '';
             rootFolders.forEach(folder => {
@@ -1334,8 +1337,8 @@
                 }
                 
                 html += `
-                    <div class="folder-card-item" onclick="openFolderSidebar('${folder.id}')">
-                        <div class="folder-icon">📁</div>
+                    <div class="folder-card-item" onclick="openFolderSidebar('${folder.id}')" style="border-color: rgba(231, 76, 60, 0.5);">
+                        <div class="folder-icon">🔒</div>
                         <div class="folder-title">${folder.title}</div>
                         <div class="folder-details">${countLabel}</div>
                         <div class="folder-slug">${folder.slug}</div>
