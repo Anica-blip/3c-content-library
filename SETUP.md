@@ -48,14 +48,27 @@ Once you click to open content from a root or sub-folder, that content opens fro
 - Displays folder contents (subfolders and content thumbnails)
 - Example: `?folder=anica_chats`
 
-#### Standalone Content Pages
+#### Standalone Content Pages (NEW FORMAT - CURRENT)
 ```
-?content=id
+?folder=table_name&url=custom_url&view=pdf-only
+?folder=table_name&url=custom_url&view=flipbook-only
 ```
-- Loads content directly from Cloudflare R2
-- Fast loading without folder dependency
-- Works for all content types: PDF, flipbook, video, image, audio
-- Example: `?content=abc123`
+- **folder** = `table_name` column from database (e.g., `anica_chats`, `aurion_reports`, `foundation`)
+- **url** = `custom_url` column from database (e.g., `anica_chats_issue.08`, `flow_under_friction_level.2`)
+- **view** = `pdf-only` or `flipbook-only` (hides sidebar, shows only content)
+- Files load from `url` column (Cloudflare R2 URL)
+- Works for both `content_public` and `content_private` tables
+
+**Examples:**
+- PDF: `?folder=anica_chats&url=anica_chats_issue.08&view=pdf-only`
+- Flipbook: `?folder=foundation&url=flow_under_friction_level.2&view=flipbook-only`
+
+#### Legacy Content Pages (BACKWARD COMPATIBILITY)
+```
+?content=id&view=pdf-only
+```
+- Still supported for old links
+- Example: `?content=abc123&view=pdf-only`
 
 ### Content Types Supported
 
@@ -152,3 +165,26 @@ Once you click to open content from a root or sub-folder, that content opens fro
 - `url` - Cloudflare R2 URL for content files
 - `thumbnail_url` - Cloudflare R2 URL for thumbnails
 - `project_json` - Flipbook manifest URL (for interactive PDFs)
+
+## Critical Architecture Notes
+
+### Database vs File Storage (IMPORTANT)
+- **Supabase** = Database only (metadata, folder structure, content info)
+- **Cloudflare R2** = All files loaded from R2 via `url` column
+
+### URL Structure for Both Public & Private Libraries
+
+**content_public:**
+- folder = `table_name` column
+- content = `custom_url` column
+- fileload = `url` column (Cloudflare R2)
+
+**content_private:**
+- folder = `table_name` column
+- content = `custom_url` column
+- fileload = `url` column (Cloudflare R2)
+
+### UI Design Guidelines
+- **Landing pages**: Do NOT add containers in sidebars (unless specifically required)
+- **Content viewing**: Hide sidebar when `view=pdf-only` or `view=flipbook-only`
+- **Clean interface**: Minimal clutter, focus on content

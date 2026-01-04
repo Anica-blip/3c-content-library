@@ -1106,6 +1106,7 @@
                     name: f.title,
                     slug: f.custom_url || f.slug,
                     customUrl: f.custom_url,
+                    tableName: f.table_name,
                     description: f.description,
                     folderType: f.folder_type,
                     parentId: f.parent_id,
@@ -1154,7 +1155,8 @@
             return {
                 folder: params.get('folder'),
                 content: params.get('content'),
-                view: params.get('view') // 'pdf-only' to hide folder sidebar
+                url: params.get('url'), // Content custom_url for new URL format
+                view: params.get('view') // 'pdf-only' or 'flipbook-only' to hide folder sidebar
             };
         }
         
@@ -1184,12 +1186,47 @@
             const params = getUrlParams();
             const folderSlug = params.folder;
             const contentSlug = params.content;
+            const contentUrl = params.url; // New: content custom_url
             const viewMode = params.view;
             
-            console.log('🔍 displayContent called with params:', { folderSlug, contentSlug, viewMode });
+            console.log('🔍 displayContent called with params:', { folderSlug, contentSlug, contentUrl, viewMode });
             console.log('Library state:', { folders: library.folders.length, content: library.content.length });
             
-            // If view=pdf-only or view=flipbook-only, hide sidebar and folder nav, show only content
+            // NEW FORMAT: ?folder=X&url=Y&view=pdf-only or flipbook-only
+            // Load content by folder table_name and content custom_url
+            if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && folderSlug && contentUrl) {
+                document.querySelector('.folders-section').style.display = 'none';
+                document.getElementById('contentViewer').style.display = 'block';
+                
+                console.log('🎯 Loading content with new URL format:', { folderSlug, contentUrl });
+                
+                // Find folder by table_name
+                const folder = library.folders.find(f => f.tableName === folderSlug || f.slug === folderSlug);
+                
+                if (!folder) {
+                    console.error('❌ Folder not found:', folderSlug);
+                    document.getElementById('viewer').innerHTML = '<div style="padding: 40px; text-align: center;"><h2>Folder not found</h2><p>The folder "' + folderSlug + '" does not exist.</p></div>';
+                    return;
+                }
+                
+                // Find content by custom_url in this folder
+                const content = library.content.find(c => 
+                    c.folderId === folder.id && 
+                    (c.customUrl === contentUrl || c.slug === contentUrl)
+                );
+                
+                if (content) {
+                    currentFolder = folder;
+                    showViewer(content, true); // true = standalone mode (no sidebar)
+                    return;
+                } else {
+                    console.error('❌ Content not found:', contentUrl);
+                    document.getElementById('viewer').innerHTML = '<div style="padding: 40px; text-align: center;"><h2>Content not found</h2><p>The content "' + contentUrl + '" does not exist in folder "' + folderSlug + '".</p></div>';
+                    return;
+                }
+            }
+            
+            // OLD FORMAT: ?content=X&view=pdf-only (fallback for backward compatibility)
             if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && contentSlug) {
                 document.querySelector('.folders-section').style.display = 'none';
                 document.getElementById('contentViewer').style.display = 'block';
@@ -1410,11 +1447,19 @@
         
         function sharePDFLink(contentSlug) {
             const baseUrl = window.location.origin + window.location.pathname;
-            // Check if current content is a flipbook
-            if (currentContent && currentContent.type === 'flipbook') {
-                return `${baseUrl}?content=${contentSlug}&view=flipbook-only`;
+            
+            // Generate URL using folder table_name and content custom_url
+            if (currentContent && currentFolder) {
+                const folderTableName = currentFolder.tableName || currentFolder.slug;
+                const contentCustomUrl = currentContent.customUrl || currentContent.slug;
+                const viewType = currentContent.type === 'flipbook' ? 'flipbook-only' : 'pdf-only';
+                
+                return `${baseUrl}?folder=${folderTableName}&url=${contentCustomUrl}&view=${viewType}`;
             }
-            return `${baseUrl}?content=${contentSlug}&view=pdf-only`;
+            
+            // Fallback to old format if folder/content data not available
+            const viewType = currentContent && currentContent.type === 'flipbook' ? 'flipbook-only' : 'pdf-only';
+            return `${baseUrl}?content=${contentSlug}&view=${viewType}`;
         }
         
         function showViewer(content, pdfOnlyMode = false) {
