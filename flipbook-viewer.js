@@ -704,8 +704,10 @@ function playMedia(element, type) {
                 iframe.src = videoUrl;
                 iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
                 iframe.allowFullscreen = true;
-                iframe.style.width = '100%';
-                iframe.style.height = '100%';
+                iframe.style.maxWidth = '100%';
+                iframe.style.maxHeight = '70vh';
+                iframe.style.width = 'auto';
+                iframe.style.height = 'auto';
                 iframe.style.border = 'none';
                 iframe.onerror = (e) => {
                     console.error('❌ Cloudflare Stream iframe failed to load:', e);
@@ -723,8 +725,10 @@ function playMedia(element, type) {
                     iframe.src = embedUrl;
                     iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
                     iframe.allowFullscreen = true;
-                    iframe.style.width = '100%';
-                    iframe.style.height = '100%';
+                    iframe.style.maxWidth = '100%';
+                    iframe.style.maxHeight = '70vh';
+                    iframe.style.width = 'auto';
+                    iframe.style.height = 'auto';
                     iframe.style.border = 'none';
                     iframe.onerror = (e) => {
                         console.error('❌ YouTube/Vimeo iframe failed to load:', e);
@@ -739,9 +743,10 @@ function playMedia(element, type) {
                     video.src = videoUrl;
                     video.controls = true;
                     video.autoplay = true;
-                    video.style.width = '100%';
+                    video.style.maxWidth = '100%';
+                    video.style.maxHeight = '70vh';
+                    video.style.width = 'auto';
                     video.style.height = 'auto';
-                    video.style.maxHeight = '100%';
                     video.style.objectFit = 'contain';
                     video.setAttribute('crossorigin', 'anonymous'); // Enable CORS for Cloudflare R2
                     if (element.thumbnailUrl || element.poster) {
