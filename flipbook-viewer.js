@@ -380,6 +380,9 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
     console.log(' Rendering', positionedElements.length, 'elements on page');
     
     positionedElements.forEach((element, idx) => {
+        // Log each element type for debugging
+        console.log(`   Element ${idx + 1}: type="${element.type}", x=${element.x}, y=${element.y}, width=${element.width}, height=${element.height}`);
+        
         // Element positions are saved relative to editor canvas (595px x 842px)
         // We need to scale them to current viewer size (pageWidth x pageHeight)
         const scaleX = pageWidth / EDITOR_WIDTH_PX;
