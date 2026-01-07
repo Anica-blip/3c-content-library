@@ -1608,9 +1608,9 @@
         function sharePDFLink(contentId) {
             const baseUrl = window.location.origin + window.location.pathname;
             
-            // Generate URL using folder table_name and content custom_url
+            // Generate URL using folder custom_url and content custom_url
             if (currentContent && currentFolder) {
-                const folderTableName = currentFolder.path || currentFolder.tableName;
+                const folderTableName = currentFolder.tableName;
                 const contentCustomUrl = currentContent.customUrl || currentContent.slug;
                 const viewType = currentContent.type === 'flipbook' ? 'flipbook-only' : 'pdf-only';
                 
