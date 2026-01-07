@@ -51,7 +51,6 @@ The 3C Content Library is a dual-sided content management and delivery system:
   - **Folder Name** (`title` from `folders` table)
   - **Sub-folder Count** (count of child folders where `parent_id = folder.id`)
   - **Item Count** (`item_count` column, auto-updated by triggers)
-  - **Folder Type** (`type_name` column - deprecated, use `table_name` instead)
 
 **Data Source:**
 - `folders` table where `parent_id IS NULL` (root folders)
@@ -63,6 +62,7 @@ The 3C Content Library is a dual-sided content management and delivery system:
 ┌─────────────────────────────────┐
 │  📁 Anica Coffee Break Chats    │
 │  3 sub-folders • 12 items       │
+│  table_name: anica_chats        │
 └─────────────────────────────────┘
 ```
 
@@ -135,8 +135,8 @@ library.html?folder=<table_name>
 1. **Title** - Content title
 2. **Description** - Content description
 3. **Back Button**
-   - Desktop: Returns to thumbnail grid view
-   - Mobile: Returns to left sidebar thumbnail list
+   - Desktop: Returns to folders (main page)
+   - Mobile: Returns to left sidebar thumbnail list (allows user to view thumbnails and open another document)
 4. **Copy Link Button** - Copies direct content link (Landing Page 2 format)
 5. **Thumbnail Image** - Large preview
 6. **Action Button:**
@@ -659,7 +659,7 @@ if (folderSlug || contentSlug || contentUrl) {
 - Mobile: Full-screen overlay, close button in top right
 
 **3. Back Button**
-- Desktop: Returns to thumbnail grid (left sidebar stays open)
+- Desktop: Returns to folders (main page)
 - Mobile: Returns to thumbnail list (closes right sidebar)
 
 **4. Responsive Grid**

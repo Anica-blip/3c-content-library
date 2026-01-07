@@ -1118,16 +1118,26 @@ async function downloadFlipbook() {
 }
 
 /**
- * Go back to library
+ * Go back to library (returns to where user came from)
  */
 function goBack() {
-    const params = getUrlParams();
-    if (params.folder) {
-        window.location.href = `library.html?folder=${params.folder}&content=${contentId}`;
-    } else if (contentId) {
-        window.location.href = `library.html?content=${contentId}`;
+    // Use document.referrer to go back to the previous page (Landing Page 2)
+    if (document.referrer && document.referrer.includes('library.html')) {
+        window.location.href = document.referrer;
     } else {
-        window.location.href = 'library.html';
+        // Fallback: construct Landing Page 2 URL
+        const params = getUrlParams();
+        if (params.content) {
+            // Try to get folder from URL params or contentData
+            const folderParam = new URLSearchParams(window.location.search).get('folder');
+            if (folderParam) {
+                window.location.href = `library.html?folder=${folderParam}&content=${params.content}`;
+            } else {
+                window.location.href = `library.html?content=${params.content}`;
+            }
+        } else {
+            window.location.href = 'library.html';
+        }
     }
 }
 
