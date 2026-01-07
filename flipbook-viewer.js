@@ -649,6 +649,10 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             }
             
             elementDiv.append(videoWrapper);
+            console.log(`   ✅ Video element rendered: ${element.type}, has thumbnail: ${!!(element.thumbnail || element.thumbnailUrl)}`);
+        } else {
+            // Unhandled element type - log it
+            console.warn(`   ⚠️ Unhandled element type: "${element.type}"`);
         }
         
         pageDiv.append(elementDiv);
