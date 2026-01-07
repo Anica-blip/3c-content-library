@@ -1158,9 +1158,9 @@
         
         function findContentBySlug(slug, folderId = null) {
             if (folderId) {
-                return library.content.find(c => (c.slug === slug || c.id === slug) && c.folderId === folderId);
+                return library.content.find(c => (c.slug === slug || c.id === slug || c.customUrl === slug) && c.folderId === folderId);
             }
-            return library.content.find(c => c.slug === slug || c.id === slug);
+            return library.content.find(c => c.slug === slug || c.id === slug || c.customUrl === slug);
         }
         
         function getTypeIcon(type) {

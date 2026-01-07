@@ -1121,23 +1121,10 @@ async function downloadFlipbook() {
  * Go back to library (returns to where user came from)
  */
 function goBack() {
-    // Use document.referrer to go back to the previous page (Landing Page 2)
-    if (document.referrer && document.referrer.includes('library.html')) {
+    if (document.referrer) {
         window.location.href = document.referrer;
     } else {
-        // Fallback: construct Landing Page 2 URL
-        const params = getUrlParams();
-        if (params.content) {
-            // Try to get folder from URL params or contentData
-            const folderParam = new URLSearchParams(window.location.search).get('folder');
-            if (folderParam) {
-                window.location.href = `library.html?folder=${folderParam}&content=${params.content}`;
-            } else {
-                window.location.href = `library.html?content=${params.content}`;
-            }
-        } else {
-            window.location.href = 'library.html';
-        }
+        window.history.back();
     }
 }
 
