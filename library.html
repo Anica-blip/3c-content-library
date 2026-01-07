@@ -534,6 +534,11 @@
                 gap: 6px;
             }
             
+            /* Show folder icon on mobile */
+            #folderIconBtn {
+                display: flex !important;
+            }
+            
             /* Icon-only buttons on mobile */
             .dark-mode-toggle,
             .debug-toggle {
@@ -919,6 +924,9 @@
                 <h1>3C Public Library</h1>
             </div>
             <div class="header-right">
+                <a id="folderIconBtn" href="library.html" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; padding: 8px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 20px; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(155, 89, 182, 0.3); transition: all 0.2s; width: 40px; height: 40px;" title="Back to Folders">
+                    📁
+                </a>
                 <a id="privateLinkBtn" href="private-library.html" style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(231, 76, 60, 0.3); transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 10px rgba(231, 76, 60, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 6px rgba(231, 76, 60, 0.3)'">
                     🔒 Private
                 </a>
@@ -1188,6 +1196,18 @@
                 }
             }
             
+            // Control Folder icon visibility - ONLY show on mobile when viewing folder/content pages
+            const folderIconBtn = document.getElementById('folderIconBtn');
+            if (folderIconBtn) {
+                if (folderSlug || contentSlug || contentUrl) {
+                    // On folder or content page - folder icon will show on mobile via CSS
+                    folderIconBtn.style.visibility = 'visible';
+                } else {
+                    // Main landing page - hide folder icon
+                    folderIconBtn.style.visibility = 'hidden';
+                }
+            }
+            
             // NEW FORMAT: ?folder=X&url=Y&view=pdf-only or flipbook-only
             // Load content by folder table_name and content custom_url
             if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && folderSlug && contentUrl) {
@@ -1339,7 +1359,25 @@
             let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
             folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
             
-            // Create left/right layout
+            // If contentSlug exists, show ONLY content viewer (no left sidebar)
+            if (contentSlug) {
+                const viewer = document.getElementById('viewer');
+                viewer.innerHTML = `
+                    <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; display: block; width: 100%; max-width: 100%;">
+                        <div class="no-content"><h2>Loading content...</h2></div>
+                    </div>
+                `;
+                
+                const content = findContentBySlug(contentSlug, currentFolder.id);
+                if (content) {
+                    showViewer(content, false);
+                } else {
+                    document.getElementById('viewerContent').innerHTML = '<div class="no-content"><h2>Error loading content</h2><p>JSON object requested, multiple (or no) rows returned</p></div>';
+                }
+                return;
+            }
+            
+            // Create left/right layout (when no contentSlug - normal folder view)
             const viewer = document.getElementById('viewer');
             viewer.innerHTML = `
                 <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
@@ -1386,11 +1424,6 @@
             
             // Activate lazy loading for thumbnails
             observeThumbnails();
-            
-            if (contentSlug) {
-                const content = findContentBySlug(contentSlug, currentFolder.id);
-                if (content) showViewer(content);
-            }
         }
         
         // Helper function to get all subfolder IDs recursively

@@ -405,7 +405,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             width: scaledWidth + 'px',
             height: scaledHeight + 'px',
             cursor: 'pointer',
-            zIndex: 10
+            zIndex: 1000
         });
         
         // Handle different element types
@@ -563,52 +563,89 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 }
             });
         } else if (element.type === 'video' || element.type === 'cloudflare-stream') {
-            // Video with play button
-            const videoContainer = $('<div></div>').css({
+            // Video with thumbnail or purple box
+            const videoWrapper = $('<div></div>').css({
                 width: '100%',
                 height: '100%',
                 position: 'relative',
                 overflow: 'hidden',
                 borderRadius: '8px',
-                background: 'rgba(0, 0, 0, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                cursor: 'pointer'
             });
             
-            const playBtn = $('<div></div>').css({
-                width: Math.round(64 * scaleX) + 'px',
-                height: Math.round(64 * scaleX) + 'px',
-                background: 'rgba(139, 92, 246, 0.3)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-            }).html('<svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="margin-left: 3px;"><path d="M8 5v14l11-7z" fill="#a78bfa" stroke="#a78bfa" stroke-width="2" stroke-linejoin="round"/></svg>');
+            // Check if video has thumbnail
+            if (element.thumbnail || element.thumbnailUrl) {
+                // Video WITH thumbnail
+                const thumbnailUrl = element.thumbnail || element.thumbnailUrl;
+                videoWrapper.css({
+                    backgroundImage: `url(${thumbnailUrl})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                });
+                
+                const playBtn = $('<div></div>').css({
+                    width: Math.round(64 * scaleX) + 'px',
+                    height: Math.round(64 * scaleX) + 'px',
+                    background: 'rgba(139, 92, 246, 0.3)',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+                    pointerEvents: 'none'
+                }).html('<svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="margin-left: 3px;"><path d="M8 5v14l11-7z" fill="#a78bfa" stroke="#a78bfa" stroke-width="2" stroke-linejoin="round"/></svg>');
+                
+                videoWrapper.append(playBtn);
+                
+                // IIFE to capture element correctly for multiple videos
+                (function(capturedElement) {
+                    videoWrapper.on('click', function(e) {
+                        e.stopPropagation();
+                        console.log('\n🎬 ========== VIDEO ELEMENT CLICKED ==========');
+                        console.log('Element type:', capturedElement.type);
+                        console.log('Element object:', JSON.stringify(capturedElement, null, 2));
+                        console.log('========================================\n');
+                        playMedia(capturedElement, 'video');
+                    });
+                })(element);
+                
+            } else {
+                // Video WITHOUT thumbnail - purple box with play icon
+                videoWrapper.css({
+                    background: 'rgba(102, 126, 234, 0.2)',
+                    border: '2px solid rgba(102, 126, 234, 0.5)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                });
+                
+                const playIcon = $('<i class="fas fa-play-circle"></i>').css({
+                    color: '#667eea',
+                    fontSize: '48px',
+                    pointerEvents: 'none'
+                });
+                
+                videoWrapper.append(playIcon);
+                
+                // IIFE to capture element correctly for multiple videos
+                (function(capturedElement) {
+                    videoWrapper.on('click', function(e) {
+                        e.stopPropagation();
+                        console.log('\n🎬 ========== VIDEO ELEMENT CLICKED ==========');
+                        console.log('Element type:', capturedElement.type);
+                        console.log('Element object:', JSON.stringify(capturedElement, null, 2));
+                        console.log('========================================\n');
+                        playMedia(capturedElement, 'video');
+                    });
+                })(element);
+            }
             
-            playBtn.hover(
-                function() { $(this).css({'transform': 'scale(1.15)', 'background': 'rgba(139, 92, 246, 0.6)'}); },
-                function() { $(this).css({'transform': 'scale(1)', 'background': 'rgba(139, 92, 246, 0.3)'}); }
-            );
-            
-            videoContainer.append(playBtn);
-            
-            videoContainer.on('click', function(e) {
-                e.stopPropagation();
-                console.log('\n🎬 ========== VIDEO ELEMENT CLICKED ==========');
-                console.log('Element type:', element.type);
-                console.log('Element object:', JSON.stringify(element, null, 2));
-                console.log('Element.url:', element.url);
-                console.log('Element.videoUrl:', element.videoUrl);
-                console.log('Element.mediaUrl:', element.mediaUrl);
-                console.log('========================================\n');
-                playMedia(element, 'video');
-            });
-            
-            elementDiv.append(videoContainer);
+            elementDiv.append(videoWrapper);
         }
         
         pageDiv.append(elementDiv);
@@ -753,6 +790,35 @@ function playMedia(element, type) {
                         video.poster = element.thumbnailUrl || element.poster;
                         console.log('📸 Using poster:', element.thumbnailUrl || element.poster);
                     }
+                    
+                    // Detect video orientation and adjust container
+                    video.onloadedmetadata = () => {
+                        const videoWidth = video.videoWidth;
+                        const videoHeight = video.videoHeight;
+                        const aspectRatio = videoWidth / videoHeight;
+                        
+                        console.log('📐 Video dimensions:', videoWidth, 'x', videoHeight);
+                        console.log('📐 Aspect ratio:', aspectRatio.toFixed(2));
+                        
+                        const mediaContainer = document.getElementById('media-container');
+                        
+                        if (aspectRatio > 1) {
+                            // Landscape video (16:9 or wider)
+                            console.log('🖼️ Landscape orientation detected (16:9)');
+                            video.style.width = '80vw';
+                            video.style.maxWidth = '1200px';
+                            video.style.height = 'auto';
+                            mediaContainer.style.maxWidth = '85vw';
+                        } else {
+                            // Portrait video (9:16 or taller)
+                            console.log('📱 Portrait orientation detected (9:16)');
+                            video.style.width = 'auto';
+                            video.style.height = '75vh';
+                            video.style.maxWidth = '500px';
+                            mediaContainer.style.maxWidth = '600px';
+                        }
+                    };
+                    
                     video.onerror = (e) => {
                         console.error('❌ Video failed to load:', videoUrl);
                         console.error('Error details:', e);
@@ -806,17 +872,29 @@ function playMedia(element, type) {
  * Close media overlay
  */
 function closeMedia() {
-    mediaOverlay.classList.remove('active');
-    
-    // Stop all media playback
+    // Stop and release all media
     mediaPlayerWrapper.querySelectorAll('video, audio').forEach(media => {
         media.pause();
         media.currentTime = 0;
+        media.src = '';
+        media.load();
     });
     
-    setTimeout(() => {
-        mediaPlayerWrapper.innerHTML = '';
-    }, 300);
+    // Clear iframes
+    mediaPlayerWrapper.querySelectorAll('iframe').forEach(iframe => {
+        iframe.src = 'about:blank';
+        iframe.remove();
+    });
+    
+    // Remove Cloudflare Stream elements
+    mediaPlayerWrapper.querySelectorAll('stream').forEach(stream => {
+        stream.remove();
+    });
+    
+    // Clear all content immediately
+    mediaPlayerWrapper.innerHTML = '';
+    mediaTitle.textContent = '';
+    mediaOverlay.classList.remove('active');
 }
 
 /**
