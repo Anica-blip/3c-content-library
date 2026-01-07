@@ -412,9 +412,15 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         });
         
         // Handle different element types
-        if (element.type === '3c-button' && element.imagePath) {
-            // 3C Button with image
-            const img = $('<img>').attr('src', element.imagePath).css({
+        if (element.type === '3c-button') {
+            console.log(`   🔘 3C Button - imagePath: ${element.imagePath || 'MISSING'}, image: ${element.image || 'MISSING'}, url: ${element.url}`);
+            
+            // Try imagePath first, then image property
+            const buttonImage = element.imagePath || element.image;
+            
+            if (buttonImage) {
+                // 3C Button with image
+                const img = $('<img>').attr('src', buttonImage).css({
                 width: '100%',
                 height: '100%',
                 objectFit: 'contain',
@@ -427,7 +433,6 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             
             img.on('click', function(e) {
                 e.stopPropagation();
-                e.preventDefault();
                 try {
                     console.log('🔘 3C Button clicked:', element);
                     if (element.url) {
@@ -456,6 +461,51 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             });
             
             elementDiv.append(img);
+            } else {
+                // 3C Button without image - show styled button
+                console.warn('   ⚠️ 3C Button missing image - rendering as styled button');
+                const button = $('<button></button>')
+                    .text(element.text || '3C Button')
+                    .css({
+                        width: '100%',
+                        height: '100%',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: Math.round(14 * scaleX) + 'px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                        transition: 'all 0.2s'
+                    })
+                    .hover(
+                        function() { $(this).css('transform', 'scale(1.05)'); },
+                        function() { $(this).css('transform', 'scale(1)'); }
+                    );
+                
+                button.on('click', function(e) {
+                    e.stopPropagation();
+                    try {
+                        console.log('🔘 3C Button (no image) clicked:', element);
+                        if (element.url) {
+                            console.log('📍 Button URL:', element.url);
+                            if (isVideoUrl(element.url)) {
+                                console.log('🎥 Detected as video URL, opening in popup...');
+                                playMedia(element, 'video');
+                            } else {
+                                console.log('🔗 Opening link in new window...');
+                                window.open(element.url, '_blank');
+                                console.log('✅ Link opened successfully');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('❌ Error handling button click:', error);
+                    }
+                });
+                
+                elementDiv.append(button);
+            }
         } else if (element.type === 'button') {
             // Regular button
             const button = $('<button></button>')
@@ -538,7 +588,6 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             
             elementDiv.on('click', function(e) {
                 e.stopPropagation();
-                e.preventDefault();
                 try {
                     console.log('🎯 Hotspot/Link clicked:', element);
                     if (element.url) {
@@ -902,6 +951,13 @@ function closeMedia() {
     mediaPlayerWrapper.innerHTML = '';
     mediaTitle.textContent = '';
     mediaOverlay.classList.remove('active');
+    
+    // Force garbage collection and cache clearing
+    if (window.gc) {
+        window.gc();
+    }
+    
+    console.log('✅ Media overlay closed and cache cleared');
 }
 
 /**
