@@ -416,8 +416,13 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             console.log(`   🔘 3C Button - imagePath: ${element.imagePath || 'MISSING'}, image: ${element.image || 'MISSING'}, url: ${element.url}`);
             
             // Try imagePath first, then image property
-            // Button images stored in GitHub public folder - use relative path as-is
+            // Button images stored in interactive-pdf repo - use full GitHub Pages URL
             let buttonImage = element.imagePath || element.image;
+            if (buttonImage && !buttonImage.startsWith('http')) {
+                // Convert relative path to full interactive-pdf GitHub Pages URL
+                buttonImage = 'https://anica-blip.github.io/interactive-pdf' + (buttonImage.startsWith('/') ? buttonImage : '/' + buttonImage);
+                console.log(`   🔗 Using interactive-pdf repo URL: ${buttonImage}`);
+            }
             
             if (buttonImage) {
                 // 3C Button with image
@@ -432,8 +437,13 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 function() { $(this).css('transform', 'scale(1)'); }
             );
             
+            img.on('mouseenter', function() {
+                console.log('🖱️ Mouse ENTERED button - URL:', element.url);
+            });
             img.on('click', function(e) {
                 e.stopPropagation();
+                console.log('\n🔘 ========== BUTTON CLICKED ==========');
+                console.log('✅ CLICK DETECTED!');
                 try {
                     console.log('🔘 3C Button clicked:', element);
                     if (element.url) {
@@ -690,11 +700,15 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 
                 // IIFE to capture element correctly for multiple videos
                 (function(capturedElement) {
+                    videoWrapper.on('mouseenter', function() {
+                        console.log('🖱️ Mouse ENTERED video element - URL:', capturedElement.url || 'NO URL');
+                    });
                     videoWrapper.on('click', function(e) {
                         e.stopPropagation();
-                        console.log('\n🎬 ========== VIDEO ELEMENT CLICKED ==========');
+                        console.log('\n🎬 ========== VIDEO CLICKED ==========');
+                        console.log('✅ CLICK DETECTED!');
+                        console.log('Video URL:', capturedElement.url);
                         console.log('Element type:', capturedElement.type);
-                        console.log('Element object:', JSON.stringify(capturedElement, null, 2));
                         console.log('========================================\n');
                         playMedia(capturedElement, 'video');
                     });
