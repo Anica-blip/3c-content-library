@@ -416,14 +416,8 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             console.log(`   🔘 3C Button - imagePath: ${element.imagePath || 'MISSING'}, image: ${element.image || 'MISSING'}, url: ${element.url}`);
             
             // Try imagePath first, then image property
-            // Convert relative path to full Cloudflare R2 URL
+            // Button images stored in GitHub public folder - use relative path as-is
             let buttonImage = element.imagePath || element.image;
-            if (buttonImage && !buttonImage.startsWith('http')) {
-                // Relative path - construct full URL
-                const baseUrl = 'https://files.3c-public-library.org';
-                buttonImage = baseUrl + (buttonImage.startsWith('/') ? buttonImage : '/' + buttonImage);
-                console.log(`   🔗 Converted to full URL: ${buttonImage}`);
-            }
             
             if (buttonImage) {
                 // 3C Button with image
