@@ -416,7 +416,14 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             console.log(`   🔘 3C Button - imagePath: ${element.imagePath || 'MISSING'}, image: ${element.image || 'MISSING'}, url: ${element.url}`);
             
             // Try imagePath first, then image property
-            const buttonImage = element.imagePath || element.image;
+            // Convert relative path to full Cloudflare R2 URL
+            let buttonImage = element.imagePath || element.image;
+            if (buttonImage && !buttonImage.startsWith('http')) {
+                // Relative path - construct full URL
+                const baseUrl = 'https://files.3c-public-library.org';
+                buttonImage = baseUrl + (buttonImage.startsWith('/') ? buttonImage : '/' + buttonImage);
+                console.log(`   🔗 Converted to full URL: ${buttonImage}`);
+            }
             
             if (buttonImage) {
                 // 3C Button with image
@@ -667,6 +674,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 
             } else {
                 // Video WITHOUT thumbnail - purple box with play icon
+                console.log('   🎬 Creating video wrapper WITHOUT thumbnail - purple box + Font Awesome icon');
                 videoWrapper.css({
                     background: 'rgba(102, 126, 234, 0.2)',
                     border: '2px solid rgba(102, 126, 234, 0.5)',
@@ -681,8 +689,10 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                     fontSize: '48px',
                     pointerEvents: 'none'
                 });
+                console.log('   ▶️ Font Awesome play icon created:', playIcon.length, 'elements');
                 
                 videoWrapper.append(playIcon);
+                console.log('   ✅ Play icon appended to videoWrapper');
                 
                 // IIFE to capture element correctly for multiple videos
                 (function(capturedElement) {
@@ -699,6 +709,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             
             elementDiv.append(videoWrapper);
             console.log(`   ✅ Video element rendered: ${element.type}, has thumbnail: ${!!(element.thumbnail || element.thumbnailUrl)}`);
+            console.log(`   📦 VideoWrapper appended to elementDiv. Wrapper children count: ${videoWrapper.children().length}`);
         } else {
             // Unhandled element type - log it
             console.warn(`   ⚠️ Unhandled element type: "${element.type}"`);
