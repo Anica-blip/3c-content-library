@@ -408,7 +408,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             width: scaledWidth + 'px',
             height: scaledHeight + 'px',
             cursor: 'pointer',
-            zIndex: 1000
+            zIndex: 10
         });
         
         // Handle different element types
