@@ -1394,6 +1394,14 @@
             const folder = library.folders.find(f => f.id === folderId);
             if (!folder) return;
             
+            // CRITICAL: Check if folder is private and user has access
+            if (folder.isPublic === false) {
+                console.warn('🔒 Attempted to access private folder via sidebar:', folder.title);
+                // Redirect to proper authentication flow
+                window.location.href = `?folder=${folder.slug}`;
+                return;
+            }
+            
             const subfolders = library.folders.filter(f => f.parentId === folderId).sort((a, b) => a.title.localeCompare(b.title));
             const folderContent = library.content.filter(c => c.folderId === folderId);
             
