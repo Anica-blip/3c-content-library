@@ -2027,6 +2027,36 @@
         // Load data and display content
         (async () => {
             try {
+                // CRITICAL: Check authentication before showing private library
+                // Initialize Supabase first to check user
+                if (!supabaseClient.isConnected) {
+                    await supabaseClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
+                }
+                
+                // Check if user is logged in
+                let currentUser = null;
+                try {
+                    const { data: { user } } = await supabaseClient.client.auth.getUser();
+                    currentUser = user;
+                } catch (error) {
+                    console.error('Error checking user:', error);
+                }
+                
+                // Check if user is owner/admin
+                const ownerEmail = CONFIG?.app?.ownerEmail;
+                const isOwner = currentUser && ownerEmail && 
+                               currentUser.email.toLowerCase() === ownerEmail.toLowerCase();
+                
+                if (!isOwner) {
+                    // Not owner - redirect to public library
+                    console.warn('🔒 Access denied to private library - not owner');
+                    alert('Access Denied: Only the library owner can view this page.\n\nIndividual private folders can be accessed with passwords from the main library.');
+                    window.location.href = 'library.html';
+                    return;
+                }
+                
+                console.log('👑 Owner access granted to private library');
+                
                 await loadData();
                 displayContent();
             } catch (error) {
