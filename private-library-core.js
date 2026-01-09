@@ -10,6 +10,7 @@ let folders = [];
 let allContent = [];
 let viewMode = 'grid';
 let darkMode = false;
+let currentUser = null;
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
@@ -28,6 +29,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Initialize Supabase
     await initSupabase();
+    
+    // Check if user is logged in (for owner bypass)
+    await checkCurrentUser();
     
     // Load data
     await loadFolders();
@@ -75,6 +79,18 @@ async function loadAllContent() {
     try {
         allContent = [];
         for (const folder of folders) {
+            // CRITICAL: Skip private folders unless user has access
+            if (isFolderPrivate(folder)) {
+                // Owner bypass
+                if (!isOwner()) {
+                    // Check if user has unlocked this folder
+                    if (!checkPrivateFolderAccess(folder)) {
+                        console.log('🔒 Skipping private folder:', folder.title);
+                        continue; // Skip this folder
+                    }
+                }
+            }
+            
             const content = await supabaseClient.getContentByFolder(folder.id);
             allContent.push(...content);
         }
@@ -95,6 +111,25 @@ async function loadFolderContent(folderId) {
         if (!folder) {
             console.error('Folder not found:', folderId);
             return;
+        }
+        
+        // CRITICAL: Check if folder is private and user has access
+        if (isFolderPrivate(folder)) {
+            // Check if user is owner/admin (bypass password)
+            if (!isOwner()) {
+                // Check if user has unlocked this folder
+                if (!checkPrivateFolderAccess(folder)) {
+                    console.warn('🔒 Access denied to private folder:', folder.title);
+                    // Redirect to home and show password prompt
+                    window.location.href = window.location.pathname;
+                    setTimeout(() => {
+                        promptForFolderPassword(folder);
+                    }, 100);
+                    return;
+                }
+            } else {
+                console.log('👑 Owner access - bypassing password for:', folder.title);
+            }
         }
         
         currentFolder = folder;
@@ -514,6 +549,36 @@ initLazyLoading();
 let pendingPrivateFolder = null;
 
 /**
+ * Check if current user is the owner/admin
+ */
+function isOwner() {
+    if (!currentUser || !currentUser.email) return false;
+    const ownerEmail = CONFIG?.app?.ownerEmail;
+    if (!ownerEmail) return false;
+    return currentUser.email.toLowerCase() === ownerEmail.toLowerCase();
+}
+
+/**
+ * Check current user session
+ */
+async function checkCurrentUser() {
+    try {
+        if (!supabaseClient || !supabaseClient.client) return;
+        const { data: { user } } = await supabaseClient.client.auth.getUser();
+        currentUser = user;
+        if (user) {
+            console.log('👤 Logged in as:', user.email);
+            if (isOwner()) {
+                console.log('👑 Owner access granted');
+            }
+        }
+    } catch (error) {
+        console.error('Error checking user:', error);
+        currentUser = null;
+    }
+}
+
+/**
  * Check if folder is private and requires password
  */
 function isFolderPrivate(folder) {
@@ -642,6 +707,13 @@ function checkPrivateFolderAccess(folder) {
 function handleFolderClick(folderSlug) {
     const folder = folders.find(f => f.slug === folderSlug);
     if (!folder) {
+        window.location.href = `?folder=${folderSlug}`;
+        return;
+    }
+    
+    // Owner bypass
+    if (isFolderPrivate(folder) && isOwner()) {
+        console.log('👑 Owner bypassing password for:', folder.title);
         window.location.href = `?folder=${folderSlug}`;
         return;
     }

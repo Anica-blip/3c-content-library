@@ -27,7 +27,8 @@ const CONFIG = {
         name: '3C Public Library',
         domain: '3c-public-library.org',
         version: '2.0.0',
-        environment: 'production'
+        environment: 'production',
+        ownerEmail: 'anica@3cthreadtosuccess.com' // Owner/admin who bypasses password protection
     },
     
     // Feature Flags
