@@ -401,15 +401,20 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         const scaledWidth = (element.width || 100) * scaleX;
         const scaledHeight = (element.height || 40) * scaleY;
         
-        const elementDiv = $('<div></div>').css({
-            position: 'absolute',
-            left: scaledX + 'px',
-            top: scaledY + 'px',
-            width: scaledWidth + 'px',
-            height: scaledHeight + 'px',
-            cursor: 'pointer',
-            zIndex: 10
-        });
+        const elementDiv = $('<div></div>')
+            .addClass('interactive-element')
+            .attr('data-element-type', element.type)
+            .attr('data-element-url', element.url || '')
+            .attr('data-element-data', JSON.stringify(element))
+            .css({
+                position: 'absolute',
+                left: scaledX + 'px',
+                top: scaledY + 'px',
+                width: scaledWidth + 'px',
+                height: scaledHeight + 'px',
+                cursor: 'pointer',
+                zIndex: 10
+            });
         
         // Handle different element types
         if (element.type === '3c-button') {
@@ -1210,7 +1215,78 @@ function goBack() {
     }
 }
 
+/**
+ * Setup event delegation for interactive elements
+ * This ensures clicks work even when Turn.js manipulates the DOM
+ */
+function setupInteractiveElementHandlers() {
+    console.log('🎯 Setting up event delegation for interactive elements...');
+    
+    // Use event delegation - attach to document which never gets destroyed
+    $(document).on('click', '.interactive-element', function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        
+        const $element = $(this);
+        const elementData = JSON.parse($element.attr('data-element-data'));
+        const elementType = $element.attr('data-element-type');
+        
+        console.log('\n🎯 ========== INTERACTIVE ELEMENT CLICKED ==========');
+        console.log('Element type:', elementType);
+        console.log('Element data:', elementData);
+        
+        // Handle different element types
+        if (elementType === '3c-button' || elementType === 'button') {
+            if (elementData.url) {
+                console.log('📍 URL:', elementData.url);
+                if (isVideoUrl(elementData.url)) {
+                    console.log('🎥 Opening video...');
+                    playMedia(elementData, 'video');
+                } else {
+                    console.log('🔗 Opening link...');
+                    const popup = window.open(elementData.url, '_blank', 'width=800,height=600');
+                    if (!popup) {
+                        alert('⚠️ Popup blocked. Please allow popups for this site.\n\nURL: ' + elementData.url);
+                    }
+                }
+            } else if (elementData.videoUrl || elementData.streamId) {
+                playMedia(elementData, 'video');
+            }
+        } else if (elementType === 'hotspot' || elementType === 'link') {
+            if (elementData.url) {
+                if (isVideoUrl(elementData.url)) {
+                    playMedia(elementData, 'video');
+                } else {
+                    const popup = window.open(elementData.url, '_blank', 'width=800,height=600');
+                    if (!popup) {
+                        alert('⚠️ Popup blocked. Please allow popups for this site.\n\nURL: ' + elementData.url);
+                    }
+                }
+            }
+        } else if (elementType === 'video' || elementType === 'cloudflare-stream') {
+            console.log('🎬 Opening video element...');
+            playMedia(elementData, 'video');
+        }
+        
+        console.log('========================================\n');
+    });
+    
+    // Hover effect for interactive elements
+    $(document).on('mouseenter', '.interactive-element', function() {
+        const elementData = JSON.parse($(this).attr('data-element-data'));
+        console.log('🖱️ Mouse ENTERED element - Type:', $(this).attr('data-element-type'), 'URL:', elementData.url || 'NO URL');
+        $(this).css('transform', 'scale(1.05)');
+    });
+    
+    $(document).on('mouseleave', '.interactive-element', function() {
+        $(this).css('transform', 'scale(1)');
+    });
+    
+    console.log('✅ Event delegation setup complete');
+}
+
 // Initialize on load
 $(document).ready(() => {
+    setupInteractiveElementHandlers();
     init();
 });
