@@ -781,7 +781,9 @@ function playMedia(element, type) {
         console.log('Element:', element);
         console.log('Type:', type);
         
-        mediaTitle.textContent = element.text || element.title || (type === 'video' ? 'Video' : 'Audio');
+        // Set clean title - hide URL, show only element title or generic name
+        const cleanTitle = element.text || element.title || element.name || (type === 'video' ? 'Video' : 'Audio');
+        mediaTitle.textContent = cleanTitle;
         mediaPlayerWrapper.innerHTML = '';
         
         if (type === 'video') {
@@ -893,19 +895,33 @@ function playMedia(element, type) {
                             // Portrait video (9:16 or taller)
                             console.log('📱 Portrait orientation detected (9:16)');
                             video.style.width = 'auto';
-                            video.style.height = '75vh';
-                            video.style.maxWidth = '500px';
-                            mediaContainer.style.maxWidth = '600px';
+                            video.style.height = '80vh';
+                            video.style.maxHeight = '80vh';
+                            video.style.maxWidth = '45vw';
+                            mediaContainer.style.maxWidth = '50vw';
+                            mediaContainer.style.height = '85vh';
                         }
                     };
                     
+                    // Track if video is being closed vs actually failed
+                    let videoClosed = false;
                     video.onerror = (e) => {
-                        console.error('❌ Video failed to load:', videoUrl);
-                        console.error('Error details:', e);
-                        const errorMsg = '❌ Video Error\n\nFailed to load video file.\n\nURL: ' + videoUrl + '\n\nPossible causes:\n• File not found (404)\n• CORS not enabled on server\n• Invalid video format\n• Network error';
-                        mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px; background: rgba(231, 76, 60, 0.2); border-radius: 8px; margin: 20px;">' + errorMsg.replace(/\n/g, '<br>') + '</div>';
-                        alert(errorMsg);
+                        // Only show error if video wasn't manually closed
+                        if (!videoClosed && video.error && video.error.code !== 4) {
+                            console.error('❌ Video failed to load:', videoUrl);
+                            console.error('Error details:', e);
+                            console.error('Error code:', video.error ? video.error.code : 'unknown');
+                            const errorMsg = '❌ Video Error\n\nFailed to load video file.\n\nURL: ' + videoUrl + '\n\nPossible causes:\n• File not found (404)\n• CORS not enabled on server\n• Invalid video format\n• Network error';
+                            mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px; background: rgba(231, 76, 60, 0.2); border-radius: 8px; margin: 20px;">' + errorMsg.replace(/\n/g, '<br>') + '</div>';
+                            alert(errorMsg);
+                        } else {
+                            console.log('ℹ️ Video error ignored (video was closed or aborted)');
+                        }
                     };
+                    // Mark video as closed when overlay closes
+                    document.getElementById('close-media').addEventListener('click', () => {
+                        videoClosed = true;
+                    }, { once: true });
                     video.onloadstart = () => {
                         console.log('⏳ Video loading started:', videoUrl);
                     };
@@ -947,6 +963,57 @@ function playMedia(element, type) {
     }
 }
 
+
+/**
+ * Show GIF/animated image in overlay
+ */
+function showGif(element) {
+    try {
+        console.log('\n🖼️ ========== SHOWING GIF/IMAGE ==========');
+        console.log('Element:', element);
+        
+        // Set clean title
+        const cleanTitle = element.text || element.title || element.name || 'Image';
+        mediaTitle.textContent = cleanTitle;
+        mediaPlayerWrapper.innerHTML = '';
+        
+        const imageUrl = element.url || element.imageUrl || element.src;
+        
+        if (!imageUrl) {
+            console.error('❌ No image URL found');
+            alert('❌ Image Error\n\nNo image URL found.');
+            return;
+        }
+        
+        console.log('📍 Image URL:', imageUrl);
+        
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.style.maxWidth = '90vw';
+        img.style.maxHeight = '80vh';
+        img.style.objectFit = 'contain';
+        img.style.display = 'block';
+        img.style.margin = '0 auto';
+        
+        img.onerror = () => {
+            console.error('❌ Image failed to load:', imageUrl);
+            alert('❌ Image Error\n\nFailed to load image.\n\nURL: ' + imageUrl);
+        };
+        
+        img.onload = () => {
+            console.log('✅ Image loaded successfully');
+        };
+        
+        mediaPlayerWrapper.appendChild(img);
+        mediaOverlay.classList.add('active');
+        
+        console.log('✅ GIF/Image overlay opened');
+        console.log('========================================\n');
+    } catch (error) {
+        console.error('❌ Error showing GIF/image:', error);
+        alert('❌ Error\n\nFailed to display image.\n\nError: ' + error.message);
+    }
+}
 
 /**
  * Close media overlay
@@ -1266,6 +1333,12 @@ function setupInteractiveElementHandlers() {
         } else if (elementType === 'video' || elementType === 'cloudflare-stream') {
             console.log('🎬 Opening video element...');
             playMedia(elementData, 'video');
+        } else if (elementType === 'gif' || elementType === 'image') {
+            console.log('🖼️ Opening GIF/image element...');
+            showGif(elementData);
+        } else if (elementType === 'audio') {
+            console.log('🎵 Opening audio element...');
+            playMedia(elementData, 'audio');
         }
         
         console.log('========================================\n');
