@@ -419,8 +419,8 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             // Button images stored in interactive-pdf repo - use full GitHub Pages URL
             let buttonImage = element.imagePath || element.image;
             if (buttonImage && !buttonImage.startsWith('http')) {
-                // Convert relative path to full interactive-pdf GitHub Pages URL
-                buttonImage = 'https://anica-blip.github.io/interactive-pdf' + (buttonImage.startsWith('/') ? buttonImage : '/' + buttonImage);
+                // Convert relative path to full interactive-pdf GitHub Pages URL with /public/ directory
+                buttonImage = 'https://anica-blip.github.io/interactive-PDF/public' + (buttonImage.startsWith('/') ? buttonImage : '/' + buttonImage);
                 console.log(`   🔗 Using interactive-pdf repo URL: ${buttonImage}`);
             }
             
