@@ -862,10 +862,8 @@ function playMedia(element, type) {
                     video.src = videoUrl;
                     video.controls = true;
                     video.autoplay = true;
-                    video.style.maxWidth = '100%';
-                    video.style.maxHeight = '70vh';
-                    video.style.width = 'auto';
-                    video.style.height = 'auto';
+                    video.style.width = '100%';
+                    video.style.height = '100%';
                     video.style.objectFit = 'contain';
                     video.setAttribute('crossorigin', 'anonymous'); // Enable CORS for Cloudflare R2
                     if (element.thumbnailUrl || element.poster) {
@@ -873,36 +871,9 @@ function playMedia(element, type) {
                         console.log('📸 Using poster:', element.thumbnailUrl || element.poster);
                     }
                     
-                    // Detect video orientation and adjust container
+                    // Simple sizing - let object-fit: contain handle aspect ratio
                     video.onloadedmetadata = () => {
-                        const videoWidth = video.videoWidth;
-                        const videoHeight = video.videoHeight;
-                        const aspectRatio = videoWidth / videoHeight;
-                        
-                        console.log('📐 Video dimensions:', videoWidth, 'x', videoHeight);
-                        console.log('📐 Aspect ratio:', aspectRatio.toFixed(2));
-                        
-                        const mediaContainer = document.getElementById('media-container');
-                        
-                        if (aspectRatio > 1) {
-                            // Landscape video (16:9 or wider)
-                            console.log('🖼️ Landscape orientation detected (16:9)');
-                            video.style.width = '90vw';
-                            video.style.maxWidth = '1400px';
-                            video.style.height = 'auto';
-                            video.style.maxHeight = '85vh';
-                            mediaContainer.style.maxWidth = '95vw';
-                            mediaContainer.style.height = 'auto';
-                        } else {
-                            // Portrait video (9:16 or taller)
-                            console.log('📱 Portrait orientation detected (9:16)');
-                            video.style.width = 'auto';
-                            video.style.height = '90vh';
-                            video.style.maxHeight = '90vh';
-                            video.style.maxWidth = '50vw';
-                            mediaContainer.style.maxWidth = '55vw';
-                            mediaContainer.style.height = '92vh';
-                        }
+                        console.log('📐 Video loaded:', video.videoWidth, 'x', video.videoHeight);
                     };
                     
                     // Error handling - console only, no popup alerts
