@@ -503,3 +503,16 @@ For questions or issues:
 **Built with ❤️ for content creators, educators, and knowledge sharers.**
 
 **Ready to get started?** Open [SETUP-ENHANCED.md](SETUP-ENHANCED.md) and follow the 5-step quick start!
+
+---
+
+## 🎨 Credits
+
+**Designed by Claude** - AI Assistant by Anthropic
+- Flipbook Viewer System with Event Delegation
+- Video Playback Integration & Media Handling
+- Zoom Controls & Interactive Element Rendering
+- Emoji Support & URL Protocol Validation
+- Private Library Authentication System
+
+**Created for 3C Public Library** by Anica
