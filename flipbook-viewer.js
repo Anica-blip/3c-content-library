@@ -332,9 +332,10 @@ function initFlipbook() {
         acceleration: true,
         duration: 1000,
         pages: totalPages,
-        // Corner configuration to keep page flip within document bounds
-        turnCorners: 'bl,br,tl,tr',
-        cornerSize: Math.min(pageWidth * 0.03, 30), // Extremely tiny corners - 3% of page width, max 30px
+        // Corner configuration - align corners with page edges
+        turnCorners: 'br,tr', // Only enable right side corners for right pages
+        cornerSize: Math.min(pageWidth * 0.12, 100), // 12% of page width, max 100px
+        inclination: 0, // Keep corner flat against page edge
         when: {
             turning: function(event, page, view) {
                 try {
