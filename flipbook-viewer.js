@@ -1096,7 +1096,7 @@ function setupEventListeners() {
         scale += 0.05; // Increase by 5%
         scale = Math.round(scale * 100) / 100;
         if (scale > 1.5) scale = 1.5; // Max 150%
-        reloadFlipbook();
+        applyZoom();
     });
     
     $('#zoom-out').on('click', () => {
@@ -1104,7 +1104,7 @@ function setupEventListeners() {
         scale -= 0.05; // Decrease by 5%
         scale = Math.round(scale * 100) / 100;
         if (scale < 0.3) scale = 0.3; // Min 30%
-        reloadFlipbook();
+        applyZoom();
     });
     
     // Back button
