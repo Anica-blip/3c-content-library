@@ -1150,6 +1150,19 @@ function setupEventListeners() {
 }
 
 /**
+ * Apply zoom using CSS transform - no re-rendering needed
+ * This keeps turn.js dimensions constant and just scales the visual display
+ */
+function applyZoom() {
+    console.log('Applying zoom:', Math.round(scale * 100) + '%');
+    document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
+    $('#flipbook-wrapper').css({
+        'transform': 'scale(' + (scale / 0.48) + ')',
+        'transform-origin': 'center top'
+    });
+}
+
+/**
  * Reload flipbook after zoom change
  */
 async function reloadFlipbook() {
