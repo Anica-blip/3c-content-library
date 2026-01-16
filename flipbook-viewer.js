@@ -334,7 +334,7 @@ function initFlipbook() {
         pages: totalPages,
         // Corner configuration - align corners with page edges
         turnCorners: 'br,tr', // Only enable right side corners for right pages
-        cornerSize: Math.min(pageWidth * 0.12, 100), // 12% of page width, max 100px
+        cornerSize: Math.min(pageWidth * 0.08, 70), // 8% of page width, max 70px
         inclination: 0, // Keep corner flat against page edge
         when: {
             turning: function(event, page, view) {
