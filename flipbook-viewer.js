@@ -214,7 +214,7 @@ async function renderPagesAtScale() {
         await new Promise((resolve, reject) => {
             img.onload = () => {
                 // Render at 2x resolution for quality, then scale display with CSS
-                const renderScale = 2;
+                const renderScale = 3;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 
@@ -232,7 +232,7 @@ async function renderPagesAtScale() {
             
             img.onerror = (error) => {
                 console.warn(' Failed to load background for page', i + 1);
-                const renderScale = 2;
+                const renderScale = 3;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 canvas.style.width = pageWidth + 'px';
@@ -258,7 +258,7 @@ async function renderPagesAtScale() {
                 img.src = backgroundSource;
             } else {
                 // Create blank canvas
-                const renderScale = 2;
+                const renderScale = 3;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 canvas.style.width = pageWidth + 'px';
@@ -334,7 +334,7 @@ function initFlipbook() {
         pages: totalPages,
         // Corner configuration - align corners with page edges
         turnCorners: 'br,tr', // Only enable right side corners for right pages
-        cornerSize: Math.min(pageWidth * 0.08, 70), // 8% of page width, max 70px
+        cornerSize: Math.min(pageWidth * 0.06, 50), // 6% of page width, max 50px
         inclination: 0, // Keep corner flat against page edge
         when: {
             turning: function(event, page, view) {
