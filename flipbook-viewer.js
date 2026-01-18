@@ -281,34 +281,71 @@ async function renderPagesAtScale() {
 }
 
 /**
- * Initialize turn.js flipbook
+ * Initialize flipbook - mobile uses simple page display, desktop uses turn.js
  */
 function initFlipbook() {
     const flipbook = $('#flipbook');
-    
-    // Clear existing content
     flipbook.empty();
     
-    // Get actual page dimensions from CSS-styled canvas
     const pageWidth = Math.round(A4_WIDTH_PX * scale);
     const pageHeight = Math.round(A4_HEIGHT_PX * scale);
     
     console.log('📖 Initializing flipbook with page size:', pageWidth, 'x', pageHeight);
     
-    // Add pages to flipbook
+    if (isMobile) {
+        // MOBILE: Simple page-by-page display from JSON order
+        initMobileFlipbook(flipbook, pageWidth, pageHeight);
+    } else {
+        // DESKTOP: Turn.js double-page flipbook
+        initDesktopFlipbook(flipbook, pageWidth, pageHeight);
+    }
+    
+    flipbookInitialized = true;
+    updatePageInfo();
+    console.log(' Flipbook initialized at', Math.round(scale * 100) + '% zoom');
+}
+
+/**
+ * Mobile flipbook: Simple single-page display with swipe navigation
+ */
+function initMobileFlipbook(flipbook, pageWidth, pageHeight) {
+    console.log('📱 Initializing mobile flipbook - JSON page order');
+    
+    // Create container for all pages
+    const pagesContainer = $('<div id="mobile-pages-container"></div>');
+    pagesContainer.css({
+        'width': '100%',
+        'height': '100%',
+        'position': 'relative',
+        'overflow': 'hidden'
+    });
+    
+    // Add each page from JSON order (1, 2, 3, etc.)
     pageCanvases.forEach((canvas, index) => {
-        const pageDiv = $('<div class="page"></div>');
-        
-        // Ensure canvas fills the page div
-        $(canvas).css({
-            'display': 'block',
+        const pageDiv = $('<div class="mobile-page"></div>');
+        pageDiv.attr('data-page', index + 1);
+        pageDiv.css({
+            'position': 'absolute',
+            'top': '0',
+            'left': '0',
             'width': '100%',
-            'height': '100%'
+            'height': '100%',
+            'display': index === 0 ? 'flex' : 'none',
+            'align-items': 'center',
+            'justify-content': 'center',
+            'flex-direction': 'column'
         });
         
+        // Add canvas
+        $(canvas).css({
+            'width': '100%',
+            'height': 'auto',
+            'max-width': '100%',
+            'display': 'block'
+        });
         pageDiv.append(canvas);
         
-        // Add interactive elements overlay
+        // Add interactive elements
         if (manifest && manifest.pages && manifest.pages[index]) {
             const pageData = manifest.pages[index];
             if (pageData.elements && pageData.elements.length > 0) {
@@ -321,25 +358,62 @@ function initFlipbook() {
         const pageNumber = $('<div class="page-number"></div>').text(index + 1);
         pageDiv.append(pageNumber);
         
+        pagesContainer.append(pageDiv);
+    });
+    
+    flipbook.append(pagesContainer);
+    
+    // Add swipe navigation
+    setupMobileSwipe(pagesContainer);
+    
+    // Add pinch-to-zoom
+    setupMobilePinchZoom(pagesContainer);
+}
+
+/**
+ * Desktop flipbook: Turn.js with double-page spread
+ */
+function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
+    console.log('🖥️ Initializing desktop flipbook - turn.js');
+    
+    pageCanvases.forEach((canvas, index) => {
+        const pageDiv = $('<div class="page"></div>');
+        
+        $(canvas).css({
+            'display': 'block',
+            'width': '100%',
+            'height': '100%'
+        });
+        
+        pageDiv.append(canvas);
+        
+        if (manifest && manifest.pages && manifest.pages[index]) {
+            const pageData = manifest.pages[index];
+            if (pageData.elements && pageData.elements.length > 0) {
+                console.log(' Page', index + 1, '- Rendering', pageData.elements.length, 'elements');
+                renderInteractiveElements(pageDiv, pageData.elements, pageWidth, pageHeight);
+            }
+        }
+        
+        const pageNumber = $('<div class="page-number"></div>').text(index + 1);
+        pageDiv.append(pageNumber);
+        
         flipbook.append(pageDiv);
     });
     
-    // Initialize turn.js with correct dimensions
     flipbook.turn({
-        width: isMobile ? pageWidth : pageWidth * 2, // Single page on mobile, double on desktop
+        width: pageWidth * 2,
         height: pageHeight,
         autoCenter: true,
-        display: isMobile ? 'single' : 'double', // Single-page mode on mobile
+        display: 'double',
         gradients: true,
         elevation: 50,
         acceleration: true,
         duration: 1000,
         pages: totalPages,
-        page: 1, // Start at JSON page 1
-        // Corner configuration - align corners with page edges
-        turnCorners: 'br,tr', // Only enable right side corners for right pages
-        cornerSize: Math.min(pageWidth * 0.06, 50), // 6% of page width, max 50px
-        inclination: 0, // Keep corner flat against page edge
+        turnCorners: 'br,tr',
+        cornerSize: Math.min(pageWidth * 0.06, 50),
+        inclination: 0,
         when: {
             turning: function(event, page, view) {
                 try {
@@ -355,7 +429,6 @@ function initFlipbook() {
                 updatePageInfo();
             },
             start: function(event, pageObject, corner) {
-                // Prevent turn if element is being clicked
                 if ($(event.target).closest('.interactive-element').length > 0) {
                     event.preventDefault();
                     return false;
@@ -363,11 +436,96 @@ function initFlipbook() {
             }
         }
     });
+}
+
+/**
+ * Setup swipe navigation for mobile
+ */
+function setupMobileSwipe(container) {
+    let touchStartX = 0;
+    let touchEndX = 0;
     
-    flipbookInitialized = true;
-    updatePageInfo();
+    container.on('touchstart', function(e) {
+        touchStartX = e.touches[0].clientX;
+    });
     
-    console.log(' Flipbook initialized at', Math.round(scale * 100) + '% zoom');
+    container.on('touchend', function(e) {
+        touchEndX = e.changedTouches[0].clientX;
+        handleSwipe();
+    });
+    
+    function handleSwipe() {
+        const swipeThreshold = 50;
+        const diff = touchStartX - touchEndX;
+        
+        if (Math.abs(diff) > swipeThreshold) {
+            if (diff > 0) {
+                // Swipe left - next page
+                goToNextPage();
+            } else {
+                // Swipe right - previous page
+                goToPreviousPage();
+            }
+        }
+    }
+}
+
+/**
+ * Setup pinch-to-zoom for mobile
+ */
+function setupMobilePinchZoom(container) {
+    let initialDistance = 0;
+    let currentScale = 1;
+    
+    container.on('touchstart', function(e) {
+        if (e.touches.length === 2) {
+            initialDistance = getDistance(e.touches[0], e.touches[1]);
+        }
+    });
+    
+    container.on('touchmove', function(e) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const currentDistance = getDistance(e.touches[0], e.touches[1]);
+            const scale = currentDistance / initialDistance;
+            currentScale = Math.min(Math.max(scale, 1), 3); // Limit 1x to 3x
+            
+            const currentPage = container.find('.mobile-page:visible');
+            currentPage.css('transform', `scale(${currentScale})`);
+        }
+    });
+    
+    function getDistance(touch1, touch2) {
+        const dx = touch1.clientX - touch2.clientX;
+        const dy = touch1.clientY - touch2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+}
+
+/**
+ * Navigate to next page (mobile)
+ */
+function goToNextPage() {
+    if (currentPage < totalPages) {
+        const container = $('#mobile-pages-container');
+        container.find('.mobile-page').hide();
+        currentPage++;
+        container.find(`.mobile-page[data-page="${currentPage}"]`).show();
+        updatePageInfo();
+    }
+}
+
+/**
+ * Navigate to previous page (mobile)
+ */
+function goToPreviousPage() {
+    if (currentPage > 1) {
+        const container = $('#mobile-pages-container');
+        container.find('.mobile-page').hide();
+        currentPage--;
+        container.find(`.mobile-page[data-page="${currentPage}"]`).show();
+        updatePageInfo();
+    }
 }
 
 /**
@@ -1083,19 +1241,43 @@ function closeMedia() {
 function setupEventListeners() {
     // Navigation buttons
     $('#first-page').on('click', () => {
-        $('#flipbook').turn('page', 1);
+        if (isMobile) {
+            const container = $('#mobile-pages-container');
+            container.find('.mobile-page').hide();
+            currentPage = 1;
+            container.find(`.mobile-page[data-page="1"]`).show();
+            updatePageInfo();
+        } else {
+            $('#flipbook').turn('page', 1);
+        }
     });
     
     $('#prev-page').on('click', () => {
-        $('#flipbook').turn('previous');
+        if (isMobile) {
+            goToPreviousPage();
+        } else {
+            $('#flipbook').turn('previous');
+        }
     });
     
     $('#next-page').on('click', () => {
-        $('#flipbook').turn('next');
+        if (isMobile) {
+            goToNextPage();
+        } else {
+            $('#flipbook').turn('next');
+        }
     });
     
     $('#last-page').on('click', () => {
-        $('#flipbook').turn('page', totalPages);
+        if (isMobile) {
+            const container = $('#mobile-pages-container');
+            container.find('.mobile-page').hide();
+            currentPage = totalPages;
+            container.find(`.mobile-page[data-page="${totalPages}"]`).show();
+            updatePageInfo();
+        } else {
+            $('#flipbook').turn('page', totalPages);
+        }
     });
     
     // Zoom controls - properly re-render at new scale
