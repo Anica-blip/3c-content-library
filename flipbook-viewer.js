@@ -7,10 +7,13 @@
 // PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+// Mobile detection
+const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
 // Global state
 let currentPage = 1;
 let totalPages = 0;
-let scale = 0.46; // Default 46% zoom for optimal viewing (fits viewport without scrolling)
+let scale = isMobile ? 1.0 : 0.46; // Mobile: 100% A4 size, Desktop: 46% zoom
 let manifest = null;
 let pageCanvases = [];
 let flipbookInitialized = false;
@@ -323,15 +326,16 @@ function initFlipbook() {
     
     // Initialize turn.js with correct dimensions
     flipbook.turn({
-        width: pageWidth * 2, // Double width for spread
+        width: isMobile ? pageWidth : pageWidth * 2, // Single page on mobile, double on desktop
         height: pageHeight,
         autoCenter: true,
-        display: 'double',
+        display: isMobile ? 'single' : 'double', // Single-page mode on mobile
         gradients: true,
         elevation: 50,
         acceleration: true,
         duration: 1000,
         pages: totalPages,
+        page: 1, // Start at JSON page 1
         // Corner configuration - align corners with page edges
         turnCorners: 'br,tr', // Only enable right side corners for right pages
         cornerSize: Math.min(pageWidth * 0.06, 50), // 6% of page width, max 50px

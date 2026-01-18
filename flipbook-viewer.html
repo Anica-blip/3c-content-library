@@ -482,7 +482,31 @@
 
             #zoom-level, #zoom-in, #zoom-out { display: none; }
             #prev-page, #next-page { display: inline-flex !important; }
-            #flipbook-wrapper { transform: scale(0.45); transform-origin: top center; }
+            
+            #flipbook-container {
+                padding: 10px 5px;
+            }
+            
+            #flipbook-wrapper {
+                width: 100% !important;
+                max-width: 95vw !important;
+            }
+            
+            #flipbook {
+                width: 100% !important;
+                max-width: 95vw !important;
+            }
+            
+            .page {
+                width: 100% !important;
+                max-width: 95vw !important;
+            }
+            
+            .page canvas {
+                width: 100% !important;
+                height: auto !important;
+            }
+            
             .nav-arrow { display: none; }
         }
     </style>
