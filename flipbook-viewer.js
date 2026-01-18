@@ -319,8 +319,11 @@ function initMobileFlipbook(flipbook, pageWidth, pageHeight) {
     pagesContainer.css({
         'width': '100%',
         'height': '100%',
-        'position': 'relative',
-        'overflow': 'hidden'
+        'display': 'flex',
+        'align-items': 'flex-start',
+        'justify-content': 'center',
+        'overflow': 'hidden',
+        'position': 'relative'
     });
     
     // Add each page from JSON order (1, 2, 3, etc.)
@@ -328,23 +331,20 @@ function initMobileFlipbook(flipbook, pageWidth, pageHeight) {
         const pageDiv = $('<div class="mobile-page"></div>');
         pageDiv.attr('data-page', index + 1);
         pageDiv.css({
-            'position': 'absolute',
-            'top': '0',
-            'left': '0',
             'width': '100%',
-            'height': '100%',
-            'display': index === 0 ? 'flex' : 'none',
-            'align-items': 'center',
-            'justify-content': 'center',
-            'flex-direction': 'column'
+            'height': 'auto',
+            'display': index === 0 ? 'block' : 'none',
+            'position': 'relative',
+            'padding': '0',
+            'margin': '0'
         });
         
-        // Add canvas
+        // Add canvas - size to fit mobile viewport width
         $(canvas).css({
             'width': '100%',
             'height': 'auto',
-            'max-width': '100%',
-            'display': 'block'
+            'display': 'block',
+            'margin': '0 auto'
         });
         pageDiv.append(canvas);
         

@@ -482,25 +482,28 @@
             #prev-page, #next-page { display: inline-flex !important; }
             
             #flipbook-container {
-                padding: 10px 5px;
-                height: calc(100vh - 80px);
+                padding: 0;
+                height: calc(100vh - 60px);
                 display: flex;
-                align-items: center;
+                align-items: flex-start;
                 justify-content: center;
+                overflow: hidden;
             }
             
             #flipbook-wrapper {
                 width: 100%;
                 height: 100%;
                 display: flex;
-                align-items: center;
+                align-items: flex-start;
                 justify-content: center;
+                overflow: hidden;
             }
             
             #flipbook {
                 width: 100% !important;
-                height: auto !important;
+                height: 100% !important;
                 max-width: 100vw !important;
+                overflow: hidden !important;
             }
             
             .page {
@@ -519,12 +522,29 @@
             /* Mobile page styling */
             .mobile-page {
                 background: white;
+                width: 100% !important;
+                height: auto !important;
+                display: block !important;
+                position: relative !important;
+                overflow: hidden;
             }
             
             .mobile-page canvas {
-                display: block;
+                display: block !important;
                 width: 100% !important;
                 height: auto !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            
+            #mobile-pages-container {
+                width: 100% !important;
+                height: 100% !important;
+                display: flex !important;
+                align-items: flex-start !important;
+                justify-content: center !important;
+                overflow: hidden !important;
             }
             
             /* Mobile interactive elements */
