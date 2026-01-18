@@ -954,10 +954,8 @@ function openFolderSidebar(folderId) {
         contentHtml += '</div>';
     }
     
-    // Show content items
-    if (folderContent.length === 0 && subfolders.length === 0) {
-        contentHtml += '<p style="color: #999; text-align: center; padding: 40px 20px;">No content or subfolders yet.<br><br>Use the "Add PDF/Flipbook" form above to add content.</p>';
-    } else if (folderContent.length > 0) {
+    // Show content items (always show if they exist, regardless of subfolders)
+    if (folderContent.length > 0) {
         contentHtml += '<div><h4 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(139, 92, 246, 0.2); padding-bottom: 8px;">📄 Content Items</h4>';
         
         folderContent.forEach((content, index) => {
@@ -1005,6 +1003,11 @@ function openFolderSidebar(folderId) {
         });
         
         contentHtml += '</div>';
+    }
+    
+    // Show empty state only if there are no content items AND no subfolders
+    if (folderContent.length === 0 && subfolders.length === 0) {
+        contentHtml += '<p style="color: #999; text-align: center; padding: 40px 20px;">No content or subfolders yet.<br><br>Use the "Add PDF/Flipbook" form above to add content.</p>';
     }
     
     sidebarContent.innerHTML = contentHtml;
