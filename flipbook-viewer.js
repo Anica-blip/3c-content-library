@@ -217,8 +217,8 @@ async function renderPagesAtScale() {
         
         await new Promise((resolve, reject) => {
             img.onload = () => {
-                // Render at 2x resolution for quality, then scale display with CSS
-                const renderScale = 3;
+                // Render at 2x resolution for optimal quality
+                const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 
@@ -236,7 +236,7 @@ async function renderPagesAtScale() {
             
             img.onerror = (error) => {
                 console.warn(' Failed to load background for page', i + 1);
-                const renderScale = 3;
+                const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 canvas.style.width = pageWidth + 'px';
@@ -262,7 +262,7 @@ async function renderPagesAtScale() {
                 img.src = backgroundSource;
             } else {
                 // Create blank canvas
-                const renderScale = 3;
+                const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 canvas.style.width = pageWidth + 'px';
@@ -404,6 +404,11 @@ function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
         flipbook.append(pageDiv);
     });
     
+    // Calculate corner size based on base A4 dimensions at 46% zoom (not current zoom)
+    // This keeps corner size constant regardless of zoom level
+    const basePageWidth = Math.round(A4_WIDTH_PX * 0.46);
+    const fixedCornerSize = Math.round(basePageWidth * 0.06); // 6% of base page width
+    
     flipbook.turn({
         width: pageWidth * 2,
         height: pageHeight,
@@ -415,7 +420,7 @@ function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
         duration: 1000,
         pages: totalPages,
         turnCorners: 'br,tr',
-        cornerSize: Math.min(pageWidth * 0.06, 50),
+        cornerSize: fixedCornerSize,
         inclination: 0,
         when: {
             turning: function(event, page, view) {
