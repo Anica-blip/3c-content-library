@@ -9,6 +9,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
 // Mobile detection
 const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+console.log('📱 Mobile detection:', isMobile, '| Width:', window.innerWidth, '| UA:', navigator.userAgent);
 
 // Global state
 let currentPage = 1;
@@ -310,6 +311,8 @@ function initFlipbook() {
  */
 function initMobileFlipbook(flipbook, pageWidth, pageHeight) {
     console.log('📱 Initializing mobile flipbook - JSON page order');
+    console.log('📱 Total pages to render:', pageCanvases.length);
+    console.log('📱 Page dimensions:', pageWidth, 'x', pageHeight);
     
     // Create container for all pages
     const pagesContainer = $('<div id="mobile-pages-container"></div>');
@@ -551,8 +554,12 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         
         // Element positions are saved relative to editor canvas (595px x 842px)
         // We need to scale them to current viewer size (pageWidth x pageHeight)
-        const scaleX = pageWidth / EDITOR_WIDTH_PX;
-        const scaleY = pageHeight / EDITOR_HEIGHT_PX;
+        // On mobile, use actual canvas dimensions for proper scaling
+        const actualPageWidth = isMobile ? pageWidth : pageWidth;
+        const actualPageHeight = isMobile ? pageHeight : pageHeight;
+        
+        const scaleX = actualPageWidth / EDITOR_WIDTH_PX;
+        const scaleY = actualPageHeight / EDITOR_HEIGHT_PX;
         
         if (idx === 0) {
             console.log('🔍 Element scaling:');
