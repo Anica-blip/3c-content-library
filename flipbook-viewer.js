@@ -417,11 +417,7 @@ function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
         flipbook.append(pageDiv);
     });
     
-    // FIXED corner size at 48% base view - copied from interactive-pdf flipbook.js
-    // Corner size is 3% of page width at 48% zoom, max 30px
-    const basePageWidth = Math.round(A4_WIDTH_PX * 0.48);
-    const fixedCornerSize = Math.min(basePageWidth * 0.03, 30); // 3% of 48% base page width, max 30px
-    
+    // EXACT turn.js configuration copied from interactive-pdf flipbook.js
     flipbook.turn({
         width: pageWidth * 2,
         height: pageHeight,
@@ -432,63 +428,61 @@ function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
         acceleration: true,
         duration: 1000,
         pages: totalPages,
-        turnCorners: 'br,tr',
-        cornerSize: fixedCornerSize,
-        inclination: 0,
+        page: 1, // ALWAYS start on page 1
+        // Corner configuration to align with document edges
+        turnCorners: 'bl,br,tl,tr', // Enable all corners
+        cornerSize: Math.min(pageWidth * 0.03, 30), // Extremely tiny corners - 3% of page width, max 30px
         when: {
             turning: function(event, page, view) {
                 try {
+                    // Validate page number is within bounds
+                    if (page < 1 || page > totalPages) {
+                        console.warn('⚠️ Invalid page number during turn:', page, '(valid: 1-' + totalPages + ')');
+                        return false; // Cancel invalid turn
+                    }
                     currentPage = page;
                     updatePageInfo();
+                    return true; // Allow turn to proceed
                 } catch (error) {
                     console.error('Error during page turn:', error);
+                    // Don't block the turn, just log the error
                     return true;
                 }
             },
             turned: function(event, page, view) {
-                currentPage = page;
-                updatePageInfo();
+                try {
+                    // Validate page number is within bounds
+                    if (page < 1 || page > totalPages) {
+                        console.warn('⚠️ Invalid page number after turn:', page, '(valid: 1-' + totalPages + ')');
+                        return;
+                    }
+                    currentPage = page;
+                    updatePageInfo();
+                } catch (error) {
+                    console.error('Error after page turn:', error);
+                }
             },
             start: function(event, pageObject, corner) {
                 if ($(event.target).closest('.interactive-element').length > 0) {
                     event.preventDefault();
                     return false;
                 }
+            },
+            missing: function(event, pages) {
+                // Handle missing pages gracefully
+                console.error('❌ Turn.js missing pages:', pages);
+                console.log('🔄 This may cause navigation issues. Use refresh button if needed.');
             }
         }
     });
-}
-
-/**
- * Setup swipe navigation for mobile
- */
-function setupMobileSwipe(container) {
-    let touchStartX = 0;
-    let touchEndX = 0;
     
-    container.on('touchstart', function(e) {
-        touchStartX = e.touches[0].clientX;
-    });
+    // Force set to page 1 after initialization
+    setTimeout(() => {
+        $('#flipbook').turn('page', 1);
+        updatePageInfo();
+    }, 100);
     
-    container.on('touchend', function(e) {
-        touchEndX = e.changedTouches[0].clientX;
-        handleSwipe();
-    });
-    
-    function handleSwipe() {
-        const swipeThreshold = 50;
-        const diff = touchStartX - touchEndX;
-        
-        if (Math.abs(diff) > swipeThreshold) {
-            if (diff > 0) {
-                // Swipe left - next page
-                goToNextPage();
-            } else {
-                // Swipe right - previous page
-                goToPreviousPage();
-            }
-        }
-    }
+    console.log(' Flipbook initialized at', Math.round(scale * 100) + '% zoom');
 }
 
 /**
@@ -1325,20 +1319,10 @@ function setupEventListeners() {
         }
     });
     
-    // Zoom controls - properly re-render at new scale
-    $('#zoom-in').on('click', () => {
-        console.log('🔍 Zoom in clicked');
-        scale += 0.05; // Increase by 5%
-        scale = Math.round(scale * 100) / 100;
-        if (scale > 0.53) scale = 0.53; // Cap at 53% to prevent gap issues // Max 150%
-        applyZoom();
-    });
-    
-    $('#zoom-out').on('click', () => {
-        console.log('🔍 Zoom out clicked');
-        scale -= 0.05; // Decrease by 5%
-        scale = Math.round(scale * 100) / 100;
-        if (scale < 0.3) scale = 0.3; // Min 30%
+    // Zoom select dropdown - only 48% and 53%
+    $('#zoom-select').on('change', function() {
+        scale = parseFloat($(this).val());
+        console.log('🔍 Zoom changed to:', Math.round(scale * 100) + '%');
         applyZoom();
     });
     
