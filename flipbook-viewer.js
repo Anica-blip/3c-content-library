@@ -217,8 +217,8 @@ async function renderPagesAtScale() {
         
         await new Promise((resolve, reject) => {
             img.onload = () => {
-                // Render at 2x resolution for optimal quality
-                const renderScale = 2;
+                // Render at 1x resolution for clear text
+                const renderScale = 1;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 
@@ -236,7 +236,7 @@ async function renderPagesAtScale() {
             
             img.onerror = (error) => {
                 console.warn(' Failed to load background for page', i + 1);
-                const renderScale = 2;
+                const renderScale = 1;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 canvas.style.width = pageWidth + 'px';
@@ -262,7 +262,7 @@ async function renderPagesAtScale() {
                 img.src = backgroundSource;
             } else {
                 // Create blank canvas
-                const renderScale = 2;
+                const renderScale = 1;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 canvas.style.width = pageWidth + 'px';
@@ -327,16 +327,20 @@ function initMobileFlipbook(flipbook, pageWidth, pageHeight) {
     });
     
     // Add each page from JSON order (1, 2, 3, etc.)
+    // CRITICAL: Only show ONE page at a time, hide all others completely
     pageCanvases.forEach((canvas, index) => {
         const pageDiv = $('<div class="mobile-page"></div>');
         pageDiv.attr('data-page', index + 1);
         pageDiv.css({
             'width': '100%',
             'height': 'auto',
-            'display': index === 0 ? 'block' : 'none',
-            'position': 'relative',
+            'display': index === 0 ? 'block' : 'none', // Only first page visible
+            'position': 'absolute',
+            'top': '0',
+            'left': index === 0 ? '0' : '-9999px', // Hide others off-screen
             'padding': '0',
-            'margin': '0'
+            'margin': '0',
+            'visibility': index === 0 ? 'visible' : 'hidden'
         });
         
         // Add canvas - size to fit mobile viewport width
@@ -407,7 +411,7 @@ function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
     // Calculate corner size based on base A4 dimensions at 46% zoom (not current zoom)
     // This keeps corner size constant regardless of zoom level
     const basePageWidth = Math.round(A4_WIDTH_PX * 0.46);
-    const fixedCornerSize = Math.round(basePageWidth * 0.06); // 6% of base page width
+    const fixedCornerSize = Math.round(basePageWidth * 0.03); // 3% of base page width - smaller to stay within page edge
     
     flipbook.turn({
         width: pageWidth * 2,
@@ -516,9 +520,19 @@ function setupMobilePinchZoom(container) {
 function goToNextPage() {
     if (currentPage < totalPages) {
         const container = $('#mobile-pages-container');
-        container.find('.mobile-page').hide();
+        // Hide all pages completely
+        container.find('.mobile-page').css({
+            'display': 'none',
+            'left': '-9999px',
+            'visibility': 'hidden'
+        });
         currentPage++;
-        container.find(`.mobile-page[data-page="${currentPage}"]`).show();
+        // Show only the current page
+        container.find(`.mobile-page[data-page="${currentPage}"]`).css({
+            'display': 'block',
+            'left': '0',
+            'visibility': 'visible'
+        });
         updatePageInfo();
     }
 }
@@ -529,9 +543,19 @@ function goToNextPage() {
 function goToPreviousPage() {
     if (currentPage > 1) {
         const container = $('#mobile-pages-container');
-        container.find('.mobile-page').hide();
+        // Hide all pages completely
+        container.find('.mobile-page').css({
+            'display': 'none',
+            'left': '-9999px',
+            'visibility': 'hidden'
+        });
         currentPage--;
-        container.find(`.mobile-page[data-page="${currentPage}"]`).show();
+        // Show only the current page
+        container.find(`.mobile-page[data-page="${currentPage}"]`).css({
+            'display': 'block',
+            'left': '0',
+            'visibility': 'visible'
+        });
         updatePageInfo();
     }
 }
