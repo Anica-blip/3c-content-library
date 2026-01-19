@@ -417,9 +417,10 @@ function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
         flipbook.append(pageDiv);
     });
     
-    // FIXED corner size at 48% initial view - never changes with zoom (matches left fold)
+    // FIXED corner size at 48% base view - copied from interactive-pdf flipbook.js
+    // Corner size is 3% of page width at 48% zoom, max 30px
     const basePageWidth = Math.round(A4_WIDTH_PX * 0.48);
-    const fixedCornerSize = Math.round(basePageWidth * 0.015); // 1.5% of base page width - matches left fold size
+    const fixedCornerSize = Math.min(basePageWidth * 0.03, 30); // 3% of 48% base page width, max 30px
     
     flipbook.turn({
         width: pageWidth * 2,
