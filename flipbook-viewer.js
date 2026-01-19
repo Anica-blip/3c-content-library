@@ -7,15 +7,10 @@
 // PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// Mobile detection
-const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-console.log('📱 Mobile detection:', isMobile, '| Width:', window.innerWidth, '| UA:', navigator.userAgent);
-
 // Global state
 let currentPage = 1;
 let totalPages = 0;
-// Mobile: Calculate scale to fit viewport width (95% for padding), Desktop: 48% zoom (default)
-let scale = isMobile ? (window.innerWidth * 0.95) / A4_WIDTH_PX : 0.48;
+let scale = 0.46; // Default 46% zoom for optimal viewing (fits viewport without scrolling)
 let manifest = null;
 let pageCanvases = [];
 let flipbookInitialized = false;
@@ -73,7 +68,7 @@ async function init() {
             await loadContentFromSupabase(contentId);
         }
         else {
-            // alert('No flipbook data provided. Use ?manifest=URL or ?content=ID');
+            alert('No flipbook data provided. Use ?manifest=URL or ?content=ID');
             loading.classList.add('hidden');
             goBack();
             return;
@@ -82,7 +77,7 @@ async function init() {
         loading.classList.add('hidden');
     } catch (error) {
         console.error('Init error:', error);
-        // alert('Failed to load flipbook: ' + error.message);
+        alert('Failed to load flipbook: ' + error.message);
         loading.classList.add('hidden');
         goBack();
     }
@@ -184,11 +179,7 @@ async function initFromManifest(manifestData) {
     }
     
     document.getElementById('total-pages').textContent = totalPages;
-    // Set zoom select dropdown to current scale
-    const zoomSelect = document.getElementById('zoom-select');
-    if (zoomSelect) {
-        zoomSelect.value = scale.toString();
-    }
+    document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
     
     console.log('🎨 Rendering', totalPages, 'pages at', Math.round(scale * 100) + '% zoom');
     
@@ -222,7 +213,7 @@ async function renderPagesAtScale() {
         
         await new Promise((resolve, reject) => {
             img.onload = () => {
-                // Render at 2x resolution for crisp quality (both desktop and mobile)
+                // Render at 2x resolution for quality, then scale display with CSS
                 const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
@@ -287,118 +278,25 @@ async function renderPagesAtScale() {
 }
 
 /**
- * Initialize flipbook - mobile uses simple page display, desktop uses turn.js
+ * Initialize turn.js flipbook
  */
 function initFlipbook() {
     const flipbook = $('#flipbook');
+    
+    // Clear existing content
     flipbook.empty();
     
+    // Get actual page dimensions from CSS-styled canvas
     const pageWidth = Math.round(A4_WIDTH_PX * scale);
     const pageHeight = Math.round(A4_HEIGHT_PX * scale);
     
     console.log('📖 Initializing flipbook with page size:', pageWidth, 'x', pageHeight);
     
-    if (isMobile) {
-        // MOBILE: Simple page-by-page display from JSON order
-        initMobileFlipbook(flipbook, pageWidth, pageHeight);
-    } else {
-        // DESKTOP: Turn.js double-page flipbook
-        initDesktopFlipbook(flipbook, pageWidth, pageHeight);
-    }
-    
-    flipbookInitialized = true;
-    updatePageInfo();
-    console.log(' Flipbook initialized at', Math.round(scale * 100) + '% zoom');
-}
-
-/**
- * Mobile flipbook: Simple single-page display with swipe navigation
- */
-function initMobileFlipbook(flipbook, pageWidth, pageHeight) {
-    console.log('📱 Initializing mobile flipbook - JSON page order');
-    console.log('📱 Total pages to render:', pageCanvases.length);
-    console.log('📱 Page dimensions:', pageWidth, 'x', pageHeight);
-    console.log('📱 Mobile scale:', scale);
-    console.log('📱 Viewport width:', window.innerWidth);
-    
-    // Create container for all pages
-    const pagesContainer = $('<div id="mobile-pages-container"></div>');
-    pagesContainer.css({
-        'width': '100%',
-        'height': '100%',
-        'display': 'flex',
-        'align-items': 'flex-start',
-        'justify-content': 'center',
-        'overflow': 'hidden',
-        'position': 'relative'
-    });
-    
-    // Add each page from JSON order (1, 2, 3, etc.)
-    // CRITICAL: Only show ONE page at a time, hide all others completely
-    pageCanvases.forEach((canvas, index) => {
-        const pageDiv = $('<div class="mobile-page"></div>');
-        pageDiv.attr('data-page', index + 1);
-        pageDiv.css({
-            'width': '100%',
-            'height': 'auto',
-            'display': index === 0 ? 'block' : 'none', // Only first page visible
-            'position': 'absolute',
-            'top': '0',
-            'left': index === 0 ? '0' : '-9999px', // Hide others off-screen
-            'padding': '0',
-            'margin': '0',
-            'visibility': index === 0 ? 'visible' : 'hidden'
-        });
-        
-        // Add canvas - size to fit mobile viewport width
-        $(canvas).css({
-            'width': '100%',
-            'height': 'auto',
-            'display': 'block',
-            'margin': '0 auto'
-        });
-        pageDiv.append(canvas);
-        
-        // Add interactive elements
-        if (manifest && manifest.pages && manifest.pages[index]) {
-            const pageData = manifest.pages[index];
-            console.log(`📱 Page ${index + 1} - Checking for elements:`, pageData.elements ? pageData.elements.length : 'NO ELEMENTS ARRAY');
-            if (pageData.elements && pageData.elements.length > 0) {
-                console.log(`📱 Page ${index + 1} - Rendering ${pageData.elements.length} elements`);
-                console.log(`📱 Page dimensions for elements: ${pageWidth}x${pageHeight}`);
-                renderInteractiveElements(pageDiv, pageData.elements, pageWidth, pageHeight);
-            } else {
-                console.log(`📱 Page ${index + 1} - NO ELEMENTS TO RENDER`);
-            }
-        } else {
-            console.log(`📱 Page ${index + 1} - NO PAGE DATA IN MANIFEST`);
-        }
-        
-        // Add page number
-        const pageNumber = $('<div class="page-number"></div>').text(index + 1);
-        pageDiv.append(pageNumber);
-        
-        pagesContainer.append(pageDiv);
-    });
-    
-    flipbook.append(pagesContainer);
-    
-    // Add swipe navigation
-    setupMobileSwipe(pagesContainer);
-    
-    // Add pinch-to-zoom
-    setupMobilePinchZoom(pagesContainer);
-}
-
-/**
- * Desktop flipbook: Turn.js with double-page spread
- */
-function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
-    console.log('🖥️ Initializing desktop flipbook - turn.js');
-    
+    // Add pages to flipbook
     pageCanvases.forEach((canvas, index) => {
         const pageDiv = $('<div class="page"></div>');
         
+        // Ensure canvas fills the page div
         $(canvas).css({
             'display': 'block',
             'width': '100%',
@@ -407,6 +305,7 @@ function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
         
         pageDiv.append(canvas);
         
+        // Add interactive elements overlay
         if (manifest && manifest.pages && manifest.pages[index]) {
             const pageData = manifest.pages[index];
             if (pageData.elements && pageData.elements.length > 0) {
@@ -415,15 +314,16 @@ function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
             }
         }
         
+        // Add page number
         const pageNumber = $('<div class="page-number"></div>').text(index + 1);
         pageDiv.append(pageNumber);
         
         flipbook.append(pageDiv);
     });
     
-    // EXACT turn.js configuration copied from interactive-pdf flipbook.js
+    // Initialize turn.js with correct dimensions
     flipbook.turn({
-        width: pageWidth * 2,
+        width: pageWidth * 2, // Double width for spread
         height: pageHeight,
         autoCenter: true,
         display: 'double',
@@ -432,139 +332,34 @@ function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
         acceleration: true,
         duration: 1000,
         pages: totalPages,
-        page: 1, // ALWAYS start on page 1
-        // Corner configuration to align with document edges
-        turnCorners: 'bl,br,tl,tr', // Enable all corners
-        cornerSize: Math.min(pageWidth * 0.03, 30), // Extremely tiny corners - 3% of page width, max 30px
         when: {
             turning: function(event, page, view) {
                 try {
-                    // Validate page number is within bounds
-                    if (page < 1 || page > totalPages) {
-                        console.warn('⚠️ Invalid page number during turn:', page, '(valid: 1-' + totalPages + ')');
-                        return false; // Cancel invalid turn
-                    }
                     currentPage = page;
                     updatePageInfo();
-                    return true; // Allow turn to proceed
                 } catch (error) {
                     console.error('Error during page turn:', error);
-                    // Don't block the turn, just log the error
                     return true;
                 }
             },
             turned: function(event, page, view) {
-                try {
-                    // Validate page number is within bounds
-                    if (page < 1 || page > totalPages) {
-                        console.warn('⚠️ Invalid page number after turn:', page, '(valid: 1-' + totalPages + ')');
-                        return;
-                    }
-                    currentPage = page;
-                    updatePageInfo();
-                } catch (error) {
-                    console.error('Error after page turn:', error);
-                }
+                currentPage = page;
+                updatePageInfo();
             },
             start: function(event, pageObject, corner) {
+                // Prevent turn if element is being clicked
                 if ($(event.target).closest('.interactive-element').length > 0) {
                     event.preventDefault();
                     return false;
                 }
-            },
-            missing: function(event, pages) {
-                // Handle missing pages gracefully
-                console.error('❌ Turn.js missing pages:', pages);
-                console.log('🔄 This may cause navigation issues. Use refresh button if needed.');
             }
         }
     });
     
-    // Force set to page 1 after initialization
-    setTimeout(() => {
-        $('#flipbook').turn('page', 1);
-        updatePageInfo();
-    }, 100);
+    flipbookInitialized = true;
+    updatePageInfo();
     
     console.log(' Flipbook initialized at', Math.round(scale * 100) + '% zoom');
-}
-
-/**
- * Setup pinch-to-zoom for mobile
- */
-function setupMobilePinchZoom(container) {
-    let initialDistance = 0;
-    let currentScale = 1;
-    
-    container.on('touchstart', function(e) {
-        if (e.touches.length === 2) {
-            initialDistance = getDistance(e.touches[0], e.touches[1]);
-        }
-    });
-    
-    container.on('touchmove', function(e) {
-        if (e.touches.length === 2) {
-            e.preventDefault();
-            const currentDistance = getDistance(e.touches[0], e.touches[1]);
-            const scale = currentDistance / initialDistance;
-            currentScale = Math.min(Math.max(scale, 1), 3); // Limit 1x to 3x
-            
-            const currentPage = container.find('.mobile-page:visible');
-            currentPage.css('transform', `scale(${currentScale})`);
-        }
-    });
-    
-    function getDistance(touch1, touch2) {
-        const dx = touch1.clientX - touch2.clientX;
-        const dy = touch1.clientY - touch2.clientY;
-        return Math.sqrt(dx * dx + dy * dy);
-    }
-}
-
-/**
- * Navigate to next page (mobile)
- */
-function goToNextPage() {
-    if (currentPage < totalPages) {
-        const container = $('#mobile-pages-container');
-        // Hide all pages completely
-        container.find('.mobile-page').css({
-            'display': 'none',
-            'left': '-9999px',
-            'visibility': 'hidden'
-        });
-        currentPage++;
-        // Show only the current page
-        container.find(`.mobile-page[data-page="${currentPage}"]`).css({
-            'display': 'block',
-            'left': '0',
-            'visibility': 'visible'
-        });
-        updatePageInfo();
-    }
-}
-
-/**
- * Navigate to previous page (mobile)
- */
-function goToPreviousPage() {
-    if (currentPage > 1) {
-        const container = $('#mobile-pages-container');
-        // Hide all pages completely
-        container.find('.mobile-page').css({
-            'display': 'none',
-            'left': '-9999px',
-            'visibility': 'hidden'
-        });
-        currentPage--;
-        // Show only the current page
-        container.find(`.mobile-page[data-page="${currentPage}"]`).css({
-            'display': 'block',
-            'left': '0',
-            'visibility': 'visible'
-        });
-        updatePageInfo();
-    }
 }
 
 /**
@@ -590,12 +385,8 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         
         // Element positions are saved relative to editor canvas (595px x 842px)
         // We need to scale them to current viewer size (pageWidth x pageHeight)
-        // On mobile, use actual canvas dimensions for proper scaling
-        const actualPageWidth = isMobile ? pageWidth : pageWidth;
-        const actualPageHeight = isMobile ? pageHeight : pageHeight;
-        
-        const scaleX = actualPageWidth / EDITOR_WIDTH_PX;
-        const scaleY = actualPageHeight / EDITOR_HEIGHT_PX;
+        const scaleX = pageWidth / EDITOR_WIDTH_PX;
+        const scaleY = pageHeight / EDITOR_HEIGHT_PX;
         
         if (idx === 0) {
             console.log('🔍 Element scaling:');
@@ -610,37 +401,20 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         const scaledWidth = (element.width || 100) * scaleX;
         const scaledHeight = (element.height || 40) * scaleY;
         
-        const elementDiv = $('<div></div>')
-            .addClass('interactive-element')
-            .attr('data-element-type', element.type)
-            .attr('data-element-url', element.url || '')
-            .attr('data-element-data', JSON.stringify(element))
-            .css({
-                position: 'absolute',
-                left: scaledX + 'px',
-                top: scaledY + 'px',
-                width: scaledWidth + 'px',
-                height: scaledHeight + 'px',
-                cursor: 'pointer',
-                zIndex: 10
-            });
+        const elementDiv = $('<div></div>').css({
+            position: 'absolute',
+            left: scaledX + 'px',
+            top: scaledY + 'px',
+            width: scaledWidth + 'px',
+            height: scaledHeight + 'px',
+            cursor: 'pointer',
+            zIndex: 1000
+        });
         
         // Handle different element types
-        if (element.type === '3c-button') {
-            console.log(`   🔘 3C Button - imagePath: ${element.imagePath || 'MISSING'}, image: ${element.image || 'MISSING'}, url: ${element.url}`);
-            
-            // Try imagePath first, then image property
-            // Button images stored in interactive-pdf repo - use full GitHub Pages URL
-            let buttonImage = element.imagePath || element.image;
-            if (buttonImage && !buttonImage.startsWith('http')) {
-                // Convert relative path to full interactive-pdf GitHub Pages URL with /public/ directory
-                buttonImage = 'https://anica-blip.github.io/interactive-PDF/public' + (buttonImage.startsWith('/') ? buttonImage : '/' + buttonImage);
-                console.log(`   🔗 Using interactive-pdf repo URL: ${buttonImage}`);
-            }
-            
-            if (buttonImage) {
-                // 3C Button with image
-                const img = $('<img>').attr('src', buttonImage).css({
+        if (element.type === '3c-button' && element.imagePath) {
+            // 3C Button with image
+            const img = $('<img>').attr('src', element.imagePath).css({
                 width: '100%',
                 height: '100%',
                 objectFit: 'contain',
@@ -651,13 +425,9 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 function() { $(this).css('transform', 'scale(1)'); }
             );
             
-            img.on('mouseenter', function() {
-                console.log('🖱️ Mouse ENTERED button - URL:', element.url);
-            });
             img.on('click', function(e) {
                 e.stopPropagation();
-                console.log('\n🔘 ========== BUTTON CLICKED ==========');
-                console.log('✅ CLICK DETECTED!');
+                e.preventDefault();
                 try {
                     console.log('🔘 3C Button clicked:', element);
                     if (element.url) {
@@ -670,67 +440,22 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                             const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no,scrollbars=yes,resizable=yes');
                             if (!popup) {
                                 console.error('❌ Popup blocked by browser');
-                                // alert('⚠️ Popup Blocked\n\nPlease allow popups for this site to open links.\n\nURL: ' + element.url);
+                                alert('⚠️ Popup Blocked\n\nPlease allow popups for this site to open links.\n\nURL: ' + element.url);
                             } else {
                                 console.log('✅ Link opened successfully');
                             }
                         }
                     } else {
                         console.warn('⚠️ Button has no URL configured');
-                        // alert('⚠️ Button Error\n\nThis button has no URL configured.');
+                        alert('⚠️ Button Error\n\nThis button has no URL configured.');
                     }
                 } catch (error) {
                     console.error('❌ Error handling button click:', error);
-                    // alert('❌ Button Error\n\n' + error.message);
+                    alert('❌ Button Error\n\n' + error.message);
                 }
             });
             
             elementDiv.append(img);
-            } else {
-                // 3C Button without image - show styled button
-                console.warn('   ⚠️ 3C Button missing image - rendering as styled button');
-                const button = $('<button></button>')
-                    .text(element.text || '3C Button')
-                    .css({
-                        width: '100%',
-                        height: '100%',
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: Math.round(14 * scaleX) + 'px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-                        transition: 'all 0.2s'
-                    })
-                    .hover(
-                        function() { $(this).css('transform', 'scale(1.05)'); },
-                        function() { $(this).css('transform', 'scale(1)'); }
-                    );
-                
-                button.on('click', function(e) {
-                    e.stopPropagation();
-                    try {
-                        console.log('🔘 3C Button (no image) clicked:', element);
-                        if (element.url) {
-                            console.log('📍 Button URL:', element.url);
-                            if (isVideoUrl(element.url)) {
-                                console.log('🎥 Detected as video URL, opening in popup...');
-                                playMedia(element, 'video');
-                            } else {
-                                console.log('🔗 Opening link in new window...');
-                                window.open(element.url, '_blank');
-                                console.log('✅ Link opened successfully');
-                            }
-                        }
-                    } catch (error) {
-                        console.error('❌ Error handling button click:', error);
-                    }
-                });
-                
-                elementDiv.append(button);
-            }
         } else if (element.type === 'button') {
             // Regular button
             const button = $('<button></button>')
@@ -779,7 +504,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                             const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
                             if (!popup) {
                                 console.error('❌ Popup blocked by browser');
-                                // alert('⚠️ Popup Blocked\n\nPlease allow popups for this site.\n\nURL: ' + element.url);
+                                alert('⚠️ Popup Blocked\n\nPlease allow popups for this site.\n\nURL: ' + element.url);
                             } else {
                                 console.log('✅ Link opened successfully');
                             }
@@ -790,72 +515,17 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                     } else {
                         console.warn('⚠️ Button has no URL or video configured');
                         console.log('Available element properties:', Object.keys(element));
-                        // alert('⚠️ Button Error\n\nThis button has no URL or video configured.\n\nElement type: ' + element.type);
+                        alert('⚠️ Button Error\n\nThis button has no URL or video configured.\n\nElement type: ' + element.type);
                     }
                     console.log('========================================\n');
                 } catch (error) {
                     console.error('❌ Error handling button click:', error);
                     console.error('Stack trace:', error.stack);
-                    // alert('❌ Button Error\n\n' + error.message);
+                    alert('❌ Button Error\n\n' + error.message);
                 }
             });
             
             elementDiv.append(button);
-        } else if (element.type === '3c-emoji' || element.type === '3c-emoji-decoration') {
-            console.log(`   🎭 3C Emoji - imagePath: ${element.imagePath || 'MISSING'}, url: ${element.url || 'decoration only'}`);
-            
-            // Emoji images stored in interactive-pdf repo
-            let emojiImage = element.imagePath || element.image;
-            if (emojiImage && !emojiImage.startsWith('http')) {
-                // Convert relative path to full interactive-pdf GitHub Pages URL
-                emojiImage = 'https://anica-blip.github.io/interactive-PDF/public' + (emojiImage.startsWith('/') ? emojiImage : '/' + emojiImage);
-                console.log(`   🔗 Using interactive-pdf repo URL: ${emojiImage}`);
-            }
-            
-            if (emojiImage) {
-                const img = $('<img>').attr('src', emojiImage).css({
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    cursor: element.url ? 'pointer' : 'default',
-                    transition: 'transform 0.2s',
-                    borderRadius: '50%'
-                });
-                
-                if (element.url) {
-                    img.hover(
-                        function() { $(this).css('transform', 'scale(1.1)'); },
-                        function() { $(this).css('transform', 'scale(1)'); }
-                    );
-                    
-                    img.on('click', function(e) {
-                        e.stopPropagation();
-                        console.log('\n🎭 ========== EMOJI CLICKED ==========');
-                        try {
-                            console.log('🎭 3C Emoji clicked:', element);
-                            if (element.url) {
-                                console.log('📍 Emoji URL:', element.url);
-                                if (isVideoUrl(element.url)) {
-                                    console.log('🎥 Opening video...');
-                                    playMedia(element, 'video');
-                                } else {
-                                    console.log('🔗 Opening link...');
-                                    const popup = window.open(element.url, '_blank', 'width=800,height=600');
-                                    if (!popup) {
-                                        console.error('❌ Popup blocked');
-                                    } else {
-                                        console.log('✅ Link opened successfully');
-                                    }
-                                }
-                            }
-                        } catch (error) {
-                            console.error('❌ Error handling emoji click:', error);
-                        }
-                    });
-                }
-                
-                elementDiv.append(img);
-            }
         } else if (element.type === 'hotspot' || element.type === 'link') {
             // Invisible clickable area
             elementDiv.css({
@@ -868,6 +538,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             
             elementDiv.on('click', function(e) {
                 e.stopPropagation();
+                e.preventDefault();
                 try {
                     console.log('🎯 Hotspot/Link clicked:', element);
                     if (element.url) {
@@ -880,18 +551,18 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                             const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
                             if (!popup) {
                                 console.error('❌ Popup blocked by browser');
-                                // alert('⚠️ Popup Blocked\n\nPlease allow popups for this site.\n\nURL: ' + element.url);
+                                alert('⚠️ Popup Blocked\n\nPlease allow popups for this site.\n\nURL: ' + element.url);
                             } else {
                                 console.log('✅ Link opened successfully');
                             }
                         }
                     } else {
                         console.warn('⚠️ Hotspot has no URL configured');
-                        // alert('⚠️ Hotspot Error\n\nThis hotspot has no URL configured.');
+                        alert('⚠️ Hotspot Error\n\nThis hotspot has no URL configured.');
                     }
                 } catch (error) {
                     console.error('❌ Error handling hotspot click:', error);
-                    // alert('❌ Hotspot Error\n\n' + error.message);
+                    alert('❌ Hotspot Error\n\n' + error.message);
                 }
             });
         } else if (element.type === 'video' || element.type === 'cloudflare-stream') {
@@ -947,7 +618,6 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 
             } else {
                 // Video WITHOUT thumbnail - purple box with play icon
-                console.log('   🎬 Creating video wrapper WITHOUT thumbnail - purple box + Font Awesome icon');
                 videoWrapper.css({
                     background: 'rgba(102, 126, 234, 0.2)',
                     border: '2px solid rgba(102, 126, 234, 0.5)',
@@ -962,22 +632,16 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                     fontSize: '48px',
                     pointerEvents: 'none'
                 });
-                console.log('   ▶️ Font Awesome play icon created:', playIcon.length, 'elements');
                 
                 videoWrapper.append(playIcon);
-                console.log('   ✅ Play icon appended to videoWrapper');
                 
                 // IIFE to capture element correctly for multiple videos
                 (function(capturedElement) {
-                    videoWrapper.on('mouseenter', function() {
-                        console.log('🖱️ Mouse ENTERED video element - URL:', capturedElement.url || 'NO URL');
-                    });
                     videoWrapper.on('click', function(e) {
                         e.stopPropagation();
-                        console.log('\n🎬 ========== VIDEO CLICKED ==========');
-                        console.log('✅ CLICK DETECTED!');
-                        console.log('Video URL:', capturedElement.url);
+                        console.log('\n🎬 ========== VIDEO ELEMENT CLICKED ==========');
                         console.log('Element type:', capturedElement.type);
+                        console.log('Element object:', JSON.stringify(capturedElement, null, 2));
                         console.log('========================================\n');
                         playMedia(capturedElement, 'video');
                     });
@@ -986,7 +650,6 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             
             elementDiv.append(videoWrapper);
             console.log(`   ✅ Video element rendered: ${element.type}, has thumbnail: ${!!(element.thumbnail || element.thumbnailUrl)}`);
-            console.log(`   📦 VideoWrapper appended to elementDiv. Wrapper children count: ${videoWrapper.children().length}`);
         } else {
             // Unhandled element type - log it
             console.warn(`   ⚠️ Unhandled element type: "${element.type}"`);
@@ -1045,9 +708,7 @@ function playMedia(element, type) {
         console.log('Element:', element);
         console.log('Type:', type);
         
-        // Hide title completely - no need to show anything
-        mediaTitle.textContent = '';
-        mediaTitle.style.display = 'none';
+        mediaTitle.textContent = element.text || element.title || (type === 'video' ? 'Video' : 'Audio');
         mediaPlayerWrapper.innerHTML = '';
         
         if (type === 'video') {
@@ -1059,7 +720,7 @@ function playMedia(element, type) {
             if (!videoUrl && !element.streamId) {
                 console.error('❌ No video URL found in element');
                 console.error('Element details:', JSON.stringify(element, null, 2));
-                // alert('❌ Video Error\n\nNo video URL found.\n\nElement type: ' + element.type + '\n\nPlease check the element configuration in the editor.');
+                alert('❌ Video Error\n\nNo video URL found.\n\nElement type: ' + element.type + '\n\nPlease check the element configuration in the editor.');
                 return;
             }
             
@@ -1075,7 +736,7 @@ function playMedia(element, type) {
                 }
                 streamElement.onerror = (e) => {
                     console.error('❌ Cloudflare Stream failed to load:', e);
-                    // alert('❌ Video Error\n\nCloudflare Stream failed to load.\n\nStream ID: ' + element.streamId);
+                    alert('❌ Video Error\n\nCloudflare Stream failed to load.\n\nStream ID: ' + element.streamId);
                 };
                 mediaPlayerWrapper.appendChild(streamElement);
                 console.log('✅ Cloudflare Stream element added to page');
@@ -1094,7 +755,7 @@ function playMedia(element, type) {
                 iframe.style.border = 'none';
                 iframe.onerror = (e) => {
                     console.error('❌ Cloudflare Stream iframe failed to load:', e);
-                    // alert('❌ Video Error\n\nCloudflare Stream iframe failed to load.\n\nURL: ' + videoUrl);
+                    alert('❌ Video Error\n\nCloudflare Stream iframe failed to load.\n\nURL: ' + videoUrl);
                 };
                 mediaPlayerWrapper.appendChild(iframe);
                 console.log('✅ Cloudflare Stream iframe added to page');
@@ -1115,7 +776,7 @@ function playMedia(element, type) {
                     iframe.style.border = 'none';
                     iframe.onerror = (e) => {
                         console.error('❌ YouTube/Vimeo iframe failed to load:', e);
-                        // alert('❌ Video Error\n\nYouTube/Vimeo iframe failed to load.\n\nURL: ' + embedUrl);
+                        alert('❌ Video Error\n\nYouTube/Vimeo iframe failed to load.\n\nURL: ' + embedUrl);
                     };
                     mediaPlayerWrapper.appendChild(iframe);
                     console.log('✅ YouTube/Vimeo iframe added to page');
@@ -1126,8 +787,10 @@ function playMedia(element, type) {
                     video.src = videoUrl;
                     video.controls = true;
                     video.autoplay = true;
-                    video.style.width = '100%';
-                    video.style.height = '100%';
+                    video.style.maxWidth = '100%';
+                    video.style.maxHeight = '70vh';
+                    video.style.width = 'auto';
+                    video.style.height = 'auto';
                     video.style.objectFit = 'contain';
                     video.setAttribute('crossorigin', 'anonymous'); // Enable CORS for Cloudflare R2
                     if (element.thumbnailUrl || element.poster) {
@@ -1135,19 +798,40 @@ function playMedia(element, type) {
                         console.log('📸 Using poster:', element.thumbnailUrl || element.poster);
                     }
                     
-                    // Simple sizing - let object-fit: contain handle aspect ratio
+                    // Detect video orientation and adjust container
                     video.onloadedmetadata = () => {
-                        console.log('📐 Video loaded:', video.videoWidth, 'x', video.videoHeight);
+                        const videoWidth = video.videoWidth;
+                        const videoHeight = video.videoHeight;
+                        const aspectRatio = videoWidth / videoHeight;
+                        
+                        console.log('📐 Video dimensions:', videoWidth, 'x', videoHeight);
+                        console.log('📐 Aspect ratio:', aspectRatio.toFixed(2));
+                        
+                        const mediaContainer = document.getElementById('media-container');
+                        
+                        if (aspectRatio > 1) {
+                            // Landscape video (16:9 or wider)
+                            console.log('🖼️ Landscape orientation detected (16:9)');
+                            video.style.width = '80vw';
+                            video.style.maxWidth = '1200px';
+                            video.style.height = 'auto';
+                            mediaContainer.style.maxWidth = '85vw';
+                        } else {
+                            // Portrait video (9:16 or taller)
+                            console.log('📱 Portrait orientation detected (9:16)');
+                            video.style.width = 'auto';
+                            video.style.height = '75vh';
+                            video.style.maxWidth = '500px';
+                            mediaContainer.style.maxWidth = '600px';
+                        }
                     };
                     
-                    // Error handling - console only, no popup alerts
                     video.onerror = (e) => {
                         console.error('❌ Video failed to load:', videoUrl);
                         console.error('Error details:', e);
-                        console.error('Error code:', video.error ? video.error.code : 'unknown');
-                        console.error('Possible causes: File not found (404), CORS not enabled, Invalid format, Network error');
-                        // Show error in player area but NO alert popup
-                        mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px; background: rgba(231, 76, 60, 0.2); border-radius: 8px; margin: 20px;">❌ Video Error<br><br>Failed to load video file.<br><br>Check browser console (F12) for details.</div>';
+                        const errorMsg = '❌ Video Error\n\nFailed to load video file.\n\nURL: ' + videoUrl + '\n\nPossible causes:\n• File not found (404)\n• CORS not enabled on server\n• Invalid video format\n• Network error';
+                        mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px; background: rgba(231, 76, 60, 0.2); border-radius: 8px; margin: 20px;">' + errorMsg.replace(/\n/g, '<br>') + '</div>';
+                        alert(errorMsg);
                     };
                     video.onloadstart = () => {
                         console.log('⏳ Video loading started:', videoUrl);
@@ -1171,7 +855,7 @@ function playMedia(element, type) {
                 console.error('❌ Audio failed to load:', audioUrl, e);
                 const errorMsg = '❌ Audio Error\n\nFailed to load audio file.\n\nURL: ' + audioUrl;
                 mediaPlayerWrapper.innerHTML = '<div style="color: white; text-align: center; padding: 40px; background: rgba(231, 76, 60, 0.2); border-radius: 8px; margin: 20px;">' + errorMsg.replace(/\n/g, '<br>') + '</div>';
-                // alert(errorMsg);
+                alert(errorMsg);
             };
             audio.oncanplay = () => {
                 console.log('✅ Audio ready to play:', audioUrl);
@@ -1186,61 +870,10 @@ function playMedia(element, type) {
     } catch (error) {
         console.error('❌ CRITICAL ERROR playing media:', error);
         console.error('Stack trace:', error.stack);
-        // alert('❌ Critical Error\n\nFailed to play media.\n\nError: ' + error.message + '\n\nCheck browser console for details.');
+        alert('❌ Critical Error\n\nFailed to play media.\n\nError: ' + error.message + '\n\nCheck browser console for details.');
     }
 }
 
-
-/**
- * Show GIF/animated image in overlay
- */
-function showGif(element) {
-    try {
-        console.log('\n🖼️ ========== SHOWING GIF/IMAGE ==========');
-        console.log('Element:', element);
-        
-        // Set clean title
-        const cleanTitle = element.text || element.title || element.name || 'Image';
-        mediaTitle.textContent = cleanTitle;
-        mediaPlayerWrapper.innerHTML = '';
-        
-        const imageUrl = element.url || element.imageUrl || element.src;
-        
-        if (!imageUrl) {
-            console.error('❌ No image URL found');
-            // alert('❌ Image Error\n\nNo image URL found.');
-            return;
-        }
-        
-        console.log('📍 Image URL:', imageUrl);
-        
-        const img = document.createElement('img');
-        img.src = imageUrl;
-        img.style.maxWidth = '90vw';
-        img.style.maxHeight = '80vh';
-        img.style.objectFit = 'contain';
-        img.style.display = 'block';
-        img.style.margin = '0 auto';
-        
-        img.onerror = () => {
-            console.error('❌ Image failed to load:', imageUrl);
-            // alert('❌ Image Error\n\nFailed to load image.\n\nURL: ' + imageUrl);
-        };
-        
-        img.onload = () => {
-            console.log('✅ Image loaded successfully');
-        };
-        
-        mediaPlayerWrapper.appendChild(img);
-        mediaOverlay.classList.add('active');
-        
-        console.log('✅ GIF/Image overlay opened');
-        console.log('========================================\n');
-    } catch (error) {
-        console.error('❌ Error showing GIF/image:', error);
-        // alert('❌ Error\n\nFailed to display image.\n\nError: ' + error.message);
-    }
-}
 
 /**
  * Close media overlay
@@ -1269,13 +902,6 @@ function closeMedia() {
     mediaPlayerWrapper.innerHTML = '';
     mediaTitle.textContent = '';
     mediaOverlay.classList.remove('active');
-    
-    // Force garbage collection and cache clearing
-    if (window.gc) {
-        window.gc();
-    }
-    
-    console.log('✅ Media overlay closed and cache cleared');
 }
 
 /**
@@ -1284,50 +910,36 @@ function closeMedia() {
 function setupEventListeners() {
     // Navigation buttons
     $('#first-page').on('click', () => {
-        if (isMobile) {
-            const container = $('#mobile-pages-container');
-            container.find('.mobile-page').hide();
-            currentPage = 1;
-            container.find(`.mobile-page[data-page="1"]`).show();
-            updatePageInfo();
-        } else {
-            $('#flipbook').turn('page', 1);
-        }
+        $('#flipbook').turn('page', 1);
     });
     
     $('#prev-page').on('click', () => {
-        if (isMobile) {
-            goToPreviousPage();
-        } else {
-            $('#flipbook').turn('previous');
-        }
+        $('#flipbook').turn('previous');
     });
     
     $('#next-page').on('click', () => {
-        if (isMobile) {
-            goToNextPage();
-        } else {
-            $('#flipbook').turn('next');
-        }
+        $('#flipbook').turn('next');
     });
     
     $('#last-page').on('click', () => {
-        if (isMobile) {
-            const container = $('#mobile-pages-container');
-            container.find('.mobile-page').hide();
-            currentPage = totalPages;
-            container.find(`.mobile-page[data-page="${totalPages}"]`).show();
-            updatePageInfo();
-        } else {
-            $('#flipbook').turn('page', totalPages);
-        }
+        $('#flipbook').turn('page', totalPages);
     });
     
-    // Zoom select dropdown - only 48% and 53%
-    $('#zoom-select').on('change', function() {
-        scale = parseFloat($(this).val());
-        console.log('🔍 Zoom changed to:', Math.round(scale * 100) + '%');
-        applyZoom();
+    // Zoom controls - properly re-render at new scale
+    $('#zoom-in').on('click', () => {
+        console.log('🔍 Zoom in clicked');
+        scale += 0.05; // Increase by 5%
+        scale = Math.round(scale * 100) / 100;
+        if (scale > 1.5) scale = 1.5; // Max 150%
+        reloadFlipbook();
+    });
+    
+    $('#zoom-out').on('click', () => {
+        console.log('🔍 Zoom out clicked');
+        scale -= 0.05; // Decrease by 5%
+        scale = Math.round(scale * 100) / 100;
+        if (scale < 0.3) scale = 0.3; // Min 30%
+        reloadFlipbook();
     });
     
     // Back button
@@ -1373,19 +985,6 @@ function setupEventListeners() {
 }
 
 /**
- * Apply zoom using CSS transform - no re-rendering needed
- * This keeps turn.js dimensions constant and just scales the visual display
- */
-function applyZoom() {
-    console.log('Applying zoom:', Math.round(scale * 100) + '%');
-    document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
-    $('#flipbook-wrapper').css({
-        'transform': 'scale(' + (scale / 0.48) + ')',
-        'transform-origin': 'center top'
-    });
-}
-
-/**
  * Reload flipbook after zoom change
  */
 async function reloadFlipbook() {
@@ -1401,14 +1000,7 @@ async function reloadFlipbook() {
         
         // Destroy existing flipbook
         if (flipbookInitialized) {
-            try {
-                // Check if turn.js is actually initialized on the element
-                if (typeof $('#flipbook').turn === 'function' && $('#flipbook').data('turn')) {
-                    $('#flipbook').turn('destroy');
-                }
-            } catch (e) {
-                console.log('Turn.js destroy skipped:', e.message);
-            }
+            $('#flipbook').turn('destroy');
             flipbookInitialized = false;
         }
         
@@ -1427,12 +1019,6 @@ async function reloadFlipbook() {
         const pageWidth = Math.round(A4_WIDTH_PX * scale);
         const pageHeight = Math.round(A4_HEIGHT_PX * scale);
         $('#flipbook').css({
-            width: (pageWidth * 2) + 'px',
-            height: pageHeight + 'px'
-        });
-        
-        // Update wrapper to match new size (important for zoom visual effect)
-        $('#flipbook-wrapper').css({
             width: (pageWidth * 2) + 'px',
             height: pageHeight + 'px'
         });
@@ -1484,7 +1070,7 @@ async function downloadFlipbook() {
         console.log('📥 Download button clicked');
         
         if (!manifest || !manifest.pages || manifest.pages.length === 0) {
-            // alert('⚠️ No flipbook data available to download');
+            alert('⚠️ No flipbook data available to download');
             return;
         }
         
@@ -1534,7 +1120,7 @@ async function downloadFlipbook() {
     } catch (error) {
         console.error('❌ Error downloading flipbook:', error);
         loading.classList.add('hidden');
-        // alert('❌ Download Error\n\nFailed to download flipbook.\n\nError: ' + error.message);
+        alert('❌ Download Error\n\nFailed to download flipbook.\n\nError: ' + error.message);
     }
 }
 
@@ -1549,93 +1135,7 @@ function goBack() {
     }
 }
 
-/**
- * Setup event delegation for interactive elements
- * This ensures clicks work even when Turn.js manipulates the DOM
- */
-function setupInteractiveElementHandlers() {
-    console.log('🎯 Setting up event delegation for interactive elements...');
-    
-    // Use event delegation - attach to document which never gets destroyed
-    $(document).on('click', '.interactive-element', function(e) {
-        e.stopPropagation();
-        e.preventDefault();
-        
-        const $element = $(this);
-        const elementData = JSON.parse($element.attr('data-element-data'));
-        const elementType = $element.attr('data-element-type');
-        
-        console.log('\n🎯 ========== INTERACTIVE ELEMENT CLICKED ==========');
-        console.log('Element type:', elementType);
-        console.log('Element data:', elementData);
-        
-        // Handle different element types
-        if (elementType === '3c-button' || elementType === 'button') {
-            if (elementData.url) {
-                console.log('📍 URL:', elementData.url);
-                if (isVideoUrl(elementData.url)) {
-                    console.log('🎥 Opening video...');
-                    playMedia(elementData, 'video');
-                } else {
-                    console.log('🔗 Opening link...');
-                    const popup = window.open(elementData.url, '_blank', 'width=800,height=600');
-                    if (!popup) {
-                        // alert('⚠️ Popup blocked. Please allow popups for this site.\n\nURL: ' + elementData.url);
-                    }
-                }
-            } else if (elementData.videoUrl || elementData.streamId) {
-                playMedia(elementData, 'video');
-            }
-        } else if (elementType === 'hotspot' || elementType === 'link') {
-            if (elementData.url) {
-                if (isVideoUrl(elementData.url)) {
-                    playMedia(elementData, 'video');
-                } else {
-                    const popup = window.open(elementData.url, '_blank', 'width=800,height=600');
-                    if (!popup) {
-                        // alert('⚠️ Popup blocked. Please allow popups for this site.\n\nURL: ' + elementData.url);
-                    }
-                }
-            }
-        } else if (elementType === 'video' || elementType === 'cloudflare-stream') {
-            console.log('🎬 Opening video element...');
-            playMedia(elementData, 'video');
-        } else if (elementType === 'gif' || elementType === 'image') {
-            console.log('🖼️ Opening GIF/image element...');
-            showGif(elementData);
-        } else if (elementType === 'audio') {
-            console.log('🎵 Opening audio element...');
-            playMedia(elementData, 'audio');
-        } else if (elementType === '3c-emoji' || elementType === '3c-emoji-decoration') {
-            if (elementData.url) {
-                let emojiUrl = elementData.url;
-                if (!emojiUrl.startsWith('http://') && !emojiUrl.startsWith('https://')) {
-                    emojiUrl = 'https://' + emojiUrl;
-                }
-                const popup = window.open(emojiUrl, '_blank', 'width=800,height=600');
-                if (!popup) alert('Please allow popups');
-            }
-        }
-        
-        console.log('========================================\n');
-    });
-    
-    // Hover effect for interactive elements
-    $(document).on('mouseenter', '.interactive-element', function() {
-        const elementData = JSON.parse($(this).attr('data-element-data'));
-        console.log('🖱️ Mouse ENTERED element - Type:', $(this).attr('data-element-type'), 'URL:', elementData.url || 'NO URL');
-        $(this).css('transform', 'scale(1.05)');
-    });
-    
-    $(document).on('mouseleave', '.interactive-element', function() {
-        $(this).css('transform', 'scale(1)');
-    });
-    
-    console.log('✅ Event delegation setup complete');
-}
-
 // Initialize on load
 $(document).ready(() => {
-    setupInteractiveElementHandlers();
     init();
 });
