@@ -14,8 +14,8 @@ console.log('📱 Mobile detection:', isMobile, '| Width:', window.innerWidth, '
 // Global state
 let currentPage = 1;
 let totalPages = 0;
-// Mobile: Calculate scale to fit viewport width (95% for padding), Desktop: 46% zoom
-let scale = isMobile ? (window.innerWidth * 0.95) / A4_WIDTH_PX : 0.46;
+// Mobile: Calculate scale to fit viewport width (95% for padding), Desktop: 48% zoom (default)
+let scale = isMobile ? (window.innerWidth * 0.95) / A4_WIDTH_PX : 0.48;
 let manifest = null;
 let pageCanvases = [];
 let flipbookInitialized = false;
@@ -184,7 +184,11 @@ async function initFromManifest(manifestData) {
     }
     
     document.getElementById('total-pages').textContent = totalPages;
-    document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
+    // Set zoom select dropdown to current scale
+    const zoomSelect = document.getElementById('zoom-select');
+    if (zoomSelect) {
+        zoomSelect.value = scale.toString();
+    }
     
     console.log('🎨 Rendering', totalPages, 'pages at', Math.round(scale * 100) + '% zoom');
     
