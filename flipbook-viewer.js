@@ -14,7 +14,8 @@ console.log('📱 Mobile detection:', isMobile, '| Width:', window.innerWidth, '
 // Global state
 let currentPage = 1;
 let totalPages = 0;
-let scale = isMobile ? 1.0 : 0.46; // Mobile: 100% A4 size, Desktop: 46% zoom
+// Mobile: Calculate scale to fit viewport width (95% for padding), Desktop: 46% zoom
+let scale = isMobile ? (window.innerWidth * 0.95) / A4_WIDTH_PX : 0.46;
 let manifest = null;
 let pageCanvases = [];
 let flipbookInitialized = false;
@@ -313,6 +314,8 @@ function initMobileFlipbook(flipbook, pageWidth, pageHeight) {
     console.log('📱 Initializing mobile flipbook - JSON page order');
     console.log('📱 Total pages to render:', pageCanvases.length);
     console.log('📱 Page dimensions:', pageWidth, 'x', pageHeight);
+    console.log('📱 Mobile scale:', scale);
+    console.log('📱 Viewport width:', window.innerWidth);
     
     // Create container for all pages
     const pagesContainer = $('<div id="mobile-pages-container"></div>');
@@ -355,10 +358,16 @@ function initMobileFlipbook(flipbook, pageWidth, pageHeight) {
         // Add interactive elements
         if (manifest && manifest.pages && manifest.pages[index]) {
             const pageData = manifest.pages[index];
+            console.log(`📱 Page ${index + 1} - Checking for elements:`, pageData.elements ? pageData.elements.length : 'NO ELEMENTS ARRAY');
             if (pageData.elements && pageData.elements.length > 0) {
-                console.log(' Page', index + 1, '- Rendering', pageData.elements.length, 'elements');
+                console.log(`📱 Page ${index + 1} - Rendering ${pageData.elements.length} elements`);
+                console.log(`📱 Page dimensions for elements: ${pageWidth}x${pageHeight}`);
                 renderInteractiveElements(pageDiv, pageData.elements, pageWidth, pageHeight);
+            } else {
+                console.log(`📱 Page ${index + 1} - NO ELEMENTS TO RENDER`);
             }
+        } else {
+            console.log(`📱 Page ${index + 1} - NO PAGE DATA IN MANIFEST`);
         }
         
         // Add page number
