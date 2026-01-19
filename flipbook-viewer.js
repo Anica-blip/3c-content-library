@@ -10,7 +10,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 // Global state
 let currentPage = 1;
 let totalPages = 0;
-let scale = 0.46; // Default 48% zoom for optimal viewing (fits viewport without scrolling)
+let scale = 0.48; // Default 48% zoom for optimal viewing (fits viewport without scrolling)
 let manifest = null;
 let pageCanvases = [];
 let flipbookInitialized = false;
