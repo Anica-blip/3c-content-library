@@ -177,6 +177,17 @@
         #flipbook .page-wrapper {
             overflow: hidden !important;
         }
+        
+        /* Keep corner fold fixed to page edge at all zoom levels */
+        #flipbook .turn-page .corner {
+            max-width: 100% !important;
+            max-height: 100% !important;
+        }
+        
+        #flipbook .page {
+            overflow: hidden !important;
+            position: relative !important;
+        }
 
         /* Navigation Arrows - positioned OFF document sides */
         .nav-arrow {
