@@ -218,8 +218,8 @@ async function renderPagesAtScale() {
         
         await new Promise((resolve, reject) => {
             img.onload = () => {
-                // Render at 1x resolution for clear text
-                const renderScale = 1;
+                // Render at 2x resolution for crisp quality (both desktop and mobile)
+                const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 
@@ -237,7 +237,7 @@ async function renderPagesAtScale() {
             
             img.onerror = (error) => {
                 console.warn(' Failed to load background for page', i + 1);
-                const renderScale = 1;
+                const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 canvas.style.width = pageWidth + 'px';
@@ -263,7 +263,7 @@ async function renderPagesAtScale() {
                 img.src = backgroundSource;
             } else {
                 // Create blank canvas
-                const renderScale = 1;
+                const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 canvas.style.width = pageWidth + 'px';
@@ -417,10 +417,9 @@ function initDesktopFlipbook(flipbook, pageWidth, pageHeight) {
         flipbook.append(pageDiv);
     });
     
-    // Calculate corner size based on base A4 dimensions at 46% zoom (not current zoom)
-    // This keeps corner size constant regardless of zoom level
-    const basePageWidth = Math.round(A4_WIDTH_PX * 0.46);
-    const fixedCornerSize = Math.round(basePageWidth * 0.03); // 3% of base page width - smaller to stay within page edge
+    // FIXED corner size at 48% initial view - never changes with zoom (matches left fold)
+    const basePageWidth = Math.round(A4_WIDTH_PX * 0.48);
+    const fixedCornerSize = Math.round(basePageWidth * 0.015); // 1.5% of base page width - matches left fold size
     
     flipbook.turn({
         width: pageWidth * 2,
