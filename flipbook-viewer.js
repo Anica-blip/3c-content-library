@@ -1166,39 +1166,44 @@ function setupEventListeners() {
  */
 async function reloadFlipbook() {
     loading.classList.remove('hidden');
-    console.log('🔄 Reloading flipbook at', Math.round(scale * 100) + '% zoom');
+    console.log('🔄 Reloading flipbook at', Math.round(scale * 100) + '% zoom, page', currentPage);
     
     // Update zoom display
     document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
     
     try {
-        // Destroy existing flipbook
+        // Destroy existing flipbook properly
         if (flipbookInitialized) {
-            $('#flipbook').turn('destroy');
+            try {
+                const $flipbook = $('#flipbook');
+                // Remove turn.js instance
+                if ($flipbook.data('turn')) {
+                    $flipbook.turn('destroy');
+                }
+            } catch (e) {
+                console.warn('⚠️ Error destroying turn.js:', e);
+            }
             flipbookInitialized = false;
         }
         
+        // Clear flipbook container completely
+        $('#flipbook').empty();
+        
         // Re-render pages at new scale
         await renderPagesAtScale();
+        
+        // Reinitialize flipbook
         initFlipbook();
         
         // Go to the desired page after reload
         setTimeout(() => {
             $('#flipbook').turn('page', currentPage);
             updatePageInfo();
-        }, 100);
+        }, 150);
         
-        // Resize container to fit new dimensions
-        const pageWidth = Math.round(A4_WIDTH_PX * scale);
-        const pageHeight = Math.round(A4_HEIGHT_PX * scale);
-        $('#flipbook').css({
-            width: (pageWidth * 2) + 'px',
-            height: pageHeight + 'px'
-        });
-        
-        console.log(' Flipbook reloaded at', Math.round(scale * 100) + '%');
+        console.log('✅ Flipbook reloaded at', Math.round(scale * 100) + '%, page', currentPage);
     } catch (error) {
-        console.error(' Error reloading flipbook:', error);
+        console.error('❌ Error reloading flipbook:', error);
     } finally {
         loading.classList.add('hidden');
     }
