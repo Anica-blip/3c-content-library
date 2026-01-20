@@ -1074,8 +1074,10 @@ function closeMedia() {
  */
 function setupEventListeners() {
     // Navigation buttons
-    $('#first-page').on('click', () => {
-        $('#flipbook').turn('page', 1);
+    $('#first-page').on('click', async () => {
+        console.log('⏮ First page clicked - reloading JSON');
+        currentPage = 1;
+        await reloadFlipbook();
     });
     
     $('#prev-page').on('click', () => {
@@ -1086,24 +1088,28 @@ function setupEventListeners() {
         $('#flipbook').turn('next');
     });
     
-    $('#last-page').on('click', () => {
-        $('#flipbook').turn('page', totalPages);
+    $('#last-page').on('click', async () => {
+        console.log('⏭ Last page clicked - reloading JSON');
+        currentPage = totalPages;
+        await reloadFlipbook();
     });
     
-    // Zoom controls - only 48% and 53% allowed
-    $('#zoom-in').on('click', () => {
-        console.log('🔍 Zoom in clicked');
+    // Zoom controls - only 48% and 53% allowed, reload JSON at new size starting page 1
+    $('#zoom-in').on('click', async () => {
+        console.log('🔍 Zoom in clicked - reloading JSON at 53%');
         if (scale < 0.53) {
             scale = 0.53; // Jump to 53%
-            reloadFlipbook();
+            currentPage = 1; // Start at page 1
+            await reloadFlipbook();
         }
     });
     
-    $('#zoom-out').on('click', () => {
-        console.log('🔍 Zoom out clicked');
+    $('#zoom-out').on('click', async () => {
+        console.log('🔍 Zoom out clicked - reloading JSON at 48%');
         if (scale > 0.48) {
             scale = 0.48; // Jump to 48%
-            reloadFlipbook();
+            currentPage = 1; // Start at page 1
+            await reloadFlipbook();
         }
     });
     
@@ -1112,6 +1118,12 @@ function setupEventListeners() {
     
     // Download button
     $('#download-btn').on('click', downloadFlipbook);
+    
+    // Refresh button
+    $('#refresh-btn').on('click', async () => {
+        console.log('🔄 Refresh clicked - reloading JSON');
+        await reloadFlipbook();
+    });
     
     // Navigation arrows
     $('#nav-arrow-left').on('click', () => {
@@ -1160,9 +1172,6 @@ async function reloadFlipbook() {
     document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
     
     try {
-        // Store current page before destroying
-        const savedPage = currentPage;
-        
         // Destroy existing flipbook
         if (flipbookInitialized) {
             $('#flipbook').turn('destroy');
@@ -1173,12 +1182,11 @@ async function reloadFlipbook() {
         await renderPagesAtScale();
         initFlipbook();
         
-        // Restore page position after reload
-        if (savedPage > 1) {
-            setTimeout(() => {
-                $('#flipbook').turn('page', savedPage);
-            }, 100);
-        }
+        // Go to the desired page after reload
+        setTimeout(() => {
+            $('#flipbook').turn('page', currentPage);
+            updatePageInfo();
+        }, 100);
         
         // Resize container to fit new dimensions
         const pageWidth = Math.round(A4_WIDTH_PX * scale);
