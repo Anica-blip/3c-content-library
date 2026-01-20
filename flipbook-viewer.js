@@ -1088,10 +1088,9 @@ function setupEventListeners() {
         $('#flipbook').turn('next');
     });
     
-    $('#last-page').on('click', async () => {
-        console.log('⏭ Last page clicked - reloading JSON');
-        currentPage = totalPages;
-        await reloadFlipbook();
+    $('#last-page').on('click', () => {
+        console.log('⏭ Last page clicked');
+        $('#flipbook').turn('page', totalPages);
     });
     
     // Zoom controls - only 48% and 53% allowed, reload JSON at new size starting page 1
@@ -1119,9 +1118,10 @@ function setupEventListeners() {
     // Download button
     $('#download-btn').on('click', downloadFlipbook);
     
-    // Refresh button
+    // Refresh button - reload at current scale and page
     $('#refresh-btn').on('click', async () => {
-        console.log('🔄 Refresh clicked - reloading JSON');
+        console.log('🔄 Refresh clicked - reloading JSON at current scale/page');
+        // currentPage is already set, just reload
         await reloadFlipbook();
     });
     
@@ -1376,8 +1376,14 @@ function setupInteractiveElementHandlers() {
                 if (!emojiUrl.startsWith('http://') && !emojiUrl.startsWith('https://')) {
                     emojiUrl = 'https://' + emojiUrl;
                 }
-                const popup = window.open(emojiUrl, '_blank', 'width=800,height=600');
-                if (!popup) alert('Please allow popups');
+                // Check if it's a video URL
+                if (isVideoUrl(emojiUrl)) {
+                    console.log('🎥 3c-emoji video detected, using purple overlay...');
+                    playMedia({...elementData, url: emojiUrl}, 'video');
+                } else {
+                    const popup = window.open(emojiUrl, '_blank', 'width=800,height=600');
+                    if (!popup) alert('Please allow popups');
+                }
             }
         }
         
