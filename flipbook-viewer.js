@@ -7,14 +7,10 @@
 // PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// Mobile detection
-const isMobile = window.innerWidth <= 768 || 
-                 /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
 // Global state
 let currentPage = 1;
 let totalPages = 0;
-let scale = isMobile ? 1.0 : 0.46; // Mobile: 100% for full A4, Desktop: 46% zoom
+let scale = 0.46; // Default 46% zoom for optimal viewing (fits viewport without scrolling)
 let manifest = null;
 let pageCanvases = [];
 let flipbookInitialized = false;
@@ -218,7 +214,7 @@ async function renderPagesAtScale() {
         await new Promise((resolve, reject) => {
             img.onload = () => {
                 // Render at 2x resolution for quality, then scale display with CSS
-                const renderScale = 3;
+                const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 
@@ -236,7 +232,7 @@ async function renderPagesAtScale() {
             
             img.onerror = (error) => {
                 console.warn(' Failed to load background for page', i + 1);
-                const renderScale = 3;
+                const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 canvas.style.width = pageWidth + 'px';
@@ -262,7 +258,7 @@ async function renderPagesAtScale() {
                 img.src = backgroundSource;
             } else {
                 // Create blank canvas
-                const renderScale = 3;
+                const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
                 canvas.style.width = pageWidth + 'px';
@@ -327,20 +323,15 @@ function initFlipbook() {
     
     // Initialize turn.js with correct dimensions
     flipbook.turn({
-        width: isMobile ? pageWidth : pageWidth * 2, // Single page on mobile, double on desktop
+        width: pageWidth * 2, // Double width for spread
         height: pageHeight,
         autoCenter: true,
-        display: isMobile ? 'single' : 'double', // Single-page mode on mobile
+        display: 'double',
         gradients: true,
         elevation: 50,
         acceleration: true,
         duration: 1000,
         pages: totalPages,
-        page: 1, // Start at page 1 (JSON page numbers)
-        // Corner configuration - align corners with page edges
-        turnCorners: 'br,tr', // Only enable right side corners for right pages
-        cornerSize: Math.min(pageWidth * 0.06, 50), // 6% of page width, max 50px
-        inclination: 0, // Keep corner flat against page edge
         when: {
             turning: function(event, page, view) {
                 try {
@@ -1105,7 +1096,7 @@ function setupEventListeners() {
         scale += 0.05; // Increase by 5%
         scale = Math.round(scale * 100) / 100;
         if (scale > 0.53) scale = 0.53; // Cap at 53% to prevent gap issues // Max 150%
-        applyZoom();
+        reloadFlipbook();
     });
     
     $('#zoom-out').on('click', () => {
@@ -1113,7 +1104,7 @@ function setupEventListeners() {
         scale -= 0.05; // Decrease by 5%
         scale = Math.round(scale * 100) / 100;
         if (scale < 0.3) scale = 0.3; // Min 30%
-        applyZoom();
+        reloadFlipbook();
     });
     
     // Back button
@@ -1159,19 +1150,6 @@ function setupEventListeners() {
 }
 
 /**
- * Apply zoom using CSS transform - no re-rendering needed
- * This keeps turn.js dimensions constant and just scales the visual display
- */
-function applyZoom() {
-    console.log('Applying zoom:', Math.round(scale * 100) + '%');
-    document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
-    $('#flipbook-wrapper').css({
-        'transform': 'scale(' + (scale / 0.48) + ')',
-        'transform-origin': 'center top'
-    });
-}
-
-/**
  * Reload flipbook after zoom change
  */
 async function reloadFlipbook() {
@@ -1187,14 +1165,7 @@ async function reloadFlipbook() {
         
         // Destroy existing flipbook
         if (flipbookInitialized) {
-            try {
-                // Check if turn.js is actually initialized on the element
-                if (typeof $('#flipbook').turn === 'function' && $('#flipbook').data('turn')) {
-                    $('#flipbook').turn('destroy');
-                }
-            } catch (e) {
-                console.log('Turn.js destroy skipped:', e.message);
-            }
+            $('#flipbook').turn('destroy');
             flipbookInitialized = false;
         }
         
@@ -1213,12 +1184,6 @@ async function reloadFlipbook() {
         const pageWidth = Math.round(A4_WIDTH_PX * scale);
         const pageHeight = Math.round(A4_HEIGHT_PX * scale);
         $('#flipbook').css({
-            width: (pageWidth * 2) + 'px',
-            height: pageHeight + 'px'
-        });
-        
-        // Update wrapper to match new size (important for zoom visual effect)
-        $('#flipbook-wrapper').css({
             width: (pageWidth * 2) + 'px',
             height: pageHeight + 'px'
         });
