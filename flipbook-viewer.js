@@ -1090,21 +1090,21 @@ function setupEventListeners() {
         $('#flipbook').turn('page', totalPages);
     });
     
-    // Zoom controls - scale container only (max 53% to prevent gaps)
+    // Zoom controls - only 48% and 53% allowed
     $('#zoom-in').on('click', () => {
         console.log('🔍 Zoom in clicked');
-        scale += 0.05;
-        scale = Math.round(scale * 100) / 100;
-        if (scale > 0.53) scale = 0.53; // Cap at 53% to prevent gap issues
-        applyZoom();
+        if (scale < 0.53) {
+            scale = 0.53; // Jump to 53%
+            reloadFlipbook();
+        }
     });
     
     $('#zoom-out').on('click', () => {
         console.log('🔍 Zoom out clicked');
-        scale -= 0.05;
-        scale = Math.round(scale * 100) / 100;
-        if (scale < 0.3) scale = 0.3;
-        applyZoom();
+        if (scale > 0.48) {
+            scale = 0.48; // Jump to 48%
+            reloadFlipbook();
+        }
     });
     
     // Back button
