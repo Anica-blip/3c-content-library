@@ -930,7 +930,7 @@ function setupEventListeners() {
         console.log('🔍 Zoom in clicked');
         scale += 0.05; // Increase by 5%
         scale = Math.round(scale * 100) / 100;
-        if (scale > 1.5) scale = 1.5; // Max 53%
+        if (scale > 1.5) scale = 1.5; // Max 150%
         reloadFlipbook();
     });
     
