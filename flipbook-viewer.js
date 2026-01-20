@@ -44,10 +44,38 @@ function getUrlParams() {
 }
 
 /**
+ * Detect if device is mobile/tablet
+ */
+function isMobileDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    
+    // Check for mobile/tablet devices
+    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+    const isMobileUA = mobileRegex.test(userAgent);
+    
+    // Check for touch support
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    
+    // Check screen size (tablets and phones typically < 1024px width)
+    const isSmallScreen = window.innerWidth < 1024;
+    
+    return isMobileUA || (hasTouch && isSmallScreen);
+}
+
+/**
  * Initialize flipbook
  */
 async function init() {
     try {
+        // Redirect mobile devices to mobile viewer
+        if (isMobileDevice()) {
+            console.log('📱 Mobile device detected, redirecting to mobile viewer...');
+            const params = new URLSearchParams(window.location.search);
+            window.location.href = 'flipbook-viewer-mobile.html?' + params.toString();
+            return;
+        }
+        
+        console.log('🖥️ Desktop device detected, loading desktop flipbook...');
         const params = getUrlParams();
         contentId = params.content;
         const manifestUrl = params.manifest;

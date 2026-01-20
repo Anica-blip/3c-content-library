@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>3C Mobile Flipbook Viewer</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- Cloudflare Stream Player -->
+    <script src="https://embed.cloudflarestream.com/embed/sdk.latest.js"></script>
+    
+    <!-- Hammer.js for touch gestures -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    
+    <!-- Configuration -->
+    <script src="config.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            touch-action: pan-y pinch-zoom;
+        }
+
+        /* Toolbar Styles */
+        #toolbar {
+            background: rgba(42, 42, 42, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 10px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+        }
+
+        /* Top Line: Logo + Title */
+        .toolbar-top {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #logo {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+        }
+
+        #title {
+            font-size: 17px;
+            color: #b19cd9;
+            font-weight: 500;
+        }
+
+        /* Second Line: Page Navigation */
+        .toolbar-middle {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* Third Line: Action Buttons */
+        .toolbar-bottom {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Button Styles */
+        .btn {
+            background: linear-gradient(135deg, #b19cd9, #9d84c8);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 40px;
+            min-height: 40px;
+            box-shadow: 0 2px 8px rgba(177, 156, 217, 0.3);
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 1px 4px rgba(177, 156, 217, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-orange {
+            background: linear-gradient(135deg, #ff6b35, #ff8c42);
+            box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+        }
+
+        .btn-green {
+            background: linear-gradient(135deg, #4caf50, #66bb6a);
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+        }
+
+        #page-counter {
+            background: rgba(177, 156, 217, 0.2);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 15px;
+            color: #b19cd9;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        /* Page Container */
+        #page-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            background: #2a2a2a;
+            touch-action: pan-y pinch-zoom;
+        }
+
+        #page-wrapper {
+            position: relative;
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: pan-y pinch-zoom;
+        }
+
+        .page {
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            background: white;
+            touch-action: pan-y pinch-zoom;
+        }
+
+        .page canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Interactive Elements */
+        .interactive-element {
+            position: absolute;
+            cursor: pointer;
+            z-index: 10;
+            transition: transform 0.2s ease;
+        }
+
+        .interactive-element:active {
+            transform: scale(0.95);
+        }
+
+        .interactive-element img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        /* Loading Overlay */
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        #loading.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(177, 156, 217, 0.3);
+            border-top-color: #b19cd9;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Media Overlay */
+        #media-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
+        }
+
+        #media-overlay.active {
+            display: flex;
+        }
+
+        #media-content {
+            position: relative;
+            max-width: 100%;
+            max-height: 90vh;
+            width: 100%;
+        }
+
+        #media-player {
+            width: 100%;
+            max-height: 80vh;
+        }
+
+        #media-player video,
+        #media-player iframe {
+            width: 100%;
+            height: auto;
+            max-height: 80vh;
+        }
+
+        #close-media {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            background: #ff6b35;
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(255, 107, 53, 0.5);
+        }
+
+        /* SVG Icons */
+        .icon {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <div style="color: #b19cd9; font-size: 16px;">Loading flipbook...</div>
+    </div>
+
+    <!-- Toolbar -->
+    <div id="toolbar">
+        <!-- Top Line: Logo + Title -->
+        <div class="toolbar-top">
+            <img id="logo" src="favicon.png" alt="3C Logo">
+            <div id="title">3C Flipbook</div>
+        </div>
+
+        <!-- Second Line: Page Navigation -->
+        <div class="toolbar-middle">
+            <button class="btn" id="first-page" title="First Page">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6zM6 6h2v12H6z"/>
+                </svg>
+            </button>
+            <div id="page-counter">1/1</div>
+            <button class="btn" id="last-page" title="Last Page">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6zM16 6h2v12h-2z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Third Line: Action Buttons -->
+        <div class="toolbar-bottom">
+            <button class="btn" id="prev-page" title="Previous">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                </svg>
+            </button>
+            <button class="btn" id="next-page" title="Next">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                </svg>
+            </button>
+            <button class="btn" id="refresh-btn" title="Refresh">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                </svg>
+            </button>
+            <button class="btn btn-orange" id="close-btn" title="Close">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+            <button class="btn btn-green" id="download-btn" title="Download">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Page Container -->
+    <div id="page-container">
+        <div id="page-wrapper"></div>
+    </div>
+
+    <!-- Media Overlay -->
+    <div id="media-overlay">
+        <div id="media-content">
+            <button id="close-media">×</button>
+            <div id="media-player"></div>
+        </div>
+    </div>
+
+    <!-- Mobile Flipbook Script -->
+    <script src="flipbook-viewer-mobile.js"></script>
+</body>
+</html>
