@@ -914,10 +914,16 @@
                 <img src="3C Thread To Success logo.png" alt="3C Logo" class="logo-img">
                 <h1>🔒 3C Private Library</h1>
             </div>
-            <div class="header-right">
-                <a href="library.html" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 10px rgba(155, 89, 182, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 6px rgba(155, 89, 182, 0.3)'">
+            <div class="header-right" style="display: flex; gap: 8px; align-items: center;">
+                <a href="library.html" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(155, 89, 182, 0.3); transition: all 0.2s; white-space: nowrap;">
                     📁 Public
                 </a>
+                <button id="loginBtn" onclick="showLoginForm()" style="background: linear-gradient(135deg, #27ae60, #229954); color: white; padding: 6px 12px; border-radius: 6px; border: none; font-weight: 500; font-size: 13px; cursor: pointer; box-shadow: 0 2px 6px rgba(39, 174, 96, 0.3); white-space: nowrap;">
+                    Log In
+                </button>
+                <button id="logoutBtn" onclick="handleLogout()" style="display: none; background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 6px 12px; border-radius: 6px; border: none; font-weight: 500; font-size: 13px; cursor: pointer; box-shadow: 0 2px 6px rgba(231, 76, 60, 0.3); white-space: nowrap;">
+                    Log Out
+                </button>
             </div>
         </div>
     </div>
@@ -937,7 +943,15 @@
             <h2 style="color: #e74c3c; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
                 🔒 Private Folders
             </h2>
-            <p style="color: #999; margin-bottom: 20px; font-size: 14px;">These folders require password access. Click on a folder to unlock it.</p>
+            <p style="color: #999; margin-bottom: 20px; font-size: 14px; line-height: 1.6;">
+                This section: folders are password protected, to gain access you need to get the password from admin. Then use the Sign In button, with your username and the password provided to you.<br><br>
+                You can send an email to <a href="mailto:3c.innertherapy@gmail.com" style="color: #9b59b6; text-decoration: none;">3c.innertherapy@gmail.com</a> to learn how this applies to you.
+            </p>
+            <div style="text-align: center; margin-bottom: 30px;">
+                <button onclick="showLoginForm()" style="background: linear-gradient(135deg, #27ae60, #229954); color: white; padding: 12px 32px; border-radius: 6px; border: none; font-weight: 600; font-size: 15px; cursor: pointer; box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(39, 174, 96, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(39, 174, 96, 0.3)'">
+                    SIGN UP
+                </button>
+            </div>
             <div id="foldersGrid" class="folders-grid"></div>
         </div>
         
@@ -2079,11 +2093,19 @@
                 const isOwner = currentUser && ownerEmail && 
                                currentUser.email.toLowerCase() === ownerEmail.toLowerCase();
                 
+                
                 if (!isOwner) {
-                    // Not owner - show login form
-                    console.warn('🔒 Access denied to private library - not owner');
-                    showLoginPrompt();
-                    return;
+                    // Not owner - update header to show login button
+                    updateHeaderButtons(false);
+                } else {
+                    // Owner authenticated - update header to show logout button
+                    updateHeaderButtons(true);
+                }
+                
+                console.log('👑 Owner access granted to private library');
+                
+                await loadData();
+                displayContent();
                 }
                 
                 console.log('👑 Owner access granted to private library');
@@ -2167,5 +2189,28 @@ async function submitLogin() {
         console.error('Login error:', error);
         errorEl.textContent = error.message || 'Login failed';
         errorEl.style.display = 'block';
+    }
+}
+// Logout handler
+async function handleLogout() {
+    try {
+        await supabase.auth.signOut();
+        window.location.reload();
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
+}
+
+// Update header buttons based on auth state
+function updateHeaderButtons(isAuthenticated) {
+    const loginBtn = document.getElementById('loginBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    if (isAuthenticated) {
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'flex';
+    } else {
+        loginBtn.style.display = 'flex';
+        logoutBtn.style.display = 'none';
     }
 }
