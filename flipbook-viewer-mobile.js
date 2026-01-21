@@ -217,21 +217,32 @@ async function renderPage(pageNum) {
         
         // Load and draw page image
         if (pageData.imageUrl) {
+            console.log('📸 Loading page image:', pageData.imageUrl);
             const img = new Image();
             img.crossOrigin = 'anonymous';
             
             await new Promise((resolve, reject) => {
                 img.onload = () => {
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    console.log('✅ Page image rendered');
+                    console.log('✅ Page image rendered:', pageData.imageUrl);
                     resolve();
                 };
                 img.onerror = (e) => {
-                    console.error('❌ Error loading page image:', e);
-                    reject(e);
+                    console.error('❌ Error loading page image:', pageData.imageUrl);
+                    console.error('Error details:', e);
+                    // Draw white background if image fails to load
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    resolve(); // Don't reject, continue with white background
                 };
                 img.src = pageData.imageUrl;
             });
+        } else {
+            console.warn('⚠️ No imageUrl found in page data');
+            console.log('Page data:', pageData);
+            // Draw white background if no image URL
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
         
         pageDiv.appendChild(canvas);
@@ -290,30 +301,45 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         // Add visual representation based on element type
         if (element.type === '3c-button' || element.type === 'button') {
             if (element.imagePath || element.image) {
+                const imgSrc = element.imagePath || element.image;
+                console.log('🖼️ Button image:', imgSrc);
                 const img = document.createElement('img');
-                img.src = element.imagePath || element.image;
+                img.src = imgSrc;
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.objectFit = 'contain';
+                img.onerror = () => console.error('❌ Failed to load button image:', imgSrc);
+                img.onload = () => console.log('✅ Button image loaded:', imgSrc);
                 elementDiv.appendChild(img);
+            } else {
+                console.warn('⚠️ Button has no image:', element);
             }
         } else if (element.type === '3c-emoji' || element.type === '3c-emoji-decoration') {
             if (element.imagePath || element.image) {
+                const imgSrc = element.imagePath || element.image;
+                console.log('🖼️ Emoji image:', imgSrc);
                 const img = document.createElement('img');
-                img.src = element.imagePath || element.image;
+                img.src = imgSrc;
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.objectFit = 'contain';
+                img.onerror = () => console.error('❌ Failed to load emoji image:', imgSrc);
+                img.onload = () => console.log('✅ Emoji image loaded:', imgSrc);
                 elementDiv.appendChild(img);
+            } else {
+                console.warn('⚠️ Emoji has no image:', element);
             }
         } else if (element.type === 'video' || element.type === 'cloudflare-stream') {
             // Show play button overlay
             if (element.thumbnailUrl) {
+                console.log('🖼️ Video thumbnail:', element.thumbnailUrl);
                 const img = document.createElement('img');
                 img.src = element.thumbnailUrl;
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.objectFit = 'cover';
+                img.onerror = () => console.error('❌ Failed to load video thumbnail:', element.thumbnailUrl);
+                img.onload = () => console.log('✅ Video thumbnail loaded:', element.thumbnailUrl);
                 elementDiv.appendChild(img);
             }
             // Add play icon
