@@ -317,7 +317,8 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         if (element.type === '3c-button' || element.type === 'button') {
             if (element.imagePath || element.image) {
                 let imgSrc = element.imagePath || element.image;
-                // Convert relative paths to full GitHub Pages URL (same as desktop)
+                // Convert relative paths to full GitHub Pages URL
+                // Supports: public/3C Buttons, public/3C Buttons/Emojis, public/3C Buttons/Emojis/General
                 if (imgSrc && !imgSrc.startsWith('http')) {
                     imgSrc = 'https://anica-blip.github.io/interactive-PDF/public' + (imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc);
                 }
@@ -336,7 +337,8 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         } else if (element.type === '3c-emoji' || element.type === '3c-emoji-decoration') {
             if (element.imagePath || element.image) {
                 let imgSrc = element.imagePath || element.image;
-                // Convert relative paths to full GitHub Pages URL (same as desktop)
+                // Convert relative paths to full GitHub Pages URL
+                // Supports: public/3C Buttons/Emojis, public/3C Buttons/Emojis/General
                 if (imgSrc && !imgSrc.startsWith('http')) {
                     imgSrc = 'https://anica-blip.github.io/interactive-PDF/public' + (imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc);
                 }
