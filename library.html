@@ -205,15 +205,8 @@
         .content-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            gap: 15px;
             margin-top: 15px;
-        }
-        
-        /* Left sidebar thumbnails - half size for compact view */
-        #leftSidebar .content-thumbnail {
-            width: 100%;
-            height: 80px;
-            font-size: 20px;
         }
         
         .content-card {
@@ -899,6 +892,17 @@
             
             #leftSidebar.hidden {
                 display: none !important;
+            }
+            
+            /* Mobile left sidebar thumbnails - square, one per row */
+            #leftSidebar .content-grid {
+                grid-template-columns: 1fr !important;
+            }
+            
+            #leftSidebar .content-thumbnail {
+                width: 100%;
+                aspect-ratio: 1 / 1;
+                height: auto;
             }
             
             .right-viewer {

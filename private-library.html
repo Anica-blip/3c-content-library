@@ -2094,24 +2094,21 @@
                                currentUser.email.toLowerCase() === ownerEmail.toLowerCase();
                 
                 
+                
                 if (!isOwner) {
                     // Not owner - update header to show login button
                     updateHeaderButtons(false);
                 } else {
                     // Owner authenticated - update header to show logout button
                     updateHeaderButtons(true);
+                    
+                    console.log('👑 Owner access granted to private library');
+                    
+                    await loadData();
+                    displayContent();
                 }
                 
-                console.log('👑 Owner access granted to private library');
                 
-                await loadData();
-                displayContent();
-                }
-                
-                console.log('👑 Owner access granted to private library');
-                
-                await loadData();
-                displayContent();
             } catch (error) {
                 console.error('Failed to load library:', error);
                 document.getElementById('loadingOverlay').innerHTML = `
