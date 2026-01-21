@@ -316,7 +316,11 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         // Add visual representation based on element type
         if (element.type === '3c-button' || element.type === 'button') {
             if (element.imagePath || element.image) {
-                const imgSrc = element.imagePath || element.image;
+                let imgSrc = element.imagePath || element.image;
+                // Convert relative paths to full GitHub Pages URL (same as desktop)
+                if (imgSrc && !imgSrc.startsWith('http')) {
+                    imgSrc = 'https://anica-blip.github.io/interactive-PDF/public' + (imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc);
+                }
                 console.log('🖼️ Button image:', imgSrc);
                 const img = document.createElement('img');
                 img.src = imgSrc;
@@ -331,13 +335,18 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
             }
         } else if (element.type === '3c-emoji' || element.type === '3c-emoji-decoration') {
             if (element.imagePath || element.image) {
-                const imgSrc = element.imagePath || element.image;
+                let imgSrc = element.imagePath || element.image;
+                // Convert relative paths to full GitHub Pages URL (same as desktop)
+                if (imgSrc && !imgSrc.startsWith('http')) {
+                    imgSrc = 'https://anica-blip.github.io/interactive-PDF/public' + (imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc);
+                }
                 console.log('🖼️ Emoji image:', imgSrc);
                 const img = document.createElement('img');
                 img.src = imgSrc;
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.objectFit = 'contain';
+                img.style.borderRadius = '50%';
                 img.onerror = () => console.error('❌ Failed to load emoji image:', imgSrc);
                 img.onload = () => console.log('✅ Emoji image loaded:', imgSrc);
                 elementDiv.appendChild(img);
@@ -637,18 +646,41 @@ function setupEventListeners() {
  * Setup touch gestures
  */
 function setupTouchGestures() {
-    const hammer = new Hammer(pageContainer);
-    
-    // Swipe left/right for page navigation
-    hammer.on('swipeleft', () => {
-        console.log('👆 Swipe left');
-        goToPage(currentPage + 1);
+    const hammer = new Hammer(pageContainer, {
+        touchAction: 'pan-y'
     });
     
-    hammer.on('swiperight', () => {
-        console.log('👆 Swipe right');
-        goToPage(currentPage - 1);
+    hammer.get('pinch').set({ enable: true });
+    
+    let scale = 1;
+    let lastScale = 1;
+    
+    // Swipe left/right - prevent browser navigation
+    hammer.on('swipeleft', (e) => {
+        e.preventDefault();
+        e.srcEvent.preventDefault();
+        console.log('👆 Swipe left - next page');
+        if (currentPage < totalPages) goToPage(currentPage + 1);
     });
+    
+    hammer.on('swiperight', (e) => {
+        e.preventDefault();
+        e.srcEvent.preventDefault();
+        console.log('👆 Swipe right - prev page');
+        if (currentPage > 1) goToPage(currentPage - 1);
+    });
+    
+    // Pinch zoom
+    hammer.on('pinchstart', () => { lastScale = scale; });
+    hammer.on('pinchmove', (e) => {
+        scale = Math.max(1, Math.min(lastScale * e.scale, 3));
+        const page = pageWrapper.querySelector('.page');
+        if (page) {
+            page.style.transform = `scale(${scale})`;
+            page.style.transformOrigin = 'center';
+        }
+    });
+    hammer.on('pinchend', () => { lastScale = scale; });
     
     console.log('✅ Touch gestures enabled');
 }
