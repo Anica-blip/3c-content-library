@@ -411,9 +411,8 @@ function handleElementClick(element) {
                 console.log('🎥 Opening video...');
                 playMedia({...element, url: buttonUrl}, 'video');
             } else {
-                console.log('🔗 Button link - staying in viewer');
-                // Don't open in new tab, just log for now
-                // Could implement in-viewer navigation later
+                console.log('🔗 Opening external link in popup...');
+                showLinkPopup(buttonUrl);
             }
         } else if (element.videoUrl || element.streamId) {
             playMedia(element, 'video');
@@ -432,8 +431,8 @@ function handleElementClick(element) {
                 console.log('🎥 3c-emoji video detected, using overlay...');
                 playMedia({...element, url: emojiUrl}, 'video');
             } else {
-                console.log('🔗 Emoji link - staying in viewer');
-                // Don't open in new tab, just log for now
+                console.log('🔗 Opening emoji link in popup...');
+                showLinkPopup(emojiUrl);
             }
         }
     } else if (elementType === 'hotspot' || elementType === 'link') {
@@ -557,6 +556,26 @@ function getVideoEmbedUrl(url) {
     }
     
     return null;
+}
+
+/**
+ * Show link in popup iframe
+ */
+function showLinkPopup(url) {
+    console.log('🔗 Opening link in popup:', url);
+    
+    mediaPlayer.innerHTML = '';
+    
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    iframe.style.width = '100%';
+    iframe.style.height = '70vh';
+    iframe.style.border = 'none';
+    iframe.style.borderRadius = '8px';
+    iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+    
+    mediaPlayer.appendChild(iframe);
+    mediaOverlay.classList.add('active');
 }
 
 /**
