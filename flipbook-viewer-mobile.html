@@ -18,6 +18,9 @@
     <!-- Hammer.js for touch gestures -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <!-- Configuration -->
     <script src="config.js"></script>
     
@@ -62,13 +65,14 @@
         }
 
         #logo {
-            width: 30px;
-            height: 30px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
+            object-fit: cover;
         }
 
         #title {
-            font-size: 18px;
+            font-size: 20px;
             color: #b19cd9;
             font-weight: 500;
         }
@@ -300,8 +304,8 @@
     <div id="toolbar">
         <!-- Top Line: Logo + Title -->
         <div class="toolbar-top">
-            <img id="logo" src="favicon.png" alt="3C Logo">
-            <div id="title">3C Flipbook</div>
+            <img id="logo" src="3C Thread To Success logo.png" alt="3C Logo">
+            <div id="title">3C Interactive Flipbook</div>
         </div>
 
         <!-- Second Line: Page Navigation -->

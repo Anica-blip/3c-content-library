@@ -215,32 +215,47 @@ async function renderPage(pageNum) {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         
-        // Load and draw page image
-        if (pageData.imageUrl) {
-            console.log('📸 Loading page image:', pageData.imageUrl);
+        // Load and draw page image (same logic as desktop viewer)
+        // Check for backgroundData, background (data: or URL)
+        let backgroundSource = null;
+        if (pageData.backgroundData) {
+            backgroundSource = pageData.backgroundData;
+            console.log('📸 Loading page from backgroundData');
+        } else if (pageData.background && pageData.background.startsWith('data:')) {
+            backgroundSource = pageData.background;
+            console.log('📸 Loading page from background (data URL)');
+        } else if (pageData.background) {
+            backgroundSource = pageData.background;
+            console.log('📸 Loading page from background URL:', pageData.background);
+        } else if (pageData.imageUrl) {
+            backgroundSource = pageData.imageUrl;
+            console.log('📸 Loading page from imageUrl:', pageData.imageUrl);
+        }
+        
+        if (backgroundSource) {
             const img = new Image();
             img.crossOrigin = 'anonymous';
             
             await new Promise((resolve, reject) => {
                 img.onload = () => {
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    console.log('✅ Page image rendered:', pageData.imageUrl);
+                    console.log('✅ Page image rendered successfully');
                     resolve();
                 };
                 img.onerror = (e) => {
-                    console.error('❌ Error loading page image:', pageData.imageUrl);
+                    console.error('❌ Error loading page image:', backgroundSource);
                     console.error('Error details:', e);
                     // Draw white background if image fails to load
                     ctx.fillStyle = 'white';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     resolve(); // Don't reject, continue with white background
                 };
-                img.src = pageData.imageUrl;
+                img.src = backgroundSource;
             });
         } else {
-            console.warn('⚠️ No imageUrl found in page data');
-            console.log('Page data:', pageData);
-            // Draw white background if no image URL
+            console.warn('⚠️ No background image found in page data');
+            console.log('Page data keys:', Object.keys(pageData));
+            // Draw white background if no image source
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
@@ -385,8 +400,9 @@ function handleElementClick(element) {
                 console.log('🎥 Opening video...');
                 playMedia({...element, url: buttonUrl}, 'video');
             } else {
-                console.log('🔗 Opening link...');
-                window.open(buttonUrl, '_blank');
+                console.log('🔗 Button link - staying in viewer');
+                // Don't open in new tab, just log for now
+                // Could implement in-viewer navigation later
             }
         } else if (element.videoUrl || element.streamId) {
             playMedia(element, 'video');
@@ -405,7 +421,8 @@ function handleElementClick(element) {
                 console.log('🎥 3c-emoji video detected, using overlay...');
                 playMedia({...element, url: emojiUrl}, 'video');
             } else {
-                window.open(emojiUrl, '_blank');
+                console.log('🔗 Emoji link - staying in viewer');
+                // Don't open in new tab, just log for now
             }
         }
     } else if (elementType === 'hotspot' || elementType === 'link') {
@@ -413,7 +430,8 @@ function handleElementClick(element) {
             if (isVideoUrl(element.url)) {
                 playMedia(element, 'video');
             } else {
-                window.open(element.url, '_blank');
+                console.log('🔗 Hotspot/link - staying in viewer');
+                // Don't open in new tab
             }
         }
     }
@@ -573,10 +591,25 @@ function setupEventListeners() {
     document.getElementById('next-page').addEventListener('click', () => goToPage(currentPage + 1));
     document.getElementById('last-page').addEventListener('click', () => goToPage(totalPages));
     
-    // Refresh button
+    // Refresh button - reload JSON from source
     document.getElementById('refresh-btn').addEventListener('click', async () => {
-        console.log('🔄 Refresh clicked');
-        await renderPage(currentPage);
+        console.log('🔄 Refresh clicked - reloading JSON');
+        loading.classList.remove('hidden');
+        try {
+            // Reload manifest from original source
+            if (manifestUrl) {
+                await loadManifestFromUrl(manifestUrl);
+            } else if (contentId) {
+                await loadContentFromSupabase(contentId);
+            }
+            // Re-initialize from manifest
+            await initFromManifest();
+        } catch (error) {
+            console.error('❌ Error reloading JSON:', error);
+            alert('Error reloading flipbook: ' + error.message);
+        } finally {
+            loading.classList.add('hidden');
+        }
     });
     
     // Close button
@@ -621,30 +654,82 @@ function setupTouchGestures() {
 }
 
 /**
- * Download PDF
+ * Download PDF - generate and download
  */
-function downloadPDF() {
-    console.log('📥 Download PDF clicked');
+async function downloadPDF() {
+    console.log('📥 Download PDF clicked - generating PDF');
     
-    if (manifest.pdfUrl) {
-        const a = document.createElement('a');
-        a.href = manifest.pdfUrl;
-        a.download = manifest.title || 'flipbook.pdf';
-        a.click();
-    } else {
-        alert('PDF download not available for this flipbook');
+    try {
+        // Check if PDF URL exists in manifest
+        if (manifest.pdfUrl) {
+            console.log('📄 PDF URL found, downloading:', manifest.pdfUrl);
+            const a = document.createElement('a');
+            a.href = manifest.pdfUrl;
+            a.download = manifest.title || 'flipbook.pdf';
+            a.click();
+            return;
+        }
+        
+        // If no PDF URL, generate PDF from pages
+        console.log('📄 No PDF URL, generating from pages...');
+        loading.classList.remove('hidden');
+        
+        // Use jsPDF to generate PDF from page images
+        if (typeof jspdf === 'undefined') {
+            console.error('❌ jsPDF library not loaded');
+            alert('PDF generation not available. Please contact support.');
+            loading.classList.add('hidden');
+            return;
+        }
+        
+        const { jsPDF } = jspdf;
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'px',
+            format: [A4_WIDTH_PX, A4_HEIGHT_PX]
+        });
+        
+        for (let i = 0; i < manifest.pages.length; i++) {
+            const page = manifest.pages[i];
+            
+            // Get background source
+            let backgroundSource = null;
+            if (page.backgroundData) {
+                backgroundSource = page.backgroundData;
+            } else if (page.background) {
+                backgroundSource = page.background;
+            } else if (page.imageUrl) {
+                backgroundSource = page.imageUrl;
+            }
+            
+            if (backgroundSource) {
+                if (i > 0) pdf.addPage();
+                pdf.addImage(backgroundSource, 'PNG', 0, 0, A4_WIDTH_PX, A4_HEIGHT_PX);
+            }
+        }
+        
+        pdf.save(manifest.title || 'flipbook.pdf');
+        console.log('✅ PDF generated and downloaded');
+        
+    } catch (error) {
+        console.error('❌ Error generating PDF:', error);
+        alert('Error generating PDF: ' + error.message);
+    } finally {
+        loading.classList.add('hidden');
     }
 }
 
 /**
- * Go back to library
+ * Go back - close window and return to landing page 2
  */
 function goBack() {
-    if (contentId) {
-        window.location.href = `library.html?content=${contentId}`;
-    } else {
-        window.location.href = 'library.html';
-    }
+    // Close the current window/tab
+    window.close();
+    
+    // If window.close() doesn't work (some browsers block it), redirect to landing page 2
+    setTimeout(() => {
+        window.location.href = 'landing-page-2.html';
+    }, 100);
 }
 
 /**
