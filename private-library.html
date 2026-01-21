@@ -42,10 +42,13 @@
             margin-bottom: 20px;
         }
         
-        .header {
+        .header .container {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
         }
         
         .header-left {
@@ -944,7 +947,7 @@
                 🔒 Private Folders
             </h2>
             <p style="color: #999; margin-bottom: 20px; font-size: 14px; line-height: 1.6;">
-                This section: folders are password protected, to gain access you need to get the password from admin. Then use the Sign In button, with your username and the password provided to you.<br><br>
+                This section: folders are password protected, to gain access you need to get the password from admin. Then use the Sign Up button, with your username and the password provided to you.<br><br>
                 You can send an email to <a href="mailto:3c.innertherapy@gmail.com" style="color: #9b59b6; text-decoration: none;">3c.innertherapy@gmail.com</a> to learn how this applies to you.
             </p>
             <div style="text-align: center; margin-bottom: 30px;">
@@ -2132,82 +2135,87 @@
     </script>
 </body>
 </html>
-// Login prompt functions
-function showLoginPrompt() {
-    document.getElementById('loginPromptModal').style.display = 'flex';
-    document.getElementById('loadingOverlay').style.display = 'none';
-}
-
-function closeLoginPrompt() {
-    document.getElementById('loginPromptModal').style.display = 'none';
-    window.location.href = 'library.html';
-}
-
-function showLoginForm() {
-    document.getElementById('loginPromptModal').style.display = 'none';
-    document.getElementById('loginFormModal').style.display = 'flex';
-}
-
-function closeLoginForm() {
-    document.getElementById('loginFormModal').style.display = 'none';
-    document.getElementById('loginPromptModal').style.display = 'flex';
-}
-
-async function submitLogin() {
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    const errorEl = document.getElementById('loginError');
-    
-    if (!email || !password) {
-        errorEl.textContent = 'Please enter both email and password';
-        errorEl.style.display = 'block';
-        return;
-    }
-    
-    try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
-        
-        if (error) throw error;
-        
-        // Check if user is owner
-        const ownerEmail = CONFIG?.app?.ownerEmail;
-        if (data.user.email.toLowerCase() === ownerEmail.toLowerCase()) {
-            // Success - reload page
-            window.location.reload();
-        } else {
-            errorEl.textContent = 'Access denied: Only admin can access this area';
-            errorEl.style.display = 'block';
-            await supabase.auth.signOut();
+    <script>
+        // Login prompt functions
+        function showLoginPrompt() {
+            document.getElementById('loginPromptModal').style.display = 'flex';
+            document.getElementById('loadingOverlay').style.display = 'none';
         }
-    } catch (error) {
-        console.error('Login error:', error);
-        errorEl.textContent = error.message || 'Login failed';
-        errorEl.style.display = 'block';
-    }
-}
-// Logout handler
-async function handleLogout() {
-    try {
-        await supabase.auth.signOut();
-        window.location.reload();
-    } catch (error) {
-        console.error('Logout error:', error);
-    }
-}
 
-// Update header buttons based on auth state
-function updateHeaderButtons(isAuthenticated) {
-    const loginBtn = document.getElementById('loginBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
-    
-    if (isAuthenticated) {
-        loginBtn.style.display = 'none';
-        logoutBtn.style.display = 'flex';
-    } else {
-        loginBtn.style.display = 'flex';
-        logoutBtn.style.display = 'none';
-    }
-}
+        function closeLoginPrompt() {
+            document.getElementById('loginPromptModal').style.display = 'none';
+            window.location.href = 'library.html';
+        }
+
+        function showLoginForm() {
+            document.getElementById('loginPromptModal').style.display = 'none';
+            document.getElementById('loginFormModal').style.display = 'flex';
+        }
+
+        function closeLoginForm() {
+            document.getElementById('loginFormModal').style.display = 'none';
+            document.getElementById('loginPromptModal').style.display = 'flex';
+        }
+
+        async function submitLogin() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('loginError');
+            
+            if (!email || !password) {
+                errorEl.textContent = 'Please enter both email and password';
+                errorEl.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                
+                if (error) throw error;
+                
+                // Check if user is owner
+                const ownerEmail = CONFIG?.app?.ownerEmail;
+                if (data.user.email.toLowerCase() === ownerEmail.toLowerCase()) {
+                    // Success - reload page
+                    window.location.reload();
+                } else {
+                    errorEl.textContent = 'Access denied: Only admin can access this area';
+                    errorEl.style.display = 'block';
+                    await supabase.auth.signOut();
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                errorEl.textContent = error.message || 'Login failed';
+                errorEl.style.display = 'block';
+            }
+        }
+        
+        // Logout handler
+        async function handleLogout() {
+            try {
+                await supabase.auth.signOut();
+                window.location.reload();
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        }
+
+        // Update header buttons based on auth state
+        function updateHeaderButtons(isAuthenticated) {
+            const loginBtn = document.getElementById('loginBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+            
+            if (isAuthenticated) {
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'flex';
+            } else {
+                loginBtn.style.display = 'flex';
+                logoutBtn.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
