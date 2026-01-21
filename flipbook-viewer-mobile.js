@@ -666,45 +666,6 @@ function setupEventListeners() {
 /**
  * Setup touch gestures
  */
-function setupTouchGestures() {
-    const hammer = new Hammer(pageContainer, {
-        touchAction: 'pan-y'
-    });
-    
-    hammer.get('pinch').set({ enable: true });
-    
-    let scale = 1;
-    let lastScale = 1;
-    
-    // Swipe left/right - prevent browser navigation
-    hammer.on('swipeleft', (e) => {
-        e.preventDefault();
-        e.srcEvent.preventDefault();
-        console.log('👆 Swipe left - next page');
-        if (currentPage < totalPages) goToPage(currentPage + 1);
-    });
-    
-    hammer.on('swiperight', (e) => {
-        e.preventDefault();
-        e.srcEvent.preventDefault();
-        console.log('👆 Swipe right - prev page');
-        if (currentPage > 1) goToPage(currentPage - 1);
-    });
-    
-    // Pinch zoom
-    hammer.on('pinchstart', () => { lastScale = scale; });
-    hammer.on('pinchmove', (e) => {
-        scale = Math.max(1, Math.min(lastScale * e.scale, 3));
-        const page = pageWrapper.querySelector('.page');
-        if (page) {
-            page.style.transform = `scale(${scale})`;
-            page.style.transformOrigin = 'center';
-        }
-    });
-    hammer.on('pinchend', () => { lastScale = scale; });
-    
-    console.log('✅ Touch gestures enabled');
-}
 
 /**
  * Download PDF - generate and download
@@ -802,3 +763,77 @@ function debounce(func, wait) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', init);
+function setupTouchGestures() {
+    const hammer = new Hammer(pageContainer, {
+        touchAction: 'none'
+    });
+    
+    hammer.get('pinch').set({ enable: true });
+    hammer.get('pan').set({ direction: Hammer.DIRECTION_ALL });
+    hammer.get('swipe').set({ velocity: 0.3, threshold: 50 });
+    
+    let scale = 1;
+    let lastScale = 1;
+    let posX = 0;
+    let posY = 0;
+    let lastPosX = 0;
+    let lastPosY = 0;
+    
+    function updateTransform() {
+        const page = pageWrapper.querySelector('.page');
+        if (page) {
+            page.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+            page.style.transformOrigin = 'center';
+        }
+    }
+    
+    hammer.on('swipeleft', (e) => {
+        if (scale <= 1.1) {
+            e.preventDefault();
+            e.srcEvent.preventDefault();
+            e.srcEvent.stopPropagation();
+            if (currentPage < totalPages) goToPage(currentPage + 1);
+        }
+    });
+    
+    hammer.on('swiperight', (e) => {
+        if (scale <= 1.1) {
+            e.preventDefault();
+            e.srcEvent.preventDefault();
+            e.srcEvent.stopPropagation();
+            if (currentPage > 1) goToPage(currentPage - 1);
+        }
+    });
+    
+    hammer.on('panstart', () => {
+        lastPosX = posX;
+        lastPosY = posY;
+    });
+    
+    hammer.on('panmove', (e) => {
+        if (scale > 1) {
+            posX = lastPosX + e.deltaX;
+            posY = lastPosY + e.deltaY;
+            updateTransform();
+        }
+    });
+    
+    hammer.on('pinchstart', () => {
+        lastScale = scale;
+    });
+    
+    hammer.on('pinchmove', (e) => {
+        scale = Math.max(1, Math.min(lastScale * e.scale, 3));
+        if (scale === 1) {
+            posX = 0;
+            posY = 0;
+        }
+        updateTransform();
+    });
+    
+    hammer.on('pinchend', () => {
+        lastScale = scale;
+    });
+    
+    console.log('✅ Touch gestures enabled with pan and zoom');
+}
