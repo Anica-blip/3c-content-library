@@ -80,16 +80,16 @@
                 <label>Folder Type *</label>
                 <select id="folderType" onchange="updateFolderTypeUI()">
                     <option value="root">Root Folder</option>
-                    <option value="sub_root">Sub-Root Folder (requires parent)</option>
+                    <option value="sub_root">Sub-Folder (requires parent)</option>
                 </select>
-                <small>Root folders are top-level. Sub-root folders are nested under a root folder.</small>
+                <small>Root folders are top-level. Sub-folders can be nested under any folder (root or sub-folder).</small>
             </div>
             <div class="form-group" id="parentFolderGroup" style="display: none;">
                 <label>Parent Folder *</label>
                 <select id="parentFolder">
                     <option value="">-- Select Parent Folder --</option>
                 </select>
-                <small>Select the root folder this sub-folder belongs to.</small>
+                <small>Select the folder this sub-folder belongs to (can be root or another sub-folder).</small>
             </div>
             <div class="form-group">
                 <label>Folder Title *</label>
@@ -155,6 +155,7 @@
                     <select id="contentType" required>
                         <option value="pdf">PDF Document</option>
                         <option value="flipbook">Flipbook Document</option>
+                        <option value="presentation">Presentation Slides</option>
                         <option value="video">Video</option>
                         <option value="image">Image</option>
                         <option value="audio">Audio</option>
@@ -256,9 +257,9 @@
                 <label>Folder Type *</label>
                 <select id="editFolderType" onchange="updateEditFolderTypeUI()">
                     <option value="root">Root Folder</option>
-                    <option value="sub_root">Sub-Root Folder (requires parent)</option>
+                    <option value="sub_root">Sub-Folder (requires parent)</option>
                 </select>
-                <small>Root folders are top-level. Sub-root folders are nested under a root folder.</small>
+                <small>Root folders are top-level. Sub-folders can be nested under any folder (root or sub-folder).</small>
             </div>
             
             <div class="form-group" id="editParentFolderGroup" style="display: none;">
@@ -266,7 +267,7 @@
                 <select id="editParentFolder" onchange="suggestEditCustomURL()">
                     <option value="">-- Select Parent Folder --</option>
                 </select>
-                <small>Select the root folder this sub-folder belongs to.</small>
+                <small>Select the folder this sub-folder belongs to (can be root or another sub-folder).</small>
             </div>
             
             <div class="form-group">

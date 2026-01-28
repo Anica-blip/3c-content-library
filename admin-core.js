@@ -356,14 +356,38 @@ function editFolder(folderId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
     
-    // Populate parent folder dropdown for edit
+    // Populate parent folder dropdown for edit - show all folders hierarchically
     const editParentSelect = document.getElementById('editParentFolder');
     editParentSelect.innerHTML = '<option value="">-- Select Parent Folder --</option>';
-    const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root');
-    rootFolders.forEach(f => {
-        if (f.id !== folder.id) { // Don't allow selecting itself as parent
-            editParentSelect.innerHTML += `<option value="${f.id}">${f.title}</option>`;
+    const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
+    
+    // Helper function to check if a folder is a descendant of the current folder
+    const isDescendant = (potentialDescendant, ancestorId) => {
+        if (potentialDescendant.id === ancestorId) return true;
+        if (!potentialDescendant.parent_id) return false;
+        const parent = folders.find(f => f.id === potentialDescendant.parent_id);
+        return parent ? isDescendant(parent, ancestorId) : false;
+    };
+    
+    // Helper function to recursively add folders
+    const addFolderOption = (f, indent = '') => {
+        // Don't allow selecting itself or its descendants as parent
+        if (f.id !== folder.id && !isDescendant(f, folder.id)) {
+            const option = document.createElement('option');
+            option.value = f.id;
+            option.textContent = `${indent}${f.folder_type === 'root' ? '📁' : '📂'} ${f.title}`;
+            editParentSelect.appendChild(option);
+            
+            // Add subfolders recursively
+            const subfolders = folders.filter(sf => sf.parent_id === f.id).sort((a, b) => a.title.localeCompare(b.title));
+            subfolders.forEach(sf => {
+                addFolderOption(sf, indent + '  └─ ');
+            });
         }
+    };
+    
+    rootFolders.forEach(f => {
+        addFolderOption(f);
     });
     
     // Fill all form fields
@@ -757,37 +781,49 @@ function updateFolderSelects() {
         
         if (folders.length === 0) return;
         
-        // For parent folder dropdown, only show root folders
+        // For parent folder dropdown, show all folders hierarchically (root and sub-folders)
         if (isParentSelect) {
             const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
-            rootFolders.forEach(folder => {
+            
+            // Helper function to recursively add subfolders
+            const addFolderWithChildren = (folder, indent = '') => {
                 const option = document.createElement('option');
                 option.value = folder.id;
-                option.textContent = `📁 ${folder.title}`;
+                option.textContent = `${indent}${folder.folder_type === 'root' ? '📁' : '📂'} ${folder.title}`;
                 select.appendChild(option);
+                
+                // Add subfolders recursively
+                const subfolders = folders.filter(f => f.parent_id === folder.id).sort((a, b) => a.title.localeCompare(b.title));
+                subfolders.forEach(subfolder => {
+                    addFolderWithChildren(subfolder, indent + '  └─ ');
+                });
+            };
+            
+            rootFolders.forEach(folder => {
+                addFolderWithChildren(folder);
             });
         } else {
             // For content folder dropdown - show folders hierarchically grouped by root folder
             // Get root folders sorted alphabetically
             const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
             
-            rootFolders.forEach(rootFolder => {
-                // Add root folder
-                const rootOption = document.createElement('option');
-                rootOption.value = rootFolder.id;
-                const rootContentCount = folders.filter(c => c.id === rootFolder.id)[0]?.item_count || 0;
-                rootOption.textContent = `📁 ${rootFolder.title} (${rootContentCount} items)`;
-                select.appendChild(rootOption);
+            // Helper function to recursively add subfolders with content count
+            const addFolderWithChildrenAndCount = (folder, indent = '') => {
+                const option = document.createElement('option');
+                option.value = folder.id;
+                const contentCount = folder.item_count || 0;
+                option.textContent = `${indent}${folder.folder_type === 'root' ? '📁' : '📂'} ${folder.title} (${contentCount} items)`;
+                select.appendChild(option);
                 
-                // Add sub-folders under this root folder
-                const subfolders = folders.filter(f => f.parent_id === rootFolder.id).sort((a, b) => a.title.localeCompare(b.title));
+                // Add subfolders recursively
+                const subfolders = folders.filter(f => f.parent_id === folder.id).sort((a, b) => a.title.localeCompare(b.title));
                 subfolders.forEach(subfolder => {
-                    const subOption = document.createElement('option');
-                    subOption.value = subfolder.id;
-                    const subContentCount = subfolder.item_count || 0;
-                    subOption.textContent = `  └─ ${subfolder.title} (${subContentCount} items)`;
-                    select.appendChild(subOption);
+                    addFolderWithChildrenAndCount(subfolder, indent + '  └─ ');
                 });
+            };
+            
+            rootFolders.forEach(rootFolder => {
+                addFolderWithChildrenAndCount(rootFolder);
             });
         }
         
@@ -959,12 +995,13 @@ function openFolderSidebar(folderId) {
         contentHtml += '<div><h4 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(139, 92, 246, 0.2); padding-bottom: 8px;">📄 Content Items</h4>';
         
         folderContent.forEach((content, index) => {
-            // For flipbooks, show web view image instead of thumbnail container
+            // For flipbooks and presentations, show web view image instead of thumbnail container
             let thumbnailHtml;
-            if (content.type === 'flipbook') {
+            if (content.type === 'flipbook' || content.type === 'presentation') {
+                const icon = content.type === 'presentation' ? '📊' : '📖';
                 thumbnailHtml = content.thumbnail_url 
                     ? `<img src="${content.thumbnail_url}" style="width: 100%; max-width: 150px; height: auto; border-radius: 8px; object-fit: cover;" alt="Thumbnail">`
-                    : `<div style="width: 100%; max-width: 150px; height: 200px; background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 48px; border-radius: 8px;">📖</div>`;
+                    : `<div style="width: 100%; max-width: 150px; height: 200px; background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 48px; border-radius: 8px;">${icon}</div>`;
             } else {
                 thumbnailHtml = content.thumbnail_url 
                     ? `<img src="${content.thumbnail_url}" class="content-thumbnail" alt="Thumbnail">`
@@ -975,10 +1012,12 @@ function openFolderSidebar(folderId) {
             const canMoveDown = index < folderContent.length - 1;
             const isInteractive = content.project_json ? ' 📖 Interactive' : '';
             
-            // For flipbooks, add "Click to view flipbook" link
-            let viewFlipbookLink = '';
+            // For flipbooks and presentations, add "Click to view" link
+            let viewLink = '';
             if (content.type === 'flipbook' && content.url) {
-                viewFlipbookLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Click to view flipbook</a></div>`;
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Click to view flipbook</a></div>`;
+            } else if (content.type === 'presentation' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Click to view presentation</a></div>`;
             }
             
             contentHtml += `
@@ -990,7 +1029,7 @@ function openFolderSidebar(folderId) {
                         <div class="content-meta">🔗 URL: <strong style="color: #007bff;">${content.custom_url || content.slug || 'auto-generated'}</strong></div>
                         ${content.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(content.url)}" target="_blank" style="color: #007bff;">${truncateURL(content.url)}</a></div>` : '<div class="content-meta" style="color: #dc3545;">⚠️ No file URL (Missing)</div>'}
                         ${content.description ? `<div class="content-meta">${escapeHtml(content.description)}</div>` : ''}
-                        ${viewFlipbookLink}
+                        ${viewLink}
                     </div>
                     <div class="content-actions">
                         ${canMoveUp ? `<button onclick="moveContentUp('${content.id}')">↑</button>` : ''}
@@ -1329,6 +1368,8 @@ function formatFileSize(bytes) {
 function getTypeIcon(type) {
     const icons = {
         pdf: '📄',
+        flipbook: '📖',
+        presentation: '📊',
         video: '🎥',
         image: '🖼️',
         audio: '🎵',

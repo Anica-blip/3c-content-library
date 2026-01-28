@@ -1371,6 +1371,9 @@
             let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
             folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
             
+            // Get subfolders for this folder
+            const subfolders = library.folders.filter(f => f.parentId === currentFolder.id).sort((a, b) => a.title.localeCompare(b.title));
+            
             // If contentSlug exists, show ONLY content viewer (no left sidebar)
             if (contentSlug) {
                 const viewer = document.getElementById('viewer');
@@ -1404,33 +1407,63 @@
                 <div class="comments-section" id="commentsSection" style="display: none;"></div>
             `;
             
-            if (folderContent.length === 0) {
-                document.getElementById('contentList').innerHTML = '<p style="color: #999;">No content</p>';
+            if (folderContent.length === 0 && subfolders.length === 0) {
+                document.getElementById('contentList').innerHTML = '<p style="color: #999;">No subfolders or content</p>';
                 return;
             }
             
-            // Build thumbnail grid for left sidebar (2 columns, left-aligned titles)
-            const html = folderContent.map(item => {
-                let thumbnailAttr = '';
-                let thumbnailContent = '';
-                
-                if (item.thumbnail) {
-                    // Use data-bg for lazy loading - Intersection Observer will load it when visible
-                    thumbnailAttr = `data-bg="${item.thumbnail}"`;
-                    thumbnailContent = '';
-                } else {
-                    thumbnailContent = `<div class="type-icon">${getTypeIcon(item.type)}</div>`;
+            // Build content list with subfolders first, then content items
+            let html = '';
+            
+            // Add subfolders section if any exist
+            if (subfolders.length > 0) {
+                html += '<div style="margin-bottom: 20px;"><h3 style="color: #9b59b6; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(155, 89, 182, 0.3); padding-bottom: 8px;">📂 Sub-folders</h3>';
+                subfolders.forEach(subfolder => {
+                    const itemCount = subfolder.actualItemCount || 0;
+                    html += `
+                        <div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'" style="background: rgba(155, 89, 182, 0.1); border: 1px solid rgba(155, 89, 182, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(155, 89, 182, 0.2)'; this.style.borderColor='rgba(155, 89, 182, 0.5)'" onmouseout="this.style.background='rgba(155, 89, 182, 0.1)'; this.style.borderColor='rgba(155, 89, 182, 0.3)'">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="font-size: 24px;">📂</div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div>
+                                    <div style="font-size: 11px; color: #808080;">${itemCount} item${itemCount !== 1 ? 's' : ''}</div>
+                                </div>
+                                <div style="color: #9b59b6; font-size: 18px;">→</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            // Add content items section if any exist
+            if (folderContent.length > 0) {
+                if (subfolders.length > 0) {
+                    html += '<h3 style="color: #9b59b6; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(155, 89, 182, 0.3); padding-bottom: 8px;">📄 Content Items</h3>';
                 }
                 
-                return `
-                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.id}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 25px;">
-                        <div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0; margin-bottom: 0;">${thumbnailContent}</div>
-                        <div class="content-info" style="padding: 12px 10px; text-align: left; min-height: 60px; margin-top: 0;">
-                            <div class="content-title" style="font-size: 12px; color: #ffffff; line-height: 1.4; font-weight: 500; word-wrap: break-word; margin: 0;">${item.title}</div>
+                html += folderContent.map(item => {
+                    let thumbnailAttr = '';
+                    let thumbnailContent = '';
+                    
+                    if (item.thumbnail) {
+                        // Use data-bg for lazy loading - Intersection Observer will load it when visible
+                        thumbnailAttr = `data-bg="${item.thumbnail}"`;
+                        thumbnailContent = '';
+                    } else {
+                        thumbnailContent = `<div class="type-icon">${getTypeIcon(item.type)}</div>`;
+                    }
+                    
+                    return `
+                        <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.id}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 25px;">
+                            <div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0; margin-bottom: 0;">${thumbnailContent}</div>
+                            <div class="content-info" style="padding: 12px 10px; text-align: left; min-height: 60px; margin-top: 0;">
+                                <div class="content-title" style="font-size: 12px; color: #ffffff; line-height: 1.4; font-weight: 500; word-wrap: break-word; margin: 0;">${item.title}</div>
+                            </div>
                         </div>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
+            }
             
             document.getElementById('contentList').innerHTML = html;
             
@@ -1700,6 +1733,27 @@
                         <a href="${flipbookUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
                             <span style="font-size: 24px;">📖</span>
                             Click to View Flipbook
+                        </a>
+                    </div>
+                `;
+            } else if (content.type === 'presentation') {
+                // Show thumbnail WITHOUT container + link to presentation viewer
+                let thumbnailSrc;
+                if (content.thumbnail) {
+                    thumbnailSrc = content.thumbnail;
+                } else {
+                    // Default presentation icon
+                    thumbnailSrc = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E📊%3C/text%3E%3C/svg%3E';
+                }
+                
+                const presentationUrl = content.url ? `presentation-viewer.html?manifest=${encodeURIComponent(content.url)}` : `presentation-viewer.html?content=${content.id}`;
+                
+                viewerHtml = `
+                    <div style="text-align: center;">
+                        <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <a href="${presentationUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
+                            <span style="font-size: 24px;">📊</span>
+                            Click to View Presentation
                         </a>
                     </div>
                 `;

@@ -1580,6 +1580,27 @@
                         </a>
                     </div>
                 `;
+            } else if (content.type === 'presentation') {
+                // Show thumbnail WITHOUT container + link to presentation viewer
+                let thumbnailSrc;
+                if (content.thumbnail) {
+                    thumbnailSrc = content.thumbnail;
+                } else {
+                    // Default presentation icon
+                    thumbnailSrc = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E📊%3C/text%3E%3C/svg%3E';
+                }
+                
+                const presentationUrl = content.url ? `presentation-viewer.html?manifest=${encodeURIComponent(content.url)}` : `presentation-viewer.html?content=${content.id}`;
+                
+                viewerHtml = `
+                    <div style="text-align: center;">
+                        <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <a href="${presentationUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
+                            <span style="font-size: 24px;">📊</span>
+                            Click to View Presentation
+                        </a>
+                    </div>
+                `;
             } else if (content.type === 'video') {
                 if (content.url.startsWith('data:')) {
                     viewerHtml = `<video controls style="width: 100%; max-height: 700px;"><source src="${content.url}"></video>`;
