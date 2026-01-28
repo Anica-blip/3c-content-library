@@ -1,7 +1,7 @@
 # 3C Content Library - Architecture Documentation
 
-**Version:** 2.0  
-**Last Updated:** January 7, 2026  
+**Version:** 3.0  
+**Last Updated:** January 28, 2026  
 **Purpose:** Comprehensive reference for understanding the complete 3C Content Library system architecture
 
 ---
@@ -18,6 +18,9 @@
 8. [URL Structure & Routing](#url-structure--routing)
 9. [Content Viewers](#content-viewers)
 10. [Mobile Responsiveness](#mobile-responsiveness)
+11. [Nested Subfolder System](#nested-subfolder-system)
+12. [Presentation Viewer System](#presentation-viewer-system)
+13. [Interactive PDF Integration](#interactive-pdf-integration)
 
 ---
 
@@ -34,10 +37,11 @@ The 3C Content Library is a dual-sided content management and delivery system:
 
 ### 2. **3C Public Library** (`library.html` / `private-library.html`)
 - Public-facing content delivery system
-- Hierarchical folder navigation
-- Content viewing with PDF and Flipbook viewers
+- Hierarchical folder navigation with unlimited nesting
+- Content viewing with PDF, Flipbook, and Presentation viewers
 - Direct content linking
 - Mobile-optimized interface
+- Scrollable folder sections for large collections
 
 ---
 
@@ -903,7 +907,511 @@ if (folderSlug || contentSlug || contentUrl) {
 
 ---
 
+## Nested Subfolder System
+
+### Overview
+**Version:** 3.0 (January 28, 2026)
+
+The 3C Content Library now supports **unlimited nesting** of subfolders, allowing complex hierarchical organization of content.
+
+### Key Features
+
+1. **Unlimited Depth**
+   - Subfolders can contain other subfolders
+   - No limit on nesting levels
+   - Root → Subfolder → Sub-subfolder → Sub-sub-subfolder...
+
+2. **Hierarchical Display**
+   - Admin panel shows folders with indentation
+   - Public library displays subfolders when viewing folders
+   - Clear visual hierarchy with folder icons (📁 root, 📂 subfolder)
+
+3. **Circular Reference Prevention**
+   - Folders cannot be their own parent
+   - Folders cannot be descendants of themselves
+   - `isDescendant()` function validates parent selection
+
+### Admin Panel Implementation
+
+**Create/Edit Folder UI:**
+```
+Folder Type: [Root Folder ▼]
+             [Sub-Folder (requires parent) ▼]
+
+Parent Folder: [-- Select Parent Folder --]
+               [📁 Root Folder 1]
+               [  └─ 📂 Subfolder 1.1]
+               [    └─ 📂 Subfolder 1.1.1]
+               [📁 Root Folder 2]
+```
+
+**Key Functions (`admin-core.js`):**
+
+```javascript
+// Populate parent folder dropdown with hierarchy
+function updateFolderSelects() {
+    const addFolderWithChildren = (folder, indent = '') => {
+        const option = document.createElement('option');
+        option.value = folder.id;
+        option.textContent = `${indent}${folder.folder_type === 'root' ? '📁' : '📂'} ${folder.title}`;
+        select.appendChild(option);
+        
+        // Recursively add subfolders
+        const subfolders = folders.filter(sf => sf.parent_id === folder.id);
+        subfolders.forEach(sf => {
+            addFolderWithChildren(sf, indent + '  └─ ');
+        });
+    };
+}
+
+// Prevent circular references
+function editFolder(folderId) {
+    const isDescendant = (potentialDescendant, ancestorId) => {
+        if (potentialDescendant.id === ancestorId) return true;
+        if (!potentialDescendant.parent_id) return false;
+        const parent = folders.find(f => f.id === potentialDescendant.parent_id);
+        return parent ? isDescendant(parent, ancestorId) : false;
+    };
+    
+    // Don't allow selecting itself or descendants as parent
+    if (f.id !== folder.id && !isDescendant(f, folder.id)) {
+        // Add to dropdown
+    }
+}
+```
+
+### Public Library Implementation
+
+**Folder View with Subfolders (`library.html`):**
+
+When viewing a folder, the left sidebar displays:
+
+```
+📂 Sub-folders
+  [Subfolder 1] → (5 items)
+  [Subfolder 2] → (3 items)
+
+📄 Content Items
+  [Content Item 1]
+  [Content Item 2]
+```
+
+**Key Code:**
+```javascript
+// Get subfolders for current folder
+const subfolders = library.folders.filter(f => f.parentId === currentFolder.id);
+
+// Display subfolders section
+if (subfolders.length > 0) {
+    html += '<h3>📂 Sub-folders</h3>';
+    subfolders.forEach(subfolder => {
+        html += `
+            <div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'">
+                📂 ${subfolder.title} (${subfolder.actualItemCount} items)
+            </div>
+        `;
+    });
+}
+```
+
+### Scrollable Folder Sections
+
+**CSS Implementation (`admin-styles.css`):**
+
+```css
+.folders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+/* Custom scrollbar styling */
+.folders-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.folders-grid::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.folders-grid::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.5);
+    border-radius: 4px;
+}
+
+.folders-grid::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.7);
+}
+```
+
+**Benefits:**
+- Shows first row of 4 folders by default
+- Scroll to see more folders
+- No limit on number of folders
+- Smooth purple-themed scrollbar
+
+### Database Schema
+
+**`folders` Table:**
+- `parent_id` (UUID) - References parent folder (NULL for root)
+- `folder_type` (TEXT) - "root" or "sub_root"
+- `depth` (INTEGER) - Nesting level (0 for root, 1+for subfolders)
+
+**Recursive Queries:**
+```sql
+-- Get all descendants of a folder
+WITH RECURSIVE folder_tree AS (
+    SELECT id, parent_id, title, 0 as depth
+    FROM folders
+    WHERE id = $1
+    
+    UNION ALL
+    
+    SELECT f.id, f.parent_id, f.title, ft.depth + 1
+    FROM folders f
+    INNER JOIN folder_tree ft ON f.parent_id = ft.id
+)
+SELECT * FROM folder_tree;
+```
+
+---
+
+## Presentation Viewer System
+
+### Overview
+**Version:** 3.0 (January 28, 2026)
+
+Complete presentation viewer system cloned from flipbook viewer with dedicated branding and functionality.
+
+### Content Type: Presentation Slides
+
+**Admin Panel:**
+- New content type option: "Presentation Slides"
+- Displays with 📊 icon (vs 📖 for flipbooks)
+- Same JSON manifest format as flipbooks
+- Uses same Supabase table (`project_pdf`)
+- Uses same Cloudflare R2 storage
+
+### File Structure
+
+```
+3c-content-library/
+├── presentation-viewer.html           # Desktop presentation viewer
+├── presentation-viewer.js             # Desktop viewer logic
+├── presentation-viewer-mobile.html    # Mobile presentation viewer
+├── presentation-viewer-mobile.js      # Mobile viewer logic
+│
+├── flipbook-viewer.html              # Desktop flipbook viewer
+├── flipbook-viewer.js                # Desktop viewer logic
+├── flipbook-viewer-mobile.html       # Mobile flipbook viewer
+├── flipbook-viewer-mobile.js         # Mobile viewer logic
+│
+├── worker-api.js                     # Shared Cloudflare R2 worker
+├── wrangler.toml                     # Shared Cloudflare config
+└── config.js                         # Shared Supabase config
+```
+
+### Presentation Viewer Features
+
+**Desktop Viewer (`presentation-viewer.html`):**
+- PDF.js rendering at 2x quality
+- Turn.js page-turning effects
+- Interactive hotspots and buttons
+- Video popup overlays
+- Zoom controls
+- Page navigation
+- Download as PDF
+- Full-screen mode
+- Mobile device detection → redirects to mobile viewer
+
+**Mobile Viewer (`presentation-viewer-mobile.html`):**
+- Single-page view optimized for mobile
+- Swipe navigation (Hammer.js)
+- Pinch-to-zoom
+- Touch-optimized controls
+- Responsive layout
+- Same interactive features as desktop
+
+### Public/Private Library Integration
+
+**Display Logic (`library.html` & `private-library.html`):**
+
+```javascript
+if (content.type === 'presentation') {
+    // Show thumbnail with presentation icon
+    const thumbnailSrc = content.thumbnail || 'data:image/svg+xml,...📊...';
+    const presentationUrl = content.url 
+        ? `presentation-viewer.html?manifest=${encodeURIComponent(content.url)}` 
+        : `presentation-viewer.html?content=${content.id}`;
+    
+    viewerHtml = `
+        <div style="text-align: center;">
+            <img src="${thumbnailSrc}" style="...">
+            <a href="${presentationUrl}" target="_blank" style="...">
+                <span style="font-size: 24px;">📊</span>
+                Click to View Presentation
+            </a>
+        </div>
+    `;
+}
+```
+
+**Admin Panel Display (`admin-core.js`):**
+
+```javascript
+// Presentation icon in type icon function
+function getTypeIcon(type) {
+    const icons = {
+        pdf: '📄',
+        flipbook: '📖',
+        presentation: '📊',  // NEW
+        video: '🎥',
+        image: '🖼️',
+        audio: '🎵',
+        link: '🔗'
+    };
+    return icons[type] || '📎';
+}
+
+// Display presentation with view link
+if (content.type === 'presentation' && content.url) {
+    viewLink = `
+        <div class="content-meta">
+            <a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" 
+               target="_blank" style="...">
+                <span style="font-size: 18px;">📊</span>
+                Click to view presentation
+            </a>
+        </div>
+    `;
+}
+```
+
+### Shared Infrastructure
+
+**Cloudflare R2 Storage:**
+- Same R2 bucket: `3c-library-files`
+- Same worker: `worker-api.js`
+- Same configuration: `wrangler.toml`
+- Same public URL: `https://files.3c-public-library.org`
+
+**Supabase Integration:**
+- Same table: `project_pdf` (stores both flipbooks and presentations)
+- Same configuration: `config.js`
+- Same client: `supabase-client.js`
+- Differentiated by `presentationMode` flag in JSON
+
+**3C Buttons & Assets:**
+- Loaded from manifest URLs
+- Stored in R2 bucket
+- Same assets used by both flipbook and presentation
+- No separate directory needed
+
+### URL Patterns
+
+**Desktop Presentation:**
+```
+https://3c-public-library.org/presentation-viewer.html?manifest=<r2_url>
+https://3c-public-library.org/presentation-viewer.html?content=<content_id>
+```
+
+**Mobile Presentation:**
+```
+https://3c-public-library.org/presentation-viewer-mobile.html?manifest=<r2_url>
+https://3c-public-library.org/presentation-viewer-mobile.html?content=<content_id>
+```
+
+### Mobile Redirect Logic
+
+**Desktop Viewer (`presentation-viewer.js`):**
+```javascript
+function isMobileDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+}
+
+async function init() {
+    if (isMobileDevice()) {
+        console.log('📱 Mobile device detected, redirecting to mobile viewer...');
+        const params = new URLSearchParams(window.location.search);
+        window.location.href = 'presentation-viewer-mobile.html?' + params.toString();
+        return;
+    }
+    
+    console.log('🖥️ Desktop device detected, loading desktop presentation...');
+    // Load presentation...
+}
+```
+
+---
+
+## Interactive PDF Integration
+
+### Overview
+
+The **Interactive PDF** project (separate repository) integrates with the 3C Content Library through JSON manifests and the new **Presentation Mode** toggle.
+
+### Presentation Mode Toggle
+
+**Location:** `interactive-pdf FINAL/public/index.html` & `app.js`
+
+**UI Component:**
+```html
+<!-- Presentation Mode Toggle -->
+<div class="mb-3 bg-gradient-to-r from-orange-100 to-red-100 rounded p-2 border-2 border-orange-300">
+    <label class="flex items-center justify-between text-xs">
+        <span class="font-medium text-gray-900">
+            <i class="fas fa-presentation mr-1"></i>Presentation Mode
+        </span>
+        <div class="flex items-center space-x-2">
+            <span class="text-xs text-gray-900">Off</span>
+            <label class="relative inline-block w-10 h-5">
+                <input type="checkbox" id="presentationMode" class="sr-only" onchange="togglePresentationMode()">
+                <div class="block bg-gray-400 w-10 h-5 rounded-full"></div>
+                <div class="dot absolute left-1 top-1 bg-white w-3 h-3 rounded-full transition"></div>
+            </label>
+            <span class="text-xs text-gray-900">On</span>
+        </div>
+    </label>
+    <p class="text-xs text-gray-900 mt-1">
+        <span id="presentationDescription">📊 Enable to save as presentation instead of flipbook</span>
+    </p>
+</div>
+```
+
+**JavaScript Implementation (`app.js`):**
+
+```javascript
+// Global state
+let presentationMode = false; // Default: OFF (saves as flipbook)
+
+// Toggle function
+function togglePresentationMode() {
+    presentationMode = document.getElementById('presentationMode')?.checked || false;
+    const description = document.getElementById('presentationDescription');
+    
+    if (presentationMode) {
+        description.textContent = '📊 Presentation mode ON - Will save as PRESENTATION type';
+        description.classList.add('text-orange-700', 'font-semibold');
+        showStatus('📊 Presentation mode enabled: JSON will be saved as presentation type!', 'success');
+    } else {
+        description.textContent = '📊 Enable to save as presentation instead of flipbook';
+        description.classList.remove('text-orange-700', 'font-semibold');
+        showStatus('📖 Flipbook type: JSON will be saved as flipbook type', 'info');
+    }
+}
+
+// Save in project settings
+const projectData = {
+    pages: pages,
+    assets: assets,
+    settings: {
+        title: title,
+        author: author,
+        flipbookMode: flipbookMode,
+        presentationMode: presentationMode,  // NEW
+        folderName: folderName,
+        subfolderName: subfolderName,
+        // ...
+    }
+};
+```
+
+### Workflow: Creating Presentations
+
+**Step 1: Interactive PDF Editor**
+1. Open interactive-pdf editor
+2. Create presentation pages with interactive elements
+3. Toggle **"Presentation Mode"** ON (orange toggle)
+4. Toggle **"Magazine Flipbook"** ON (for page-turning effect)
+5. Set **Folder Name** and **Subfolder Name** (optional)
+6. Save/Export as JSON
+
+**Step 2: JSON Manifest**
+```json
+{
+    "id": "project-123",
+    "title": "My Presentation",
+    "pages": [...],
+    "assets": [...],
+    "settings": {
+        "flipbookMode": true,
+        "presentationMode": true,  // Identifies as presentation
+        "folderName": "courses",
+        "subfolderName": "level-1"
+    }
+}
+```
+
+**Step 3: Upload to 3C Content Library**
+1. Open admin panel (`admin.html`)
+2. Select folder (supports nested subfolders)
+3. Click "Add PDF/Flipbook"
+4. Select **"Presentation Slides"** as Content Type
+5. Upload JSON file (auto-uploads to Cloudflare R2)
+6. Set title, description, thumbnail
+7. Save to Supabase
+
+**Step 4: Public Display**
+1. Presentation appears in library with 📊 icon
+2. "Click to View Presentation" button
+3. Opens `presentation-viewer.html` (desktop) or `presentation-viewer-mobile.html` (mobile)
+4. Full interactive experience with page-turning, videos, hotspots
+
+### Folder/Subfolder Integration
+
+**Interactive PDF saves folder structure:**
+```javascript
+settings: {
+    folderName: "courses",      // Main category
+    subfolderName: "level-1"    // Subcategory
+}
+```
+
+**3C Content Library uses:**
+- Admin panel: Select folder from hierarchical dropdown
+- Supabase: Stores in `content_public.folder_id`
+- Public library: Displays in correct folder/subfolder
+
+**Path Preview in Interactive PDF:**
+```
+📁 Save path: /interactive/2026/flipbook/courses/level-1/my-presentation-v1.0.pdf
+```
+
+### Default Settings
+
+**Flipbook Mode:** ON by default (magazine-style page turning)  
+**Presentation Mode:** OFF by default (saves as flipbook unless toggled)
+
+**Why Both Toggles?**
+- **Flipbook Mode** = Page-turning effect (ON/OFF)
+- **Presentation Mode** = Content type identifier (Flipbook vs Presentation)
+
+**Example Combinations:**
+1. Flipbook Mode ON + Presentation Mode OFF = **Flipbook** with page-turning
+2. Flipbook Mode ON + Presentation Mode ON = **Presentation** with page-turning
+3. Flipbook Mode OFF + Presentation Mode OFF = **Flipbook** without page-turning
+4. Flipbook Mode OFF + Presentation Mode ON = **Presentation** without page-turning
+
+---
+
 ## Version History
+
+**v3.0** (January 28, 2026)
+- ✨ Added unlimited nested subfolder support
+- ✨ Added complete presentation viewer system (desktop + mobile)
+- ✨ Added presentation mode toggle in interactive-pdf
+- ✨ Added scrollable folder sections (max-height 400px)
+- ✨ Added presentation slides content type
+- 🔧 Updated admin panel with hierarchical folder display
+- 🔧 Updated public/private libraries to show subfolders
+- 🔧 Integrated presentation viewer with Cloudflare R2 and Supabase
+- 📚 Comprehensive architecture documentation update
 
 **v2.0** (January 7, 2026)
 - Added mobile folder icon
@@ -926,6 +1434,7 @@ For questions or issues, refer to:
 - `README.md` - Setup instructions
 - `SETUP.md` - Deployment guide
 - `DOC/VIDEO_FIXES.md` - Flipbook video fixes
+- `IMPLEMENTATION-SUMMARY.md` - Latest feature implementation details
 - GitHub Issues - Bug reports
 
 ---
