@@ -166,7 +166,7 @@ async function loadContentFromSupabase(id) {
         
         // Check if this has project_json (interactive presentation data)
         if (!contentData.project_json) {
-            // Regular PDF - redirect to normal viewer
+            // No presentation data - redirect to normal viewer
             window.location.href = `library.html?content=${id}`;
             return;
         }
@@ -351,10 +351,10 @@ function initFlipbook() {
     
     // Initialize turn.js with correct dimensions
     flipbook.turn({
-        width: pageWidth * 2, // Double width for spread
+        width: pageWidth, // Single page width
         height: pageHeight,
         autoCenter: true,
-        display: 'double',
+        display: 'single', // Single page view (not double spread)
         gradients: true,
         elevation: 50,
         acceleration: true,

@@ -543,6 +543,8 @@ async function saveContent(event) {
     const externalUrl = document.getElementById('externalUrl').value.trim();
     const description = document.getElementById('contentDescription').value.trim();
     const customURL = document.getElementById('contentCustomURL').value.trim() || null;
+
+    const dbType = type === 'presentation' ? 'flipbook' : type;
     
     if (!folderId) {
         showAlert('error', 'Please select a folder');
@@ -564,34 +566,34 @@ async function saveContent(event) {
         
         // Handle file upload
         if (currentFile) {
-            // Special handling for flipbook JSON files
-            if (type === 'flipbook' && currentFile.type === 'application/json') {
-                debugLog('📖 Processing flipbook JSON file...');
+            // Special handling for flipbook/presentation JSON files
+            if ((type === 'flipbook' || type === 'presentation') && currentFile.type === 'application/json') {
+                debugLog(type === 'presentation' ? '📊 Processing presentation JSON file...' : '📖 Processing flipbook JSON file...');
                 try {
                     const jsonText = await currentFile.text();
                     const jsonData = JSON.parse(jsonText);
                     
-                    // Store JSON content in project_json field for backward compatibility
+                    // Store JSON content in project_json field (used by both flipbooks and presentations)
                     projectJson = jsonText;
                     
                     // Upload JSON file to Cloudflare R2 (MUST be Cloudflare URL, not base64)
-                    debugLog('📤 Uploading flipbook JSON to R2...');
+                    debugLog(type === 'presentation' ? '📤 Uploading presentation JSON to R2...' : '📤 Uploading flipbook JSON to R2...');
                     if (useR2) {
                         try {
                             const result = await r2Storage.uploadFlipbook(currentFile);
                             fileUrl = result.url;
-                            debugLog('✅ Flipbook JSON uploaded to R2: ' + fileUrl);
+                            debugLog((type === 'presentation' ? '✅ Presentation JSON uploaded to R2: ' : '✅ Flipbook JSON uploaded to R2: ') + fileUrl);
                         } catch (error) {
                             debugLog('❌ R2 upload failed: ' + error.message);
                             showAlert('error', 'Failed to upload JSON to Cloudflare R2: ' + error.message);
                             return;
                         }
                     } else {
-                        showAlert('error', 'Cloudflare R2 is required for flipbook uploads');
+                        showAlert('error', 'Cloudflare R2 is required for JSON uploads');
                         return;
                     }
                     
-                    debugLog('✅ Flipbook JSON parsed and stored');
+                    debugLog(type === 'presentation' ? '✅ Presentation JSON parsed and stored' : '✅ Flipbook JSON parsed and stored');
                 } catch (error) {
                     debugLog('❌ Failed to parse JSON: ' + error.message);
                     showAlert('error', 'Invalid JSON file: ' + error.message);
@@ -638,7 +640,7 @@ async function saveContent(event) {
         const contentData = {
             folder_id: folderId,
             title: title,
-            type: type,
+            type: dbType,
             url: fileUrl || (editMode && !currentFile ? allContent.find(c => c.id === contentId)?.url : null),
             external_url: externalUrl || null,
             thumbnail_url: thumbnailUrl || (editMode && !currentThumbnail ? allContent.find(c => c.id === contentId)?.thumbnail_url : null),
@@ -646,8 +648,12 @@ async function saveContent(event) {
             file_size: currentFile ? currentFile.size : (editMode ? allContent.find(c => c.id === contentId)?.file_size : null),
             custom_url: customURL
         };
+
+        if (type === 'presentation') {
+            contentData.metadata = { ...(contentData.metadata || {}), presentation: true };
+        }
         
-        // Add project_json for flipbook documents
+        // Add project_json for flipbook/presentation documents
         if (projectJson) {
             contentData.project_json = projectJson;
         }

@@ -1173,14 +1173,14 @@
                             id: c.id,
                             folderId: c.folder_id,
                             title: c.title,
-                            type: c.type,
+                            type: (c.type === 'flipbook' && c.metadata && c.metadata.presentation) ? 'presentation' : c.type,
                             url: c.url,
                             slug: c.custom_url || c.slug,
                             customUrl: c.custom_url,
                             thumbnail: c.thumbnail_url,
                             description: c.description,
                             externalUrl: c.external_url,
-                            project_json: c.project_json  // Include for interactive PDFs
+                            project_json: c.project_json
                         })))
                 );
                 
@@ -1509,13 +1509,13 @@
             if (currentContent && currentFolder) {
                 const folderTableName = currentFolder.tableName || currentFolder.slug;
                 const contentCustomUrl = currentContent.customUrl || currentContent.slug;
-                const viewType = currentContent.type === 'flipbook' ? 'flipbook-only' : 'pdf-only';
+                const viewType = (currentContent.type === 'flipbook' || currentContent.type === 'presentation') ? 'flipbook-only' : 'pdf-only';
                 
                 return `${baseUrl}?folder=${folderTableName}&url=${contentCustomUrl}&view=${viewType}`;
             }
             
             // Fallback to old format if folder/content data not available
-            const viewType = currentContent && currentContent.type === 'flipbook' ? 'flipbook-only' : 'pdf-only';
+            const viewType = currentContent && (currentContent.type === 'flipbook' || currentContent.type === 'presentation') ? 'flipbook-only' : 'pdf-only';
             return `${baseUrl}?content=${contentSlug}&view=${viewType}`;
         }
         
