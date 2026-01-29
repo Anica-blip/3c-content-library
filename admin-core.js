@@ -558,8 +558,6 @@ async function saveContent(event) {
     const externalUrl = document.getElementById('externalUrl').value.trim();
     const description = document.getElementById('contentDescription').value.trim();
     const customURL = document.getElementById('contentCustomURL').value.trim() || null;
-
-    const dbType = type === 'presentation' ? 'flipbook' : type;
     
     if (!folderId) {
         showAlert('error', 'Please select a folder');
@@ -655,7 +653,7 @@ async function saveContent(event) {
         const contentData = {
             folder_id: folderId,
             title: title,
-            type: dbType,
+            type: type,
             url: fileUrl || (editMode && !currentFile ? allContent.find(c => c.id === contentId)?.url : null),
             external_url: externalUrl || null,
             thumbnail_url: thumbnailUrl || (editMode && !currentThumbnail ? allContent.find(c => c.id === contentId)?.thumbnail_url : null),

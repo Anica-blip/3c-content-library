@@ -582,23 +582,32 @@ details[open] summary span {
     grid-auto-rows: minmax(min-content, max-content);
 }
 
-/* Scrollbar styling for folder grid */
+/* Scrollbar styling for folder grid - ALWAYS VISIBLE */
 .folders-grid::-webkit-scrollbar {
-    width: 8px;
+    width: 12px;
 }
 
 .folders-grid::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
 .folders-grid::-webkit-scrollbar-thumb {
-    background: rgba(139, 92, 246, 0.5);
-    border-radius: 4px;
+    background: rgba(139, 92, 246, 0.8);
+    border-radius: 6px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .folders-grid::-webkit-scrollbar-thumb:hover {
-    background: rgba(139, 92, 246, 0.7);
+    background: rgba(139, 92, 246, 1);
+}
+
+/* Force scrollbar to always show */
+.folders-grid {
+    overflow-y: scroll !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(139, 92, 246, 0.8) rgba(255, 255, 255, 0.1);
 }
 
 .folder-grid-card {
