@@ -408,10 +408,16 @@ function handleElementClick(element) {
             }
             
             if (isVideoUrl(buttonUrl)) {
-                console.log('🎥 Opening video...');
+                console.log('🎥 3C Button: Opening video...');
                 playMedia({...element, url: buttonUrl}, 'video');
+            } else if (isAnimatedMediaUrl(buttonUrl)) {
+                console.log('🎬 3C Button: Opening animated media (GIF)...');
+                showAnimatedMedia(buttonUrl);
+            } else if (isPresentationUrl(buttonUrl)) {
+                console.log('📊 3C Button: Opening presentation viewer...');
+                window.location.href = buttonUrl;
             } else {
-                console.log('🔗 Opening external link in popup...');
+                console.log('🔗 3C Button: Opening external link in popup...');
                 showLinkPopup(buttonUrl);
             }
         } else if (element.videoUrl || element.streamId) {
@@ -428,10 +434,16 @@ function handleElementClick(element) {
             }
             
             if (isVideoUrl(emojiUrl)) {
-                console.log('🎥 3c-emoji video detected, using overlay...');
+                console.log('🎥 Emoji: Opening video...');
                 playMedia({...element, url: emojiUrl}, 'video');
+            } else if (isAnimatedMediaUrl(emojiUrl)) {
+                console.log('🎬 Emoji: Opening animated media (GIF)...');
+                showAnimatedMedia(emojiUrl);
+            } else if (isPresentationUrl(emojiUrl)) {
+                console.log('📊 Emoji: Opening presentation viewer...');
+                window.location.href = emojiUrl;
             } else {
-                console.log('🔗 Opening emoji link in popup...');
+                console.log('🔗 Emoji: Opening link in popup...');
                 showLinkPopup(emojiUrl);
             }
         }
@@ -463,6 +475,27 @@ function isVideoUrl(url) {
         /files\.3c-public-library\.org.*\.(mp4|webm|mov)/i
     ];
     return videoPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is animated media (GIF, etc.)
+ */
+function isAnimatedMediaUrl(url) {
+    if (!url) return false;
+    const animatedPatterns = [
+        /\.gif$/i,
+        /giphy\.com/i,
+        /tenor\.com/i
+    ];
+    return animatedPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is a presentation viewer link
+ */
+function isPresentationUrl(url) {
+    if (!url) return false;
+    return url.includes('presentation-viewer.html') || url.includes('interactive-pdf-viewer.html');
 }
 
 /**
@@ -575,6 +608,25 @@ function showLinkPopup(url) {
     iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
     
     mediaPlayer.appendChild(iframe);
+    mediaOverlay.classList.add('active');
+}
+
+/**
+ * Show animated media (GIF) in overlay
+ */
+function showAnimatedMedia(url) {
+    console.log('🎬 Opening animated media:', url);
+    
+    mediaPlayer.innerHTML = '';
+    
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '70vh';
+    img.style.objectFit = 'contain';
+    img.style.borderRadius = '8px';
+    
+    mediaPlayer.appendChild(img);
     mediaOverlay.classList.add('active');
 }
 
