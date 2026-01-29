@@ -322,11 +322,19 @@ async function createFolder() {
     
     try {
         console.log('📁 Creating folder in Supabase...');
+        console.log('📋 Parameters:', { title, description, tableName, isPublic: visibility === 'public', parentId, folderType, customURL });
         debugLog('📁 Creating folder: ' + title + ' (type: ' + folderType + ', table: ' + tableName + ', visibility: ' + visibility + ', parent: ' + (parentId || 'root') + ', custom URL: ' + (customURL || 'auto') + ')');
+        
         const isPublic = visibility === 'public';
+        
+        console.log('🔄 Calling supabaseClient.createFolder()...');
         const folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
         
-        console.log('✅ Folder created:', folder);
+        if (!folder) {
+            throw new Error('Folder creation returned null/undefined - check Supabase RPC function and permissions');
+        }
+        
+        console.log('✅ Folder created successfully:', folder);
         const folderTypeLabel = folderType === 'sub_root' ? 'Sub-root folder' : 'Root folder';
         const displayURL = folder.custom_url || folder.slug;
         showAlert('success', `✅ ${folderTypeLabel} created: ${displayURL} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}`);
@@ -345,10 +353,17 @@ async function createFolder() {
         // Reload data
         console.log('🔄 Reloading data...');
         await loadAllData();
+        console.log('✅ Data reloaded, folder should now be visible');
     } catch (error) {
         console.error('❌ Error creating folder:', error);
+        console.error('❌ Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+            code: error.code
+        });
         debugLog('❌ Error creating folder: ' + error.message);
-        showAlert('error', 'Error creating folder: ' + error.message);
+        showAlert('error', 'Error creating folder: ' + error.message + '\n\nCheck browser console (F12) for details.');
     }
 }
 
