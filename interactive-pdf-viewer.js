@@ -21,6 +21,11 @@ let contentData = null;
 const A4_WIDTH_PX = 794;  // 210mm at 96 DPI
 const A4_HEIGHT_PX = 1123; // 297mm at 96 DPI
 
+// Current page dimensions (will be set based on orientation)
+let currentPageWidth = A4_WIDTH_PX;
+let currentPageHeight = A4_HEIGHT_PX;
+let isLandscape = false;
+
 // Editor canvas dimensions (75% of A4 - this is what the editor uses)
 const EDITOR_WIDTH_PX = 595;  // 794 * 0.75
 const EDITOR_HEIGHT_PX = 842;  // 1123 * 0.75
@@ -185,6 +190,36 @@ async function loadContentFromSupabase(id) {
 }
 
 /**
+ * Detect page orientation from manifest
+ */
+function detectPageOrientation() {
+    // Check manifest metadata for orientation
+    if (manifest.orientation) {
+        isLandscape = manifest.orientation === 'landscape';
+        console.log('📐 Orientation from manifest:', manifest.orientation);
+    }
+    // Check first page dimensions if available
+    else if (manifest.pages && manifest.pages.length > 0) {
+        const firstPage = manifest.pages[0];
+        if (firstPage.width && firstPage.height) {
+            isLandscape = firstPage.width > firstPage.height;
+            console.log('📐 Orientation detected from page dimensions:', firstPage.width, 'x', firstPage.height, '→', isLandscape ? 'landscape' : 'portrait');
+        }
+    }
+    
+    // Set current page dimensions based on orientation
+    if (isLandscape) {
+        currentPageWidth = A4_HEIGHT_PX;  // Swap: landscape width = portrait height
+        currentPageHeight = A4_WIDTH_PX;  // Swap: landscape height = portrait width
+        console.log('🔄 Using landscape dimensions:', currentPageWidth, 'x', currentPageHeight);
+    } else {
+        currentPageWidth = A4_WIDTH_PX;
+        currentPageHeight = A4_HEIGHT_PX;
+        console.log('📄 Using portrait dimensions:', currentPageWidth, 'x', currentPageHeight);
+    }
+}
+
+/**
  * Initialize from JSON manifest
  */
 async function initFromManifest(manifestData) {
@@ -197,8 +232,11 @@ async function initFromManifest(manifestData) {
             const pageB = b.pageNumber || 0;
             return pageA - pageB;
         });
-        console.log(' Pages sorted by pageNumber:', manifest.pages.map(p => p.pageNumber || '?').join(', '));
+        console.log('📄 Pages sorted by pageNumber:', manifest.pages.map(p => p.pageNumber || '?').join(', '));
     }
+    
+    // Detect page orientation from first page or manifest metadata
+    detectPageOrientation();
     
     totalPages = manifest.pages ? manifest.pages.length : 0;
     
@@ -227,9 +265,9 @@ async function initFromManifest(manifestData) {
 async function renderPagesAtScale() {
     pageCanvases = [];
     
-    // Calculate actual display dimensions at current zoom
-    const pageWidth = Math.round(A4_WIDTH_PX * scale);
-    const pageHeight = Math.round(A4_HEIGHT_PX * scale);
+    // Calculate actual display dimensions at current zoom (using detected orientation)
+    const pageWidth = Math.round(currentPageWidth * scale);
+    const pageHeight = Math.round(currentPageHeight * scale);
     
     console.log('   Page dimensions:', pageWidth, 'x', pageHeight, 'px');
     
@@ -314,9 +352,9 @@ function initFlipbook() {
     // Clear existing content
     flipbook.empty();
     
-    // Get actual page dimensions from CSS-styled canvas
-    const pageWidth = Math.round(A4_WIDTH_PX * scale);
-    const pageHeight = Math.round(A4_HEIGHT_PX * scale);
+    // Get actual page dimensions from CSS-styled canvas (using detected orientation)
+    const pageWidth = Math.round(currentPageWidth * scale);
+    const pageHeight = Math.round(currentPageHeight * scale);
     
     console.log('📖 Initializing flipbook with page size:', pageWidth, 'x', pageHeight);
     
@@ -1310,9 +1348,9 @@ async function downloadFlipbook() {
         // Create a new jsPDF instance
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({
-            orientation: 'portrait',
+            orientation: isLandscape ? 'landscape' : 'portrait',
             unit: 'px',
-            format: [A4_WIDTH_PX, A4_HEIGHT_PX]
+            format: [currentPageWidth, currentPageHeight]
         });
         
         console.log('📄 Creating PDF with', manifest.pages.length, 'pages');
@@ -1329,7 +1367,7 @@ async function downloadFlipbook() {
             if (page.background || page.backgroundData) {
                 const imgData = page.backgroundData || page.background;
                 try {
-                    pdf.addImage(imgData, 'PNG', 0, 0, A4_WIDTH_PX, A4_HEIGHT_PX);
+                    pdf.addImage(imgData, 'PNG', 0, 0, currentPageWidth, currentPageHeight);
                 } catch (error) {
                     console.warn('⚠️ Could not add image for page', i + 1, error);
                 }
