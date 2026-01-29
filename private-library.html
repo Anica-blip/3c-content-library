@@ -1464,7 +1464,7 @@
             let contentHtml = '';
             
             if (subfolders.length > 0) {
-                contentHtml += '<h4 style="color: #9b59b6; font-size: 14px; margin-bottom: 12px;">📂 Sub-folders</h4>';
+                // Sub-folders section (no title)
                 subfolders.forEach(subfolder => {
                     const subContent = library.content.filter(c => c.folderId === subfolder.id);
                     contentHtml += `

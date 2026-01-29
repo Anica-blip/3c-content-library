@@ -1419,7 +1419,7 @@
             
             // Add subfolders section if any exist
             if (subfolders.length > 0) {
-                html += '<div style="margin-bottom: 20px;"><h3 style="color: #9b59b6; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(155, 89, 182, 0.3); padding-bottom: 8px;">📂 Sub-folders</h3>';
+                html += '<div style="margin-bottom: 20px;">';
                 subfolders.forEach(subfolder => {
                     const itemCount = subfolder.actualItemCount || 0;
                     html += `
@@ -1440,9 +1440,7 @@
             
             // Add content items section if any exist
             if (folderContent.length > 0) {
-                if (subfolders.length > 0) {
-                    html += '<h3 style="color: #9b59b6; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(155, 89, 182, 0.3); padding-bottom: 8px;">📄 Content Items</h3>';
-                }
+                // No title needed between subfolders and content items
                 
                 html += folderContent.map(item => {
                     let thumbnailAttr = '';
@@ -1611,7 +1609,7 @@
             let contentHtml = '';
             
             if (subfolders.length > 0) {
-                contentHtml += '<h4 style="color: #9b59b6; font-size: 14px; margin-bottom: 12px;">📂 Sub-folders</h4>';
+                // Sub-folders section (no title)
                 subfolders.forEach(subfolder => {
                     // Use actual_item_count from database for accurate count
                     const itemCount = subfolder.actualItemCount || 0;
