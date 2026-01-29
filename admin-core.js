@@ -1021,9 +1021,9 @@ function openFolderSidebar(folderId) {
             // For flipbooks and presentations, add "Click to view" link
             let viewLink = '';
             if (content.type === 'flipbook' && content.url) {
-                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Click to view flipbook</a></div>`;
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Flipbook Viewer</a></div>`;
             } else if (content.type === 'presentation' && content.url) {
-                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Click to view presentation</a></div>`;
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Presentation Viewer</a></div>`;
             }
             
             contentHtml += `
