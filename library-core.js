@@ -305,6 +305,9 @@ async function openContent(contentData) {
         case 'flipbook':
             openFlipbookViewer(content);
             break;
+        case 'presentation':
+            openPresentationViewer(content);
+            break;
         case 'video':
             openMediaPlayer(content, 'video');
             break;
@@ -398,6 +401,23 @@ function openFlipbookViewer(content) {
     }
     else {
         alert('Flipbook data not available');
+    }
+}
+
+// ==================== PRESENTATION VIEWER ====================
+function openPresentationViewer(content) {
+    // Priority 1: Use Cloudflare R2 manifest URL if available (fast, public)
+    if (content.url) {
+        const presentationUrl = `presentation-viewer.html?manifest=${encodeURIComponent(content.url)}`;
+        window.open(presentationUrl, '_blank', 'width=1200,height=800');
+    }
+    // Priority 2: Fallback to content ID (loads from Supabase)
+    else if (content.id) {
+        const presentationUrl = `presentation-viewer.html?content=${content.id}`;
+        window.open(presentationUrl, '_blank', 'width=1200,height=800');
+    }
+    else {
+        alert('Presentation data not available');
     }
 }
 
@@ -498,6 +518,7 @@ function getTypeIcon(type) {
     const icons = {
         pdf: '📄',
         flipbook: '📖',
+        presentation: '📖',        
         video: '🎥',
         image: '🖼️',
         audio: '🎵',
