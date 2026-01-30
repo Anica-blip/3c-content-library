@@ -1016,10 +1016,8 @@ function openFolderSidebar(folderId) {
             let viewLink = '';
             if (content.type === 'flipbook' && content.url) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Click to view flipbook</a></div>`;
-            } else if (content.type === 'presentation' && content.url) {
+                            } else if (content.type === 'presentation' && content.url) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Click to view presentation</a></div>`;
-            }
-            
             contentHtml += `
                 <div class="content-card" style="margin-bottom: 10px;">
                     ${thumbnailHtml}
@@ -1039,10 +1037,9 @@ function openFolderSidebar(folderId) {
                     </div>
                 </div>
             `;
-        });
+        })
         
         contentHtml += '</div>';
-    }
     
     // Show empty state only if there are no content items AND no subfolders
     if (folderContent.length === 0 && subfolders.length === 0) {
