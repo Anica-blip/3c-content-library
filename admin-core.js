@@ -717,7 +717,7 @@ async function saveContent(event) {
         
         // Reload data
         await loadAllData();
-        
+    
     } catch (error) {
         debugLog('❌ Error saving content: ' + error.message);
         showAlert('error', 'Error saving content: ' + error.message);
