@@ -322,19 +322,11 @@ async function createFolder() {
     
     try {
         console.log('📁 Creating folder in Supabase...');
-        console.log('📋 Parameters:', { title, description, tableName, isPublic: visibility === 'public', parentId, folderType, customURL });
         debugLog('📁 Creating folder: ' + title + ' (type: ' + folderType + ', table: ' + tableName + ', visibility: ' + visibility + ', parent: ' + (parentId || 'root') + ', custom URL: ' + (customURL || 'auto') + ')');
-        
         const isPublic = visibility === 'public';
-        
-        console.log('🔄 Calling supabaseClient.createFolder()...');
         const folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
         
-        if (!folder) {
-            throw new Error('Folder creation returned null/undefined - check Supabase RPC function and permissions');
-        }
-        
-        console.log('✅ Folder created successfully:', folder);
+        console.log('✅ Folder created:', folder);
         const folderTypeLabel = folderType === 'sub_root' ? 'Sub-root folder' : 'Root folder';
         const displayURL = folder.custom_url || folder.slug;
         showAlert('success', `✅ ${folderTypeLabel} created: ${displayURL} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}`);
@@ -353,17 +345,10 @@ async function createFolder() {
         // Reload data
         console.log('🔄 Reloading data...');
         await loadAllData();
-        console.log('✅ Data reloaded, folder should now be visible');
     } catch (error) {
         console.error('❌ Error creating folder:', error);
-        console.error('❌ Error details:', {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-            code: error.code
-        });
         debugLog('❌ Error creating folder: ' + error.message);
-        showAlert('error', 'Error creating folder: ' + error.message + '\n\nCheck browser console (F12) for details.');
+        showAlert('error', 'Error creating folder: ' + error.message);
     }
 }
 
@@ -579,34 +564,34 @@ async function saveContent(event) {
         
         // Handle file upload
         if (currentFile) {
-            // Special handling for flipbook/presentation JSON files
-            if ((type === 'flipbook' || type === 'presentation') && currentFile.type === 'application/json') {
-                debugLog(type === 'presentation' ? '📊 Processing presentation JSON file...' : '📖 Processing flipbook JSON file...');
+            // Special handling for flipbook JSON files
+            if (type === 'flipbook' && currentFile.type === 'application/json') {
+                debugLog('📖 Processing flipbook JSON file...');
                 try {
                     const jsonText = await currentFile.text();
                     const jsonData = JSON.parse(jsonText);
                     
-                    // Store JSON content in project_json field (used by both flipbooks and presentations)
+                    // Store JSON content in project_json field for backward compatibility
                     projectJson = jsonText;
                     
                     // Upload JSON file to Cloudflare R2 (MUST be Cloudflare URL, not base64)
-                    debugLog(type === 'presentation' ? '📤 Uploading presentation JSON to R2...' : '📤 Uploading flipbook JSON to R2...');
+                    debugLog('📤 Uploading flipbook JSON to R2...');
                     if (useR2) {
                         try {
                             const result = await r2Storage.uploadFlipbook(currentFile);
                             fileUrl = result.url;
-                            debugLog((type === 'presentation' ? '✅ Presentation JSON uploaded to R2: ' : '✅ Flipbook JSON uploaded to R2: ') + fileUrl);
+                            debugLog('✅ Flipbook JSON uploaded to R2: ' + fileUrl);
                         } catch (error) {
                             debugLog('❌ R2 upload failed: ' + error.message);
                             showAlert('error', 'Failed to upload JSON to Cloudflare R2: ' + error.message);
                             return;
                         }
                     } else {
-                        showAlert('error', 'Cloudflare R2 is required for JSON uploads');
+                        showAlert('error', 'Cloudflare R2 is required for flipbook uploads');
                         return;
                     }
                     
-                    debugLog(type === 'presentation' ? '✅ Presentation JSON parsed and stored' : '✅ Flipbook JSON parsed and stored');
+                    debugLog('✅ Flipbook JSON parsed and stored');
                 } catch (error) {
                     debugLog('❌ Failed to parse JSON: ' + error.message);
                     showAlert('error', 'Invalid JSON file: ' + error.message);
@@ -661,12 +646,8 @@ async function saveContent(event) {
             file_size: currentFile ? currentFile.size : (editMode ? allContent.find(c => c.id === contentId)?.file_size : null),
             custom_url: customURL
         };
-
-        if (type === 'presentation') {
-            contentData.metadata = { ...(contentData.metadata || {}), presentation: true };
-        }
         
-        // Add project_json for flipbook/presentation documents
+        // Add project_json for flipbook documents
         if (projectJson) {
             contentData.project_json = projectJson;
         }
@@ -1034,9 +1015,9 @@ function openFolderSidebar(folderId) {
             // For flipbooks and presentations, add "Click to view" link
             let viewLink = '';
             if (content.type === 'flipbook' && content.url) {
-                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Flipbook Viewer</a></div>`;
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Click to view flipbook</a></div>`;
             } else if (content.type === 'presentation' && content.url) {
-                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Presentation Viewer</a></div>`;
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Click to view presentation</a></div>`;
             }
             
             contentHtml += `
