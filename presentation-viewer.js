@@ -21,10 +21,10 @@ let contentData = null;
 const A4_WIDTH_PX = 794;  // 210mm at 96 DPI
 const A4_HEIGHT_PX = 1123; // 297mm at 96 DPI
 
-// Current page dimensions (will be set based on orientation)
-let currentPageWidth = A4_WIDTH_PX;
-let currentPageHeight = A4_HEIGHT_PX;
-let isLandscape = false;
+// Current page dimensions (default to landscape for presentations)
+let currentPageWidth = A4_HEIGHT_PX;  // Start with landscape width
+let currentPageHeight = A4_WIDTH_PX;  // Start with landscape height
+let isLandscape = true;  // Default to landscape
 
 // Editor canvas dimensions (75% of A4 - this is what the editor uses)
 const EDITOR_WIDTH_PX = 595;  // 794 * 0.75
@@ -109,10 +109,19 @@ async function init() {
 
         loading.classList.add('hidden');
     } catch (error) {
-        console.error('Init error:', error);
-        // alert('Failed to load presentation: ' + error.message);
+        console.error('❌ Init error:', error);
+        console.error('❌ Error details:', error.message, error.stack);
         loading.classList.add('hidden');
-        goBack();
+        
+        // Show error message instead of going back
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(231, 76, 60, 0.9); color: white; padding: 30px; border-radius: 12px; max-width: 500px; text-align: center; z-index: 10000;';
+        errorDiv.innerHTML = `
+            <h2 style="margin: 0 0 15px 0;">❌ Failed to Load Presentation</h2>
+            <p style="margin: 0 0 20px 0;">${error.message}</p>
+            <button onclick="goBack()" style="background: white; color: #e74c3c; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">Go Back</button>
+        `;
+        document.body.appendChild(errorDiv);
     }
 }
 
@@ -191,32 +200,42 @@ async function loadContentFromSupabase(id) {
 
 /**
  * Detect page orientation from manifest
+ * Default is landscape, switch to portrait only if detected
  */
 function detectPageOrientation() {
+    // Start with landscape as default (already set in global variables)
+    isLandscape = true;
+    currentPageWidth = A4_HEIGHT_PX;
+    currentPageHeight = A4_WIDTH_PX;
+    
     // Check manifest metadata for orientation
     if (manifest.orientation) {
-        isLandscape = manifest.orientation === 'landscape';
-        console.log('📐 Orientation from manifest:', manifest.orientation);
+        if (manifest.orientation === 'portrait') {
+            isLandscape = false;
+            currentPageWidth = A4_WIDTH_PX;
+            currentPageHeight = A4_HEIGHT_PX;
+            console.log('📐 Portrait orientation from manifest metadata');
+        } else {
+            console.log('📐 Landscape orientation from manifest metadata');
+        }
     }
     // Check first page dimensions if available
     else if (manifest.pages && manifest.pages.length > 0) {
         const firstPage = manifest.pages[0];
         if (firstPage.width && firstPage.height) {
-            isLandscape = firstPage.width > firstPage.height;
-            console.log('📐 Orientation detected from page dimensions:', firstPage.width, 'x', firstPage.height, '→', isLandscape ? 'landscape' : 'portrait');
+            // Only switch to portrait if height is clearly greater than width
+            if (firstPage.height > firstPage.width) {
+                isLandscape = false;
+                currentPageWidth = A4_WIDTH_PX;
+                currentPageHeight = A4_HEIGHT_PX;
+                console.log('📐 Portrait detected from page dimensions:', firstPage.width, 'x', firstPage.height);
+            } else {
+                console.log('📐 Landscape detected from page dimensions:', firstPage.width, 'x', firstPage.height);
+            }
         }
     }
     
-    // Set current page dimensions based on orientation
-    if (isLandscape) {
-        currentPageWidth = A4_HEIGHT_PX;  // Swap: landscape width = portrait height
-        currentPageHeight = A4_WIDTH_PX;  // Swap: landscape height = portrait width
-        console.log('🔄 Using landscape dimensions:', currentPageWidth, 'x', currentPageHeight);
-    } else {
-        currentPageWidth = A4_WIDTH_PX;
-        currentPageHeight = A4_HEIGHT_PX;
-        console.log('📄 Using portrait dimensions:', currentPageWidth, 'x', currentPageHeight);
-    }
+    console.log('✅ Final orientation:', isLandscape ? 'LANDSCAPE' : 'PORTRAIT', '→', currentPageWidth, 'x', currentPageHeight);
 }
 
 /**
