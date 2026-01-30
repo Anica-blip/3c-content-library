@@ -68,7 +68,7 @@ function isMobileDevice() {
 }
 
 /**
- * Initialize flipbook
+ * Initialize presentation
  */
 async function init() {
     try {
@@ -101,7 +101,7 @@ async function init() {
             await loadContentFromSupabase(contentId);
         }
         else {
-            // alert('No flipbook data provided. Use ?manifest=URL or ?content=ID');
+            // alert('No presentation data provided. Use ?manifest=URL or ?content=ID');
             loading.classList.add('hidden');
             goBack();
             return;
@@ -252,8 +252,8 @@ async function initFromManifest(manifestData) {
     // Render all pages at current scale with 2x quality
     await renderPagesAtScale();
     
-    // Initialize flipbook
-    initFlipbook();
+    // Initialize presentation
+    initPresentation();
     
     // Setup event listeners
     setupEventListeners();
@@ -344,21 +344,21 @@ async function renderPagesAtScale() {
 }
 
 /**
- * Initialize turn.js flipbook
+ * Initialize turn.js presentation
  */
-function initFlipbook() {
-    const flipbook = $('#flipbook');
+function initPresentation() {
+    const presentation = $('#presentation');
     
     // Clear existing content
-    flipbook.empty();
+    presentation.empty();
     
     // Get actual page dimensions from CSS-styled canvas (using detected orientation)
     const pageWidth = Math.round(currentPageWidth * scale);
     const pageHeight = Math.round(currentPageHeight * scale);
     
-    console.log('📖 Initializing flipbook with page size:', pageWidth, 'x', pageHeight);
+    console.log('📖 Initializing presentation with page size:', pageWidth, 'x', pageHeight);
     
-    // Add pages to flipbook
+    // Add pages to presentation
     pageCanvases.forEach((canvas, index) => {
         const pageDiv = $('<div class="page"></div>');
         
@@ -422,7 +422,7 @@ function initFlipbook() {
         }
     });
     
-    flipbookInitialized = true;
+    presentationInitialized = true;
     updatePageInfo();
     
     console.log(' Flipbook initialized at', Math.round(scale * 100) + '% zoom');
@@ -1228,48 +1228,48 @@ function setupEventListeners() {
 }
 
 /**
- * Reload flipbook after zoom change
+ * Reload presentation after zoom change
  */
-async function reloadFlipbook() {
+async function reloadPresentation() {
     loading.classList.remove('hidden');
-    console.log('🔄 Reloading flipbook at', Math.round(scale * 100) + '% zoom, page', currentPage);
+    console.log('🔄 Reloading presentation at', Math.round(scale * 100) + '% zoom, page', currentPage);
     
     // Update zoom display
     document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
     
     try {
-        // Destroy existing flipbook properly
-        if (flipbookInitialized) {
+        // Destroy existing presentation properly
+        if (presentationInitialized) {
             try {
-                const $flipbook = $('#flipbook');
+                const $presentation = $('#presentation');
                 // Remove turn.js instance
-                if ($flipbook.data('turn')) {
-                    $flipbook.turn('destroy');
+                if ($presentation.data('turn')) {
+                    $presentation.turn('destroy');
                 }
             } catch (e) {
                 console.warn('⚠️ Error destroying turn.js:', e);
             }
-            flipbookInitialized = false;
+            presentationInitialized = false;
         }
         
-        // Clear flipbook container completely
-        $('#flipbook').empty();
+        // Clear presentation container completely
+        $('#presentation').empty();
         
         // Re-render pages at new scale
         await renderPagesAtScale();
         
-        // Reinitialize flipbook
-        initFlipbook();
+        // Reinitialize presentation
+        initPresentation();
         
         // Go to the desired page after reload
         setTimeout(() => {
-            $('#flipbook').turn('page', currentPage);
+            $('#presentation').turn('page', currentPage);
             updatePageInfo();
         }, 150);
         
-        console.log('✅ Flipbook reloaded at', Math.round(scale * 100) + '%, page', currentPage);
+        console.log('✅ Presentation reloaded at', Math.round(scale * 100) + '%, page', currentPage);
     } catch (error) {
-        console.error('❌ Error reloading flipbook:', error);
+        console.error('❌ Error reloading presentation:', error);
     } finally {
         loading.classList.add('hidden');
     }
@@ -1307,14 +1307,14 @@ function updatePageInfo() {
 }
 
 /**
- * Download flipbook as PDF
+ * Download presentation as PDF
  */
-async function downloadFlipbook() {
+async function downloadPresentation() {
     try {
         console.log('📥 Download button clicked');
         
         if (!manifest || !manifest.pages || manifest.pages.length === 0) {
-            // alert('⚠️ No flipbook data available to download');
+            // alert('⚠️ No presentation data available to download');
             return;
         }
         
@@ -1353,7 +1353,7 @@ async function downloadFlipbook() {
         }
         
         // Generate filename
-        const filename = (manifest.title || 'flipbook').replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
+        const filename = (manifest.title || 'presentation').replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.pdf';
         
         // Save the PDF
         pdf.save(filename);
@@ -1362,9 +1362,9 @@ async function downloadFlipbook() {
         console.log('✅ PDF download complete:', filename);
         
     } catch (error) {
-        console.error('❌ Error downloading flipbook:', error);
+        console.error('❌ Error downloading presentation:', error);
         loading.classList.add('hidden');
-        // alert('❌ Download Error\n\nFailed to download flipbook.\n\nError: ' + error.message);
+        // alert('❌ Download Error\n\nFailed to download presentation.\n\nError: ' + error.message);
     }
 }
 
