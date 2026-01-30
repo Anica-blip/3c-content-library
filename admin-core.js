@@ -10,6 +10,13 @@ let debugMode = false;
 let folders = [];
 let allContent = [];
 
+// ==================== DEBUG LOGGING ====================
+function debugLog(message) {
+    if (debugMode) {
+        console.log('[DEBUG]', message);
+    }
+}
+
 // ==================== GLOBAL ERROR HANDLER ====================
 window.onerror = function(message, source, lineno, colno, error) {
     console.error('Global error caught:', { message, source, lineno, colno, error });
@@ -601,9 +608,9 @@ async function saveContent(event) {
                     showAlert('error', 'Invalid JSON file: ' + error.message);
                     return;
                 }
-            } else {
-                            // Special handling for presentation JSON files
-            if (type === 'presentation' && currentFile.type === 'application/json') {
+            }
+            // Special handling for presentation JSON files
+            else if (type === 'presentation' && currentFile.type === 'application/json') {
                 debugLog('📖 Processing presentation JSON file...');
                 try {
                     const jsonText = await currentFile.text();
@@ -635,8 +642,9 @@ async function saveContent(event) {
                     showAlert('error', 'Invalid JSON file: ' + error.message);
                     return;
                 }
-            } else {
-                // Regular file upload for non-flipbook content (PDF, images, etc.)
+            }
+            // Regular file upload for non-flipbook/presentation content (PDF, images, etc.)
+            else {
                 debugLog('📤 Uploading file to R2...');
                 if (useR2) {
                     try {
@@ -685,12 +693,7 @@ async function saveContent(event) {
             custom_url: customURL
         };
         
-        // Add project_json for flipbook documents
-        if (projectJson) {
-            contentData.project_json = projectJson;
-        }
-        } else {
-                    // Add project_json for presentation documents
+        // Add project_json for flipbook/presentation documents
         if (projectJson) {
             contentData.project_json = projectJson;
         }
@@ -1059,8 +1062,10 @@ function openFolderSidebar(folderId) {
             let viewLink = '';
             if (content.type === 'flipbook' && content.url) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Click to view flipbook</a></div>`;
-                            } else if (content.type === 'presentation' && content.url) {
+            } else if (content.type === 'presentation' && content.url) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Click to view presentation</a></div>`;
+            }
+            
             contentHtml += `
                 <div class="content-card" style="margin-bottom: 10px;">
                     ${thumbnailHtml}
@@ -1372,4 +1377,5 @@ function truncateURL(url) {
         return url.substring(0, 60) + '...';
     }
     return url;
+}
 }
