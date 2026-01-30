@@ -567,19 +567,17 @@ details[open] summary span {
 /* Folder Grid Layout */
 .folders-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 16px;
     margin-top: 20px;
-    max-height: 500px;
-    overflow-y: auto;
+    max-height: 600px;
+    overflow-y: scroll;
     overflow-x: hidden;
     padding: 12px;
     padding-right: 8px;
-    border: 1px solid rgba(139, 92, 246, 0.2);
+    border: 2px solid rgba(139, 92, 246, 0.3);
     border-radius: 8px;
     background: rgba(0, 0, 0, 0.3);
-    /* Ensure grid wraps to multiple rows */
-    grid-auto-rows: minmax(min-content, max-content);
 }
 
 /* Scrollbar styling for folder grid - ALWAYS VISIBLE */
@@ -603,9 +601,8 @@ details[open] summary span {
     background: rgba(139, 92, 246, 1);
 }
 
-/* Force scrollbar to always show */
+/* Firefox scrollbar support */
 .folders-grid {
-    overflow-y: scroll !important;
     scrollbar-width: thin;
     scrollbar-color: rgba(139, 92, 246, 0.8) rgba(255, 255, 255, 0.1);
 }
