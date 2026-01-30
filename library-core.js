@@ -401,7 +401,6 @@ function openFlipbookViewer(content) {
     }
     else {
         alert('Flipbook data not available');
-    }
 }
 
 // ==================== PRESENTATION VIEWER ====================
@@ -418,7 +417,7 @@ function openPresentationViewer(content) {
     }
     else {
         alert('Presentation data not available');
-    }
+    }        
 }
 
 // ==================== LINK MODAL (DRAGGABLE) ====================
