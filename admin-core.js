@@ -553,6 +553,10 @@ async function saveContent(event) {
         showAlert('error', 'Please enter a content title');
         return;
     }
+        if (!type) {
+        showAlert('error', 'Please enter a content type');
+        return;
+    }
     
     try {
         let fileUrl = urlInput;
@@ -1170,59 +1174,6 @@ async function fileToBase64(file) {
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
-}
-
-// ==================== DEBUG PANEL ====================
-function toggleDebug() {
-    console.log('toggleDebug called, current debugMode:', debugMode);
-    debugMode = !debugMode;
-    const panel = document.getElementById('debugPanel');
-    console.log('Debug panel element:', panel);
-    
-    if (panel) {
-        panel.classList.toggle('active', debugMode);
-        console.log('Debug mode toggled to:', debugMode);
-        
-        if (debugMode) {
-            updateDebugPanel();
-        }
-    } else {
-        console.error('Debug panel element not found!');
-    }
-}
-
-function debugLog(message) {
-    console.log(message);
-    
-    if (debugMode) {
-        const content = document.getElementById('debugContent');
-        const timestamp = new Date().toLocaleTimeString();
-        const entry = document.createElement('div');
-        entry.style.marginBottom = '10px';
-        entry.style.paddingBottom = '10px';
-        entry.style.borderBottom = '1px solid #333';
-        entry.innerHTML = `<small style="color: #888;">[${timestamp}]</small><br>${escapeHtml(message)}`;
-        content.insertBefore(entry, content.firstChild);
-        
-        // Keep only last 50 entries
-        while (content.children.length > 50) {
-            content.removeChild(content.lastChild);
-        }
-    }
-}
-
-function updateDebugPanel() {
-    const content = document.getElementById('debugContent');
-    content.innerHTML = `
-        <h4 style="color: #4ec9b0; margin-bottom: 10px;">Current State</h4>
-        <pre>${JSON.stringify({
-            connected: supabaseClient.isConnected,
-            folders: folders.length,
-            content: allContent.length,
-            currentFile: currentFile ? currentFile.name : null,
-            currentThumbnail: currentThumbnail ? currentThumbnail.name : null
-        }, null, 2)}</pre>
-    `;
 }
 
 // ==================== UTILITY FUNCTIONS ====================
