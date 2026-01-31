@@ -517,7 +517,7 @@ function getTypeIcon(type) {
     const icons = {
         pdf: '📄',
         flipbook: '📖',
-        presentation: '📖',        
+        presentation: '📊',        
         video: '🎥',
         image: '🖼️',
         audio: '🎵',
