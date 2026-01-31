@@ -745,6 +745,7 @@ async function saveContent(event) {
                 }
             } else if (type === 'presentation' && currentFile.type === 'application/json') {
                 // Special handling for presentation JSON files
+                console.log('📖 Processing presentation JSON file...');
                 debugLog('📖 Processing presentation JSON file...');
                 try {
                     const jsonText = await currentFile.text();
@@ -754,13 +755,16 @@ async function saveContent(event) {
                     projectJson = jsonText;
                     
                     // Upload JSON file to Cloudflare R2 (MUST be Cloudflare URL, not base64)
+                    console.log('📤 Uploading presentation JSON to R2...');
                     debugLog('📤 Uploading presentation JSON to R2...');
                     if (useR2) {
                         try {
                             const result = await r2Storage.uploadPresentation(currentFile);
                             fileUrl = result.url;
+                            console.log('✅ Presentation JSON uploaded to R2:', fileUrl);
                             debugLog('✅ Presentation JSON uploaded to R2: ' + fileUrl);
                         } catch (error) {
+                            console.error('❌ R2 upload failed:', error);
                             debugLog('❌ R2 upload failed: ' + error.message);
                             showAlert('error', 'Failed to upload JSON to Cloudflare R2: ' + error.message);
                             return;
@@ -770,8 +774,10 @@ async function saveContent(event) {
                         return;
                     }
                     
+                    console.log('✅ Presentation JSON parsed and stored');
                     debugLog('✅ Presentation JSON parsed and stored');
                 } catch (error) {
+                    console.error('❌ Failed to parse JSON:', error);
                     debugLog('❌ Failed to parse JSON: ' + error.message);
                     showAlert('error', 'Invalid JSON file: ' + error.message);
                     return;
@@ -838,9 +844,11 @@ async function saveContent(event) {
         
         if (editMode) {
             // Update existing content
+            console.log('➕ Creating new content:', title);
             debugLog('✏️ Updating content: ' + contentId);
             await supabaseClient.updateContent(contentId, contentData, folderId);
-            const displayURL = customURL || 'auto-generated';
+            const displayURL = customURL || 'auto-generated';g;
+            console.lo('✅ Content saved successfully:', result)
             showAlert('success', `✅ Content updated (URL: ${displayURL})`);
         } else {
             // Create new content
@@ -851,6 +859,7 @@ async function saveContent(event) {
         }
         
         // Reset form
+        console.error('❌ Error saving content:', error);
         resetContentForm();
         
         // Reload data
