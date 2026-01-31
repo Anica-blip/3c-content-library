@@ -191,16 +191,27 @@
         .nav-arrow:hover {
             background: rgba(155, 89, 182, 0.5);
             border-color: rgba(155, 89, 182, 0.8);
-            transform: scale(1.1);
             box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+        }
+        
+        #nav-arrow-left:hover {
+            transform: translateY(-50%) rotate(180deg) scale(1.1);
+        }
+        
+        #nav-arrow-right:hover {
+            transform: translateY(-50%) scale(1.1);
         }
 
         #nav-arrow-left {
-            left: 20px;
+            left: 40px;
+            top: 50%;
+            transform: translateY(-50%) rotate(180deg);
         }
 
         #nav-arrow-right {
-            right: 20px;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%);
         }
 
         /* Hide arrows on first/last page */
@@ -489,7 +500,7 @@
         <div id="presentation-wrapper">
             <div id="presentation"></div>
             <!-- Navigation Arrows -->
-            <div id="nav-arrow-left" class="nav-arrow" title="Previous Page" style="transform: rotate(180deg);">
+            <div id="nav-arrow-left" class="nav-arrow" title="Previous Page">
                 ➥
             </div>
             <div id="nav-arrow-right" class="nav-arrow" title="Next Page">
@@ -513,6 +524,6 @@
         <p>Loading presentation...</p>
     </div>
 
-    <script src="presentation-viewer.js?v=3.4"></script>
+    <script src="presentation-viewer.js?v=3.7"></script>
 </body>
 </html>
