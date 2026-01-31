@@ -87,19 +87,25 @@ class SupabaseClient {
      * Create new folder
      */
     async createFolder(title, description = '', tableName = '', isPublic = true, parentId = null, folderType = 'root', customUrl = null) {
-        // Generate slug from title (or use custom URL)
-        const { data: slugData, error: slugError } = await this.client
-            .rpc('generate_folder_slug', { 
-                title_text: title,
-                parent_folder_id: parentId,
-                custom_slug: customUrl
-            });
-        
-        if (slugError) throw slugError;
-        
-        const { data, error } = await this.client
-            .from('folders')
-            .insert([{
+        try {
+            console.log('📁 Creating folder with params:', { title, tableName, isPublic, parentId, folderType, customUrl });
+            
+            // Generate slug from title (or use custom URL)
+            const { data: slugData, error: slugError } = await this.client
+                .rpc('generate_folder_slug', { 
+                    title_text: title,
+                    parent_folder_id: parentId,
+                    custom_slug: customUrl
+                });
+            
+            if (slugError) {
+                console.error('❌ Slug generation error:', slugError);
+                throw new Error(`Slug generation failed: ${slugError.message || JSON.stringify(slugError)}`);
+            }
+            
+            console.log('✅ Generated slug:', slugData);
+            
+            const folderData = {
                 title: title,
                 slug: slugData,
                 custom_url: customUrl,
@@ -108,12 +114,27 @@ class SupabaseClient {
                 is_public: isPublic,
                 parent_id: parentId,
                 folder_type: folderType
-            }])
-            .select()
-            .single();
-        
-        if (error) throw error;
-        return data;
+            };
+            
+            console.log('📤 Inserting folder data:', folderData);
+            
+            const { data, error } = await this.client
+                .from('folders')
+                .insert([folderData])
+                .select()
+                .single();
+            
+            if (error) {
+                console.error('❌ Insert error:', error);
+                throw new Error(`Folder insert failed: ${error.message || JSON.stringify(error)}`);
+            }
+            
+            console.log('✅ Folder created successfully:', data);
+            return data;
+        } catch (error) {
+            console.error('❌ createFolder error:', error);
+            throw error;
+        }
     }
 
     /**

@@ -602,13 +602,12 @@ async function saveContent(event) {
                     showAlert('error', 'Invalid JSON file: ' + error.message);
                     return;
                 }
-            } else {
+            } else if (type === 'presentation' && currentFile.type === 'application/json') {
                 // Special handling for presentation JSON files
-                if (type === 'presentation' && currentFile.type === 'application/json') {
-                    debugLog('📖 Processing presentation JSON file...');
-                    try {
-                        const jsonText = await currentFile.text();
-                        const jsonData = JSON.parse(jsonText);
+                debugLog('📖 Processing presentation JSON file...');
+                try {
+                    const jsonText = await currentFile.text();
+                    const jsonData = JSON.parse(jsonText);
                     
                     // Store JSON content in project_json field for backward compatibility
                     projectJson = jsonText;
