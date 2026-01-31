@@ -10,11 +10,151 @@ let debugMode = false;
 let folders = [];
 let allContent = [];
 
-// ==================== DEBUG LOGGING ====================
+// ==================== UTILITY FUNCTIONS ====================
 function debugLog(message) {
     if (debugMode) {
         console.log('[DEBUG]', message);
     }
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.getElementById('connectionAlert');
+    if (!alertDiv) return;
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+    alertDiv.style.display = 'block';
+    
+    setTimeout(() => {
+        alertDiv.style.display = 'none';
+    }, 5000);
+}
+
+function updateConnectionStatus(connected) {
+    const indicator = document.getElementById('connectionStatus');
+    if (indicator) {
+        indicator.className = 'status-indicator ' + (connected ? 'connected' : 'disconnected');
+    }
+}
+
+function setupDragAndDrop() {
+    const uploadArea = document.getElementById('uploadArea');
+    if (!uploadArea) return;
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, () => {
+            uploadArea.classList.add('dragover');
+        }, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, () => {
+            uploadArea.classList.remove('dragover');
+        }, false);
+    });
+    
+    uploadArea.addEventListener('drop', handleDrop, false);
+}
+
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    
+    if (files.length > 0) {
+        currentFile = files[0];
+        displayFileInfo(currentFile);
+    }
+}
+
+function setupFileHandlers() {
+    const fileUpload = document.getElementById('fileUpload');
+    if (!fileUpload) return;
+    
+    fileUpload.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            currentFile = e.target.files[0];
+            displayFileInfo(currentFile);
+        }
+    });
+}
+
+function displayFileInfo(file) {
+    const info = document.getElementById('fileInfo');
+    if (!info) return;
+    const size = formatFileSize(file.size);
+    info.textContent = `📄 ${file.name} (${size})`;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+function getTypeIcon(type) {
+    const icons = {
+        pdf: '📄',
+        flipbook: '📖',
+        presentation: '📊',
+        video: '🎥',
+        image: '🖼️',
+        audio: '🎵',
+        link: '🔗'
+    };
+    return icons[type] || '📄';
+}
+
+function truncateURL(url, maxLength = 50) {
+    if (!url) return '';
+    if (url.length <= maxLength) return url;
+    return url.substring(0, maxLength) + '...';
+}
+
+function previewThumbnail(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    currentThumbnail = file;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const preview = document.getElementById('thumbnailPreview');
+        if (preview) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+async function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
 
 // ==================== GLOBAL ERROR HANDLER ====================
@@ -138,12 +278,6 @@ async function testConnection() {
     }
 }
 
-function updateConnectionStatus(connected) {
-    const indicator = document.getElementById('connectionStatus');
-    if (indicator) {
-        indicator.className = 'status-indicator ' + (connected ? 'connected' : 'disconnected');
-    }
-}
 
 // ==================== DATA LOADING ====================
 async function loadAllData() {
@@ -1108,105 +1242,7 @@ function closeFolderSidebar() {
     document.getElementById('folderSidebar').classList.remove('active');
 }
 
-// ==================== FILE HANDLING ====================
-function setupDragAndDrop() {
-    const uploadArea = document.getElementById('uploadArea');
-    
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, preventDefaults, false);
-    });
-    
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    
-    ['dragenter', 'dragover'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, () => {
-            uploadArea.classList.add('dragover');
-        }, false);
-    });
-    
-    ['dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, () => {
-            uploadArea.classList.remove('dragover');
-        }, false);
-    });
-    
-    uploadArea.addEventListener('drop', handleDrop, false);
-}
-
-function handleDrop(e) {
-    const dt = e.dataTransfer;
-    const files = dt.files;
-    
-    if (files.length > 0) {
-        currentFile = files[0];
-        displayFileInfo(currentFile);
-    }
-}
-
-function setupFileHandlers() {
-    document.getElementById('fileUpload').addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            currentFile = e.target.files[0];
-            displayFileInfo(currentFile);
-        }
-    });
-}
-
-function displayFileInfo(file) {
-    const info = document.getElementById('fileInfo');
-    const size = formatFileSize(file.size);
-    info.textContent = `📄 ${file.name} (${size})`;
-}
-
-function previewThumbnail(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    currentThumbnail = file;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const preview = document.getElementById('thumbnailPreview');
-        preview.src = e.target.result;
-        preview.style.display = 'block';
-    };
-    reader.readAsDataURL(file);
-}
-
-async function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-// ==================== UTILITY FUNCTIONS ====================
-function showAlert(type, message) {
-    const alertDiv = document.getElementById('connectionAlert');
-    alertDiv.className = `alert alert-${type}`;
-    alertDiv.textContent = message;
-    alertDiv.style.display = 'block';
-    
-    setTimeout(() => {
-        alertDiv.style.display = 'none';
-    }, 5000);
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-}
+// ==================== FILE HANDLING (moved to top) ====================
 
 // ==================== PASSWORD MANAGEMENT ====================
 
