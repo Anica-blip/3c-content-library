@@ -1184,7 +1184,7 @@ function setupEventListeners() {
         if (scale < 0.53) {
             scale = 0.53; // Jump to 53%
             currentPage = 1; // Start at page 1
-            await reloadFlipbook();
+            await reloadPresentation();
         }
     });
     
