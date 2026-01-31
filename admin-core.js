@@ -220,7 +220,7 @@ function saveSupabaseCredentials(url, key) {
     localStorage.setItem('supabase_key', key);
 }
 
-window.connectSupabase = async function connectSupabase() {
+async function connectSupabase() {
     const urlInput = document.getElementById('supabaseUrl');
     const keyInput = document.getElementById('supabaseKey');
     
@@ -260,7 +260,7 @@ window.connectSupabase = async function connectSupabase() {
     }
 }
 
-window.testConnection = async function testConnection() {
+async function testConnection() {
     try {
         if (!supabaseClient.isConnected) {
             showAlert('error', 'Please connect to Supabase first');
@@ -278,6 +278,12 @@ window.testConnection = async function testConnection() {
     }
 }
 
+function updateConnectionStatus(connected) {
+    const indicator = document.getElementById('connectionStatus');
+    if (indicator) {
+        indicator.className = 'status-indicator ' + (connected ? 'connected' : 'disconnected');
+    }
+}
 
 // ==================== DATA LOADING ====================
 async function loadAllData() {
@@ -493,7 +499,7 @@ async function createFolder() {
     }
 }
 
-window.editFolder = function editFolder(folderId) {
+function editFolder(folderId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
     
@@ -594,7 +600,7 @@ async function updateFolder() {
     }
 }
 
-window.deleteFolder = async function deleteFolder(folderId) {
+async function deleteFolder(folderId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
     
@@ -669,7 +675,6 @@ function updateEditURLPreview() {
         suggestEditCustomURL();
     }
 }
-
 
 // ==================== CONTENT OPERATIONS ====================
 async function saveContent(event) {
@@ -1135,14 +1140,9 @@ function displayFoldersGrid() {
 }
 
 // Folder sidebar management
-window.openFolderSidebar = function openFolderSidebar(folderId) {
-    console.log('🔍 Opening folder sidebar for:', folderId);
+function openFolderSidebar(folderId) {
     const folder = folders.find(f => f.id === folderId);
-    if (!folder) {
-        console.error('❌ Folder not found:', folderId);
-        return;
-    }
-    console.log('✅ Found folder:', folder.title);
+    if (!folder) return;
     
     const folderContent = allContent.filter(c => c.folder_id === folderId);
     const subfolders = folders.filter(f => f.parent_id === folderId).sort((a, b) => a.title.localeCompare(b.title));
@@ -1220,10 +1220,8 @@ window.openFolderSidebar = function openFolderSidebar(folderId) {
             let viewLink = '';
             if (content.type === 'flipbook' && content.url) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Click to view flipbook</a></div>`;
-            } else if (content.type === 'presentation' && content.url) {
+                            } else if (content.type === 'presentation' && content.url) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Click to view presentation</a></div>`;
-            }
-            
             contentHtml += `
                 <div class="content-card" style="margin-bottom: 10px;">
                     ${thumbnailHtml}
@@ -1258,7 +1256,7 @@ window.openFolderSidebar = function openFolderSidebar(folderId) {
     sidebar.classList.add('active');
 }
 
-window.closeFolderSidebar = function closeFolderSidebar() {
+function closeFolderSidebar() {
     document.getElementById('folderSidebar').classList.remove('active');
 }
 
@@ -1266,7 +1264,7 @@ window.closeFolderSidebar = function closeFolderSidebar() {
 
 // ==================== PASSWORD MANAGEMENT ====================
 
-window.managePasswords = async function managePasswords(folderId) {
+async function managePasswords(folderId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
     
