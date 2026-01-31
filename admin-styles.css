@@ -619,6 +619,8 @@ details[open] summary span {
     text-align: center;
     position: relative;
     overflow: hidden;
+    min-height: 180px;
+    max-height: 180px;
 }
 
 .folder-grid-card:hover {

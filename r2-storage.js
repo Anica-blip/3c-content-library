@@ -104,6 +104,15 @@ class R2Storage {
     }
 
     /**
+     * Upload presentation JSON to R2
+     * @param {File} file - Presentation JSON file
+     * @returns {Promise<Object>} Upload result
+     */
+    async uploadPresentation(file) {
+        return this.uploadFile(file, 'presentations', 'presentation');
+    }
+
+    /**
      * Get file type category from MIME type
      * @param {string} mimeType - File MIME type
      * @returns {string|null} File type category
