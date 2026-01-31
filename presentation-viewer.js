@@ -13,7 +13,7 @@ let totalPages = 0;
 let scale = 0.48; // Default 48% zoom for optimal viewing (fits viewport without scrolling)
 let manifest = null;
 let pageCanvases = [];
-let flipbookInitialized = false;
+let presentationInitialized = false;
 let contentId = null;
 let contentData = null;
 
