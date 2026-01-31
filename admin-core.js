@@ -493,7 +493,7 @@ async function createFolder() {
     }
 }
 
-function editFolder(folderId) {
+window.editFolder = function editFolder(folderId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
     
@@ -1247,7 +1247,7 @@ function openFolderSidebar(folderId) {
     sidebar.classList.add('active');
 }
 
-function closeFolderSidebar() {
+window.closeFolderSidebar = function closeFolderSidebar() {
     document.getElementById('folderSidebar').classList.remove('active');
 }
 
@@ -1255,7 +1255,7 @@ function closeFolderSidebar() {
 
 // ==================== PASSWORD MANAGEMENT ====================
 
-async function managePasswords(folderId) {
+window.managePasswords = async function managePasswords(folderId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
     
