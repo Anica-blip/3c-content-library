@@ -233,6 +233,12 @@ class SupabaseClient {
         const folder = await this.getFolder(contentData.folder_id);
         
         // Generate unique slug for content (or use custom URL)
+        console.log('🔧 Calling generate_content_slug_v2 with:', {
+            content_title: contentData.title,
+            folder_uuid: contentData.folder_id,
+            custom_slug: contentData.custom_url || null
+        });
+        
         const { data: slugData, error: slugError } = await this.client
             .rpc('generate_content_slug_v2', { 
                 content_title: contentData.title,
@@ -240,7 +246,12 @@ class SupabaseClient {
                 custom_slug: contentData.custom_url || null
             });
         
-        if (slugError) throw slugError;
+        if (slugError) {
+            console.error('❌ generate_content_slug_v2 error:', slugError);
+            throw new Error(`Slug generation failed: ${slugError.message || JSON.stringify(slugError)}`);
+        }
+        
+        console.log('✅ Generated slug:', slugData);
         
         // Get max display_order for this folder
         const { data: maxOrder } = await this.client
