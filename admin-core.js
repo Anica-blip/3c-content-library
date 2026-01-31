@@ -220,7 +220,7 @@ function saveSupabaseCredentials(url, key) {
     localStorage.setItem('supabase_key', key);
 }
 
-async function connectSupabase() {
+window.connectSupabase = async function connectSupabase() {
     const urlInput = document.getElementById('supabaseUrl');
     const keyInput = document.getElementById('supabaseKey');
     
@@ -260,7 +260,7 @@ async function connectSupabase() {
     }
 }
 
-async function testConnection() {
+window.testConnection = async function testConnection() {
     try {
         if (!supabaseClient.isConnected) {
             showAlert('error', 'Please connect to Supabase first');
@@ -594,7 +594,7 @@ async function updateFolder() {
     }
 }
 
-async function deleteFolder(folderId) {
+window.deleteFolder = async function deleteFolder(folderId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
     
@@ -1135,9 +1135,14 @@ function displayFoldersGrid() {
 }
 
 // Folder sidebar management
-function openFolderSidebar(folderId) {
+window.openFolderSidebar = function openFolderSidebar(folderId) {
+    console.log('🔍 Opening folder sidebar for:', folderId);
     const folder = folders.find(f => f.id === folderId);
-    if (!folder) return;
+    if (!folder) {
+        console.error('❌ Folder not found:', folderId);
+        return;
+    }
+    console.log('✅ Found folder:', folder.title);
     
     const folderContent = allContent.filter(c => c.folder_id === folderId);
     const subfolders = folders.filter(f => f.parent_id === folderId).sort((a, b) => a.title.localeCompare(b.title));
@@ -1432,16 +1437,4 @@ function truncateURL(url) {
         return url.substring(0, 60) + '...';
     }
     return url;
-}
-}
-}
-
-function truncateURL(url) {
-    if (!url) return '';
-    // Show only first 60 characters for long Cloudflare URLs
-    if (url.length > 60) {
-        return url.substring(0, 60) + '...';
-    }
-    return url;
-}
 }
