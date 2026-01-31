@@ -529,6 +529,7 @@ function updateEditURLPreview() {
     }
 }
 
+
 // ==================== CONTENT OPERATIONS ====================
 async function saveContent(event) {
     event.preventDefault();
@@ -602,6 +603,40 @@ async function saveContent(event) {
                     return;
                 }
             } else {
+                // Special handling for presentation JSON files
+                if (type === 'presentation' && currentFile.type === 'application/json') {
+                    debugLog('📖 Processing presentation JSON file...');
+                    try {
+                        const jsonText = await currentFile.text();
+                        const jsonData = JSON.parse(jsonText);
+                    
+                    // Store JSON content in project_json field for backward compatibility
+                    projectJson = jsonText;
+                    
+                    // Upload JSON file to Cloudflare R2 (MUST be Cloudflare URL, not base64)
+                    debugLog('📤 Uploading presentation JSON to R2...');
+                    if (useR2) {
+                        try {
+                            const result = await r2Storage.uploadPresentation(currentFile);
+                            fileUrl = result.url;
+                            debugLog('✅ Presentation JSON uploaded to R2: ' + fileUrl);
+                        } catch (error) {
+                            debugLog('❌ R2 upload failed: ' + error.message);
+                            showAlert('error', 'Failed to upload JSON to Cloudflare R2: ' + error.message);
+                            return;
+                        }
+                    } else {
+                        showAlert('error', 'Cloudflare R2 is required for presentation uploads');
+                        return;
+                    }
+                    
+                    debugLog('✅ Presentation JSON parsed and stored');
+                } catch (error) {
+                    debugLog('❌ Failed to parse JSON: ' + error.message);
+                    showAlert('error', 'Invalid JSON file: ' + error.message);
+                    return;
+                }
+            } else {
                 // Regular file upload for non-flipbook content (PDF, images, etc.)
                 debugLog('📤 Uploading file to R2...');
                 if (useR2) {
@@ -652,6 +687,11 @@ async function saveContent(event) {
         };
         
         // Add project_json for flipbook documents
+        if (projectJson) {
+            contentData.project_json = projectJson;
+        }
+            
+        // Add project_json for presentation documents
         if (projectJson) {
             contentData.project_json = projectJson;
         }
