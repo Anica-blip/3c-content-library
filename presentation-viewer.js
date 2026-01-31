@@ -1162,20 +1162,20 @@ function setupEventListeners() {
     $('#first-page').on('click', async () => {
         console.log('⏮ First page clicked - reloading JSON');
         currentPage = 1;
-        await reloadFlipbook();
+        await reloadPresentation();
     });
     
     $('#prev-page').on('click', () => {
-        $('#flipbook').turn('previous');
+        $('#presentation').turn('previous');
     });
     
     $('#next-page').on('click', () => {
-        $('#flipbook').turn('next');
+        $('#presentation').turn('next');
     });
     
     $('#last-page').on('click', () => {
         console.log('⏭ Last page clicked');
-        $('#flipbook').turn('page', totalPages);
+        $('#presentation').turn('page', totalPages);
     });
     
     // Zoom controls - only 48% and 53% allowed, reload JSON at new size starting page 1
@@ -1193,7 +1193,7 @@ function setupEventListeners() {
         if (scale > 0.48) {
             scale = 0.48; // Jump to 48%
             currentPage = 1; // Start at page 1
-            await reloadFlipbook();
+            await reloadPresentation();
         }
     });
     
@@ -1207,16 +1207,16 @@ function setupEventListeners() {
     $('#refresh-btn').on('click', async () => {
         console.log('🔄 Refresh clicked - reloading JSON at current scale/page');
         // currentPage is already set, just reload
-        await reloadFlipbook();
+        await reloadPresentation();
     });
     
     // Navigation arrows
     $('#nav-arrow-left').on('click', () => {
-        $('#flipbook').turn('previous');
+        $('#presentation').turn('previous');
     });
     
     $('#nav-arrow-right').on('click', () => {
-        $('#flipbook').turn('next');
+        $('#presentation').turn('next');
     });
     
     // Close media
@@ -1234,13 +1234,13 @@ function setupEventListeners() {
         } else if (!mediaOverlay.classList.contains('active')) {
             // Only allow navigation when media is not playing
             if (e.key === 'ArrowLeft') {
-                $('#flipbook').turn('previous');
+                $('#presentation').turn('previous');
             } else if (e.key === 'ArrowRight') {
-                $('#flipbook').turn('next');
+                $('#presentation').turn('next');
             } else if (e.key === 'Home') {
-                $('#flipbook').turn('page', 1);
+                $('#presentation').turn('page', 1);
             } else if (e.key === 'End') {
-                $('#flipbook').turn('page', totalPages);
+                $('#presentation').turn('page', totalPages);
             }
         }
     });
