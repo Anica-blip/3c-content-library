@@ -800,7 +800,7 @@ async function saveContent(event) {
             }
         }
         
-        // Handle thumbnail upload
+        // Handle thumbnail upload (only if new thumbnail provided)
         if (currentThumbnail) {
             debugLog('📤 Uploading thumbnail...');
             if (useR2) {
@@ -812,6 +812,12 @@ async function saveContent(event) {
                 }
             } else {
                 thumbnailUrl = await fileToBase64(currentThumbnail);
+            }
+        } else if (editMode && !thumbnailUrl) {
+            // Preserve existing thumbnail if editing and no new thumbnail uploaded
+            const existingContent = allContent.find(c => c.id === contentId);
+            if (existingContent) {
+                thumbnailUrl = existingContent.thumbnail_url;
             }
         }
         
@@ -1417,6 +1423,17 @@ function getTypeIcon(type) {
         link: '🔗'
     };
     return icons[type] || '📎';
+}
+
+function truncateURL(url) {
+    if (!url) return '';
+    // Show only first 60 characters for long Cloudflare URLs
+    if (url.length > 60) {
+        return url.substring(0, 60) + '...';
+    }
+    return url;
+}
+}
 }
 
 function truncateURL(url) {
