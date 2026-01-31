@@ -109,21 +109,10 @@ async function init() {
 
         loading.classList.add('hidden');
     } catch (error) {
-        console.error('❌ Init error:', error);
-        console.error('❌ Error details:', error.message, error.stack);
+        console.error('Init error:', error);
+        // alert('Failed to load flipbook: ' + error.message);
         loading.classList.add('hidden');
-        
-        // Only show error if it's a real error (not just "flipbook is not defined" from old cache)
-        if (error.message && !error.message.includes('flipbook is not defined')) {
-            const errorDiv = document.createElement('div');
-            errorDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(231, 76, 60, 0.9); color: white; padding: 30px; border-radius: 12px; max-width: 500px; text-align: center; z-index: 10000;';
-            errorDiv.innerHTML = `
-                <h2 style="margin: 0 0 15px 0;">❌ Failed to Load Presentation</h2>
-                <p style="margin: 0 0 20px 0;">${error.message}</p>
-                <button onclick="goBack()" style="background: white; color: #e74c3c; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">Go Back</button>
-            `;
-            document.body.appendChild(errorDiv);
-        }
+        goBack();
     }
 }
 
