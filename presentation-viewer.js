@@ -403,11 +403,11 @@ function initPresentation() {
         const pageNumber = $('<div class="page-number"></div>').text(index + 1);
         pageDiv.append(pageNumber);
         
-        flipbook.append(pageDiv);
+        presentation.append(pageDiv);
     });
     
     // Initialize turn.js with correct dimensions
-    flipbook.turn({
+    presentation.turn({
         width: pageWidth, // Single page width
         height: pageHeight,
         autoCenter: true,
@@ -444,7 +444,7 @@ function initPresentation() {
     presentationInitialized = true;
     updatePageInfo();
     
-    console.log(' Flipbook initialized at', Math.round(scale * 100) + '% zoom');
+    console.log('✅ Presentation initialized at', Math.round(scale * 100) + '% zoom');
 }
 
 /**
