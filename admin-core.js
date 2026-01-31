@@ -10,6 +10,13 @@ let debugMode = false;
 let folders = [];
 let allContent = [];
 
+// ==================== DEBUG LOGGING ====================
+function debugLog(message) {
+    if (debugMode) {
+        console.log('[DEBUG]', message);
+    }
+}
+
 // ==================== GLOBAL ERROR HANDLER ====================
 window.onerror = function(message, source, lineno, colno, error) {
     console.error('Global error caught:', { message, source, lineno, colno, error });
