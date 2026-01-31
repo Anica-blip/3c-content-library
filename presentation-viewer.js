@@ -110,7 +110,7 @@ async function init() {
         loading.classList.add('hidden');
     } catch (error) {
         console.error('Init error:', error);
-        // alert('Failed to load flipbook: ' + error.message);
+        // alert('Failed to load presentation: ' + error.message);
         loading.classList.add('hidden');
         goBack();
     }
