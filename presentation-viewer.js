@@ -244,10 +244,7 @@ async function initFromManifest(manifestData) {
         });
         console.log('📄 Pages sorted by pageNumber:', manifest.pages.map(p => p.pageNumber || '?').join(', '));
     }
-    
-    // Detect page orientation from first page or manifest metadata
-    detectPageOrientation();
-    
+
     totalPages = manifest.pages ? manifest.pages.length : 0;
     
     if (totalPages === 0) {
@@ -258,6 +255,9 @@ async function initFromManifest(manifestData) {
     document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
     
     console.log('🎨 Rendering', totalPages, 'pages at', Math.round(scale * 100) + '% zoom');
+    
+    // Detect page orientation from first page or manifest metadata
+    detectPageOrientation();
     
     // Render all pages at current scale with 2x quality
     await renderPagesAtScale();
@@ -1192,7 +1192,7 @@ function setupEventListeners() {
     $('#back-btn').on('click', goBack);
     
     // Download button
-    $('#download-btn').on('click', downloadFlipbook);
+    $('#download-btn').on('click', downloadPresentation);
     
     // Refresh button - reload at current scale and page
     $('#refresh-btn').on('click', async () => {
@@ -1203,13 +1203,11 @@ function setupEventListeners() {
     
     // Navigation arrows
     $('#nav-arrow-left').on('click', () => {
-        console.log('⬅️ Left arrow clicked');
-        $('#presentation').turn('previous');
+        $('#flipbook').turn('previous');
     });
     
     $('#nav-arrow-right').on('click', () => {
-        console.log('➡️ Right arrow clicked');
-        $('#presentation').turn('next');
+        $('#flipbook').turn('next');
     });
     
     // Close media
