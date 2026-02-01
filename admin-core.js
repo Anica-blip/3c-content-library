@@ -1162,7 +1162,7 @@ function openFolderSidebar(folderId) {
         <div style="display: flex; gap: 8px;">
             <button onclick="editFolder('${folder.id}')" style="padding: 6px 12px; font-size: 12px;">✏️ Edit</button>
             <button class="delete" onclick="deleteFolder('${folder.id}')" style="padding: 6px 12px; font-size: 12px;">🗑️ Delete</button>
-            <button onclick="closeFolderSidebar()" style="padding: 6px 12px; font-size: 16px;">×</button>
+            <button onclick="event.stopPropagation(); closeFolderSidebar();" style="padding: 6px 12px; font-size: 16px;">×</button>
         </div>
     `;
     
