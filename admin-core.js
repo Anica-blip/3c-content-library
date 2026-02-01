@@ -1241,7 +1241,7 @@ function openFolderSidebar(folderId) {
                     </div>
                 </div>
             `;
-        })
+        });
         
         contentHtml += '</div>';
     
