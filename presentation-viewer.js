@@ -1203,11 +1203,11 @@ function setupEventListeners() {
     
     // Navigation arrows
     $('#nav-arrow-left').on('click', () => {
-        $('#flipbook').turn('previous');
+        $('#presentation').turn('previous');
     });
     
     $('#nav-arrow-right').on('click', () => {
-        $('#flipbook').turn('next');
+        $('#presentation').turn('next');
     });
     
     // Close media
