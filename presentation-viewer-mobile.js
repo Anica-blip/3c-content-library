@@ -18,6 +18,11 @@ let manifestUrl = null;
 const A4_WIDTH_PX = 794;
 const A4_HEIGHT_PX = 1123;
 
+// Current page dimensions (default to landscape for presentations)
+let currentPageWidth = A4_HEIGHT_PX;  // Start with landscape width
+let currentPageHeight = A4_WIDTH_PX;  // Start with landscape height
+let isLandscape = true;  // Default to landscape
+
 // Editor saves at 75% scale (595px × 842px)
 const EDITOR_WIDTH_PX = 595;
 const EDITOR_HEIGHT_PX = 842;
@@ -35,7 +40,7 @@ const mediaPlayer = document.getElementById('media-player');
 const closeMediaBtn = document.getElementById('close-media');
 
 /**
- * Initialize the mobile flipbook viewer
+ * Initialize the mobile presentation viewer
  */
 async function init() {
     console.log('🚀 Initializing 3C Mobile Presentation Viewer');
@@ -50,7 +55,7 @@ async function init() {
     
     if (!contentId && !manifestUrl) {
         console.error('❌ No content ID or manifest URL provided');
-        alert('Error: No flipbook content specified');
+        alert('Error: No presentation content specified');
         goBack();
         return;
     }
@@ -73,8 +78,8 @@ async function init() {
         setupTouchGestures();
         
     } catch (error) {
-        console.error('❌ Error initializing flipbook:', error);
-        alert('Error loading flipbook: ' + error.message);
+        console.error('❌ Error initializing presentation:', error);
+        alert('Error loading presentation: ' + error.message);
         goBack();
     }
 }
@@ -125,9 +130,9 @@ async function loadContentFromSupabase(contentId) {
         
         console.log('✅ Content loaded:', data);
         
-        // Check if it's a flipbook (has project_json)
+        // Check if it's a presentation (has project_json)
         if (!data.project_json) {
-            console.log('⚠️ Not a flipbook, redirecting to library');
+            console.log('⚠️ Not a presentation, redirecting to library');
             window.location.href = `library.html?content=${contentId}`;
             return;
         }
@@ -165,7 +170,7 @@ async function initFromManifest() {
     await renderPage(currentPage);
     
     loading.classList.add('hidden');
-    console.log('✅ Mobile flipbook initialized');
+    console.log('✅ Mobile presentation initialized');
 }
 
 /**
@@ -688,7 +693,7 @@ function setupEventListeners() {
             await initFromManifest();
         } catch (error) {
             console.error('❌ Error reloading JSON:', error);
-            alert('Error reloading flipbook: ' + error.message);
+            alert('Error reloading presentation: ' + error.message);
         } finally {
             loading.classList.add('hidden');
         }
@@ -731,7 +736,7 @@ async function downloadPDF() {
             console.log('📄 PDF URL found, downloading:', manifest.pdfUrl);
             const a = document.createElement('a');
             a.href = manifest.pdfUrl;
-            a.download = manifest.title || 'flipbook.pdf';
+            a.download = manifest.title || 'presentation.pdf';
             a.click();
             return;
         }
@@ -750,7 +755,7 @@ async function downloadPDF() {
         
         const { jsPDF } = jspdf;
         const pdf = new jsPDF({
-            orientation: 'portrait',
+            orientation: 'landscape',
             unit: 'px',
             format: [A4_WIDTH_PX, A4_HEIGHT_PX]
         });
@@ -774,7 +779,7 @@ async function downloadPDF() {
             }
         }
         
-        pdf.save(manifest.title || 'flipbook.pdf');
+        pdf.save(manifest.title || 'presentation.pdf');
         console.log('✅ PDF generated and downloaded');
         
     } catch (error) {
