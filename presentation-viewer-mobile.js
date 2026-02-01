@@ -193,13 +193,13 @@ async function renderPage(pageNum) {
         const containerWidth = pageContainer.clientWidth;
         const containerHeight = pageContainer.clientHeight;
         
-        // Calculate scale to fit container while maintaining aspect ratio
-        const scaleX = (containerWidth - 40) / A4_WIDTH_PX; // 40px padding
-        const scaleY = (containerHeight - 40) / A4_HEIGHT_PX;
+        // Calculate scale to fit container while maintaining aspect ratio (landscape)
+        const scaleX = (containerWidth - 40) / A4_HEIGHT_PX; // 40px padding - use landscape width
+        const scaleY = (containerHeight - 40) / A4_WIDTH_PX; // use landscape height
         const scale = Math.min(scaleX, scaleY, 1); // Don't scale up beyond 100%
         
-        const displayWidth = Math.round(A4_WIDTH_PX * scale);
-        const displayHeight = Math.round(A4_HEIGHT_PX * scale);
+        const displayWidth = Math.round(A4_HEIGHT_PX * scale); // landscape width
+        const displayHeight = Math.round(A4_WIDTH_PX * scale); // landscape height
         
         console.log('📐 Page dimensions:', displayWidth, 'x', displayHeight, 'at', Math.round(scale * 100) + '%');
         
