@@ -1245,6 +1245,7 @@ function openFolderSidebar(folderId) {
         });
         
         contentHtml += '</div>';
+    }
     
     // Show empty state only if there are no content items AND no subfolders
     if (folderContent.length === 0 && subfolders.length === 0) {
@@ -1436,5 +1437,4 @@ function truncateURL(url) {
         return url.substring(0, 60) + '...';
     }
     return url;
-}
 }
