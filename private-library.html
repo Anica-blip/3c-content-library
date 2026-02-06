@@ -2190,26 +2190,38 @@
             }
             
             try {
-                const { data, error } = await supabaseClient.client.auth.signInWithPassword({
-                    email: email,
-                    password: password
-                });
+                // Verify password against folder_passwords table
+                const passwordHash = await PasswordUtils.hashPassword(password);
                 
-                if (error) throw error;
+                const { data: passwordData, error } = await supabaseClient.client
+                    .from('folder_passwords')
+                    .select('*')
+                    .eq('user_identifier', email)
+                    .eq('password_hash', passwordHash)
+                    .eq('is_active', true)
+                    .single();
                 
-                // Check if user is owner
-                const ownerEmail = CONFIG?.app?.ownerEmail;
-                if (data.user.email.toLowerCase() === ownerEmail.toLowerCase()) {
-                    // Success - reload page
-                    window.location.reload();
-                } else {
-                    errorEl.textContent = 'Access denied: Only admin can access this area';
+                if (error || !passwordData) {
+                    errorEl.textContent = 'Invalid email or password';
                     errorEl.style.display = 'block';
-                    await supabaseClient.client.auth.signOut();
+                    return;
                 }
+                
+                // Check if password is expired
+                if (passwordData.expires_at && new Date(passwordData.expires_at) < new Date()) {
+                    errorEl.textContent = 'Password has expired. Please contact admin.';
+                    errorEl.style.display = 'block';
+                    return;
+                }
+                
+                // Grant access to the folder
+                PasswordUtils.grantAccess(passwordData.folder_id);
+                
+                // Success - reload page
+                window.location.reload();
             } catch (error) {
                 console.error('Login error:', error);
-                errorEl.textContent = error.message || 'Login failed';
+                errorEl.textContent = 'Login failed. Please try again.';
                 errorEl.style.display = 'block';
             }
         }
@@ -2217,7 +2229,7 @@
         // Logout handler
         async function handleLogout() {
             try {
-                await supabaseClient.client.auth.signOut();
+                PasswordUtils.clearAccess();
                 window.location.reload();
             } catch (error) {
                 console.error('Logout error:', error);

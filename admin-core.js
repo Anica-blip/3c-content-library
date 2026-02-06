@@ -870,17 +870,11 @@ async function saveContent(event) {
         // Reset form
         resetContentForm();
         
-        // Close the form section (collapse the details element)
-        const contentSection = document.querySelector('.section:has(#contentForm)');
-        if (contentSection) {
-            const detailsElement = contentSection.querySelector('details');
-            if (detailsElement) {
-                detailsElement.removeAttribute('open');
-            }
-        }
-        
         // Reload data
         await loadAllData();
+        
+        // Scroll to top of page to show the form section is closed
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         
     } catch (error) {
         debugLog('❌ Error saving content: ' + error.message);
