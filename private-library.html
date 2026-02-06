@@ -2190,7 +2190,7 @@
             }
             
             try {
-                const { data, error } = await supabase.auth.signInWithPassword({
+                const { data, error } = await supabaseClient.client.auth.signInWithPassword({
                     email: email,
                     password: password
                 });
@@ -2205,7 +2205,7 @@
                 } else {
                     errorEl.textContent = 'Access denied: Only admin can access this area';
                     errorEl.style.display = 'block';
-                    await supabase.auth.signOut();
+                    await supabaseClient.client.auth.signOut();
                 }
             } catch (error) {
                 console.error('Login error:', error);
@@ -2217,7 +2217,7 @@
         // Logout handler
         async function handleLogout() {
             try {
-                await supabase.auth.signOut();
+                await supabaseClient.client.auth.signOut();
                 window.location.reload();
             } catch (error) {
                 console.error('Logout error:', error);

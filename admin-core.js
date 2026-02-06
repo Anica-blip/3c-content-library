@@ -855,11 +855,9 @@ async function saveContent(event) {
         
         if (editMode) {
             // Update existing content
-            console.log('➕ Creating new content:', title);
             debugLog('✏️ Updating content: ' + contentId);
             await supabaseClient.updateContent(contentId, contentData, folderId);
-            const displayURL = customURL || 'auto-generated';g;
-            console.lo('✅ Content saved successfully:', result)
+            const displayURL = customURL || 'auto-generated';
             showAlert('success', `✅ Content updated (URL: ${displayURL})`);
         } else {
             // Create new content
@@ -870,8 +868,16 @@ async function saveContent(event) {
         }
         
         // Reset form
-        console.error('❌ Error saving content:', error);
         resetContentForm();
+        
+        // Close the form section (collapse the details element)
+        const contentSection = document.querySelector('.section:has(#contentForm)');
+        if (contentSection) {
+            const detailsElement = contentSection.querySelector('details');
+            if (detailsElement) {
+                detailsElement.removeAttribute('open');
+            }
+        }
         
         // Reload data
         await loadAllData();
