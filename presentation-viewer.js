@@ -1382,6 +1382,23 @@ async function downloadPresentation() {
  * Go back to library (returns to where user came from)
  */
 function goBack() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    const folderSlug = urlParams.get('folder');
+    
+    // Check if opened from private library
+    if (ref === 'private') {
+        if (folderSlug) {
+            // Return to private library content page
+            window.location.href = `private-library.html?folder=${folderSlug}`;
+        } else {
+            // Return to private library main page
+            window.location.href = 'private-library.html';
+        }
+        return;
+    }
+    
+    // Default: use referrer or history (for public library)
     if (document.referrer) {
         window.location.href = document.referrer;
     } else {

@@ -1334,8 +1334,23 @@ async function downloadFlipbook() {
  * Go back to library (returns to folder content page)
  */
 function goBack() {
-    // Get the manifest URL from query params
     const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    const folderSlug = urlParams.get('folder');
+    
+    // Check if opened from private library
+    if (ref === 'private') {
+        if (folderSlug) {
+            // Return to private library content page
+            window.location.href = `private-library.html?folder=${folderSlug}`;
+        } else {
+            // Return to private library main page
+            window.location.href = 'private-library.html';
+        }
+        return;
+    }
+    
+    // Get the manifest URL from query params
     const manifestUrl = urlParams.get('manifest');
     
     if (manifestUrl) {
@@ -1346,13 +1361,8 @@ function goBack() {
             const folder = manifestUrlObj.searchParams.get('folder');
             
             if (folder) {
-                // Determine if this is private or public library
-                const isPrivate = window.location.pathname.includes('private') || 
-                                 document.referrer.includes('private-library.html');
-                const libraryPage = isPrivate ? 'private-library.html' : 'library.html';
-                
-                // Return to folder content page
-                window.location.href = `${libraryPage}?folder=${folder}`;
+                // Return to public library folder content page
+                window.location.href = `library.html?folder=${folder}`;
                 return;
             }
         } catch (error) {
