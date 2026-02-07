@@ -1226,7 +1226,7 @@
             return icons[type] || icons.other;
         }
         
-        function displayContent() {
+        async function displayContent() {
             const params = getUrlParams();
             const folderSlug = params.folder;
             const contentSlug = params.content;
