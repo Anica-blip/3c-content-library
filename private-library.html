@@ -921,12 +921,15 @@
                 <a href="library.html" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(155, 89, 182, 0.3); transition: all 0.2s; white-space: nowrap;">
                     📁 Public
                 </a>
-                <button id="loginBtn" onclick="showLoginForm()" style="background: linear-gradient(135deg, #27ae60, #229954); color: white; padding: 6px 12px; border-radius: 6px; border: none; font-weight: 500; font-size: 13px; cursor: pointer; box-shadow: 0 2px 6px rgba(39, 174, 96, 0.3); white-space: nowrap;">
-                    Log In
-                </button>
-                <button id="logoutBtn" onclick="handleLogout()" style="display: none; background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 6px 12px; border-radius: 6px; border: none; font-weight: 500; font-size: 13px; cursor: pointer; box-shadow: 0 2px 6px rgba(231, 76, 60, 0.3); white-space: nowrap;">
-                    Log Out
-                </button>
+                <button id="loginBtn" onclick="showLoginForm()" style="display: none; background: linear-gradient(135deg, #27ae60, #229954); color: white; padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);">
+                Log In
+            </button>
+            <button onclick="clearLibraryCache()" title="Clear cache and reload" style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3); margin-right: 10px;">
+                🗑️ Clear Cache
+            </button>
+            <button id="logoutBtn" onclick="handleLogout()" style="display: none; background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);">
+                Log Out
+            </button>
             </div>
         </div>
     </div>
@@ -1130,6 +1133,17 @@
         let cacheTimestamp = null;
         const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
         
+        // Clear cache function
+        function clearLibraryCache() {
+            libraryCache = null;
+            cacheTimestamp = null;
+            localStorage.removeItem('pdfZoomLevel');
+            sessionStorage.clear();
+            console.log('🗑️ Cache cleared');
+            alert('Cache cleared! Page will reload.');
+            window.location.reload();
+        }
+        
         async function loadData() {
             console.log('📚 Loading library data from Supabase...');
             
@@ -1165,27 +1179,8 @@
                     password: f.password
                 }));
                 
-                // Load all content in parallel for better performance
+                // FAST LOADING: Don't load all content upfront - load on-demand for faster initial page load
                 library.content = [];
-                const contentPromises = folders.map(folder => 
-                    supabaseClient.getContentByFolder(folder.id)
-                        .then(content => content.map(c => ({
-                            id: c.id,
-                            folderId: c.folder_id,
-                            title: c.title,
-                            type: (c.type === 'flipbook' && c.metadata && c.metadata.presentation) ? 'presentation' : c.type,
-                            url: c.url,
-                            slug: c.custom_url || c.slug,
-                            customUrl: c.custom_url,
-                            thumbnail: c.thumbnail_url,
-                            description: c.description,
-                            externalUrl: c.external_url,
-                            project_json: c.project_json
-                        })))
-                );
-                
-                const allContent = await Promise.all(contentPromises);
-                library.content = allContent.flat();
                 
                 // Cache the data
                 libraryCache = library;
@@ -1305,8 +1300,34 @@
                 return;
             }
             
-            // Get folder content
+            // Load folder content on-demand if not already loaded
             let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
+            
+            if (folderContent.length === 0) {
+                console.log('📥 Loading content for folder:', currentFolder.title);
+                try {
+                    const content = await supabaseClient.getContentByFolder(currentFolder.id);
+                    const mappedContent = content.map(c => ({
+                        id: c.id,
+                        folderId: c.folder_id,
+                        title: c.title,
+                        type: (c.type === 'flipbook' && c.metadata && c.metadata.presentation) ? 'presentation' : c.type,
+                        url: c.url,
+                        slug: c.custom_url || c.slug,
+                        customUrl: c.custom_url,
+                        thumbnail: c.thumbnail_url,
+                        description: c.description,
+                        externalUrl: c.external_url,
+                        project_json: c.project_json,
+                        order: c.display_order || 0
+                    }));
+                    library.content.push(...mappedContent);
+                    folderContent = mappedContent;
+                } catch (error) {
+                    console.error('❌ Error loading folder content:', error);
+                }
+            }
+            
             folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
             
             // Create left/right layout
