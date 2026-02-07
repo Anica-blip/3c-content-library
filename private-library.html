@@ -1481,7 +1481,7 @@
             return library.content.filter(c => allFolderIds.includes(c.folderId)).length;
         }
         
-        function displayAllFolders() {
+        async function displayAllFolders() {
             console.log('📁 displayAllFolders called, folders:', library.folders);
             
             // Hide content viewer, show folders section
