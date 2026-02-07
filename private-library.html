@@ -946,17 +946,24 @@
     <div class="container">
         <!-- Private Folders Section -->
         <div class="folders-section">
-            <h2 style="color: #e74c3c; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-                🔒 Private Folders
-            </h2>
-            <p style="color: #999; margin-bottom: 20px; font-size: 14px; line-height: 1.6;">
-                This section: folders are password protected, to gain access you need to get the password from admin. Then use the Sign Up button, with your username and the password provided to you.<br><br>
-                You can send an email to <a href="mailto:3c.innertherapy@gmail.com" style="color: #9b59b6; text-decoration: none;">3c.innertherapy@gmail.com</a> to learn how this applies to you.
-            </p>
-            <div style="text-align: center; margin-bottom: 30px;">
-                <button onclick="showLoginForm()" style="background: linear-gradient(135deg, #27ae60, #229954); color: white; padding: 12px 32px; border-radius: 6px; border: none; font-weight: 600; font-size: 15px; cursor: pointer; box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(39, 174, 96, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(39, 174, 96, 0.3)'">
-                    SIGN UP
-                </button>
+            <div id="loginPromptSection" style="display: none;">
+                <h2 style="color: #e74c3c; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                    🔒 Private Folders
+                </h2>
+                <p style="color: #999; margin-bottom: 20px; font-size: 14px; line-height: 1.6;">
+                    This section: folders are password protected, to gain access you need to get the password from admin. Then use the Sign Up button, with your username and the password provided to you.<br><br>
+                    You can send an email to <a href="mailto:3c.innertherapy@gmail.com" style="color: #9b59b6; text-decoration: none;">3c.innertherapy@gmail.com</a> to learn how this applies to you.
+                </p>
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <button onclick="showLoginForm()" style="background: linear-gradient(135deg, #27ae60, #229954); color: white; padding: 12px 32px; border-radius: 6px; border: none; font-weight: 600; font-size: 15px; cursor: pointer; box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(39, 174, 96, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(39, 174, 96, 0.3)'">
+                        SIGN UP
+                    </button>
+                </div>
+            </div>
+            <div id="foldersDisplaySection" style="display: none;">
+                <h2 style="color: #f39c12; font-size: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                    📁 Folders and Content
+                </h2>
             </div>
             <div id="foldersGrid" class="folders-grid"></div>
         </div>
@@ -1253,11 +1260,36 @@
                     return;
                 }
                 
-                // Find content by custom_url in this folder
-                const content = library.content.find(c => 
+                // Load folder content if not already loaded
+                let content = library.content.find(c => 
                     c.folderId === folder.id && 
                     (c.customUrl === contentUrl || c.slug === contentUrl)
                 );
+                
+                if (!content) {
+                    console.log('📥 Loading content for folder to find requested item...');
+                    try {
+                        const folderContent = await supabaseClient.getContentByFolder(folder.id);
+                        const mappedContent = folderContent.map(c => ({
+                            id: c.id,
+                            folderId: c.folder_id,
+                            title: c.title,
+                            type: (c.type === 'flipbook' && c.metadata && c.metadata.presentation) ? 'presentation' : c.type,
+                            url: c.url,
+                            slug: c.custom_url || c.slug,
+                            customUrl: c.custom_url,
+                            thumbnail: c.thumbnail_url,
+                            description: c.description,
+                            externalUrl: c.external_url,
+                            project_json: c.project_json,
+                            order: c.display_order || 0
+                        }));
+                        library.content.push(...mappedContent);
+                        content = mappedContent.find(c => c.customUrl === contentUrl || c.slug === contentUrl);
+                    } catch (error) {
+                        console.error('❌ Error loading folder content:', error);
+                    }
+                }
                 
                 if (content) {
                     currentFolder = folder;
@@ -1364,10 +1396,10 @@
                 }
                 
                 return `
-                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.slug}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 20px;">
-                        <div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0;">${thumbnailContent}</div>
-                        <div class="content-info" style="padding: 12px 10px; text-align: left; min-height: 50px;">
-                            <div class="content-title" style="font-size: 12px; color: #ffffff; line-height: 1.4; font-weight: 500; word-wrap: break-word;">${item.title}</div>
+                    <div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.id}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 25px;">
+                        <div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0; margin-bottom: 0;">${thumbnailContent}</div>
+                        <div class="content-info" style="padding: 12px 10px; text-align: left; min-height: 60px; margin-top: 0;">
+                            <div class="content-title" style="font-size: 13px; color: #ffffff; line-height: 1.4; font-weight: 500; word-wrap: break-word;">${item.title}</div>
                         </div>
                     </div>
                 `;
@@ -1430,12 +1462,38 @@
             const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0 && f.isPublic === false).sort((a, b) => a.title.localeCompare(b.title));
             
             let html = '';
-            rootFolders.forEach(folder => {
+            for (const folder of rootFolders) {
                 const subfolders = library.folders.filter(f => f.parentId === folder.id);
                 const subfoldersCount = subfolders.length;
-                const contentCount = library.content.filter(c => c.folderId === folder.id).length;
                 
-                // Count label shows subfolders + content items (like admin.html)
+                // Load content for this folder to get accurate count
+                let contentCount = library.content.filter(c => c.folderId === folder.id).length;
+                if (contentCount === 0) {
+                    try {
+                        const content = await supabaseClient.getContentByFolder(folder.id);
+                        contentCount = content.length;
+                        // Cache the content
+                        const mappedContent = content.map(c => ({
+                            id: c.id,
+                            folderId: c.folder_id,
+                            title: c.title,
+                            type: (c.type === 'flipbook' && c.metadata && c.metadata.presentation) ? 'presentation' : c.type,
+                            url: c.url,
+                            slug: c.custom_url || c.slug,
+                            customUrl: c.custom_url,
+                            thumbnail: c.thumbnail_url,
+                            description: c.description,
+                            externalUrl: c.external_url,
+                            project_json: c.project_json,
+                            order: c.display_order || 0
+                        }));
+                        library.content.push(...mappedContent);
+                    } catch (error) {
+                        console.error('Error loading content count:', error);
+                    }
+                }
+                
+                // Count label shows subfolders + content items (like public library)
                 let countLabel = '';
                 if (subfoldersCount > 0) {
                     countLabel = `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`;
@@ -1448,12 +1506,16 @@
                         <div class="folder-icon">🔒</div>
                         <div class="folder-title">${folder.title}</div>
                         <div class="folder-details">${countLabel}</div>
-                        <div class="folder-slug">${folder.slug}</div>
+                        <div class="folder-slug">${folder.tableName}</div>
                     </div>
                 `;
-            });
+            }
             
             document.getElementById('foldersGrid').innerHTML = html;
+            
+            // Show folders section title, hide login prompt
+            document.getElementById('loginPromptSection').style.display = 'none';
+            document.getElementById('foldersDisplaySection').style.display = 'block';
         }
         
         function openFolder(folderSlug) {
@@ -2161,13 +2223,15 @@
                         displayAllFolders();
                     }
                 } else {
-                    // No access - show login button only, keep folders section visible
+                    // No access - show login button and prompt
                     updateHeaderButtons(false);
-                    console.log('� No folder access - user needs to login');
+                    console.log('🔒 No folder access - user needs to login');
                     
-                    // Show the folders section with SIGN UP button
+                    // Show the folders section with SIGN UP button and login prompt
                     document.querySelector('.folders-section').style.display = 'block';
                     document.getElementById('contentViewer').style.display = 'none';
+                    document.getElementById('loginPromptSection').style.display = 'block';
+                    document.getElementById('foldersDisplaySection').style.display = 'none';
                 }
                 
                 
