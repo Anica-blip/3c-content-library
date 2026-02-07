@@ -2217,7 +2217,10 @@
                 // Grant access to the folder
                 PasswordUtils.grantAccess(passwordData.folder_id);
                 
-                // Success - reload page
+                // Close the login modal
+                document.getElementById('loginFormModal').style.display = 'none';
+                
+                // Success - reload page to show folders
                 window.location.reload();
             } catch (error) {
                 console.error('Login error:', error);
