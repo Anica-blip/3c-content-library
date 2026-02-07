@@ -2386,15 +2386,14 @@
 
         // Update header buttons based on auth state
         function updateHeaderButtons(isAuthenticated) {
-            const loginBtn = document.getElementById('loginBtn');
             const logoutBtn = document.getElementById('logoutBtn');
             
-            if (isAuthenticated) {
-                loginBtn.style.display = 'none';
-                logoutBtn.style.display = 'flex';
-            } else {
-                loginBtn.style.display = 'flex';
-                logoutBtn.style.display = 'none';
+            if (logoutBtn) {
+                if (isAuthenticated) {
+                    logoutBtn.style.display = 'flex';
+                } else {
+                    logoutBtn.style.display = 'none';
+                }
             }
         }
     </script>
