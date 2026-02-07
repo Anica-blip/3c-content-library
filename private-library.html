@@ -2119,17 +2119,34 @@
                 
                 
                 
-                if (!isOwner) {
-                    // Not owner - update header to show login button
-                    updateHeaderButtons(false);
-                } else {
-                    // Owner authenticated - update header to show logout button
+                // Check if user has folder access (from session storage)
+                const accessList = JSON.parse(sessionStorage.getItem('folderAccess') || '[]');
+                const hasAccess = accessList.length > 0;
+                
+                if (hasAccess) {
+                    // User has access - show folders and logout button
                     updateHeaderButtons(true);
-                    
-                    console.log('👑 Owner access granted to private library');
+                    console.log('✅ User has folder access');
                     
                     await loadData();
-                    displayContent();
+                    
+                    // Check URL params to determine what to display
+                    const params = getUrlParams();
+                    if (params.folder || params.content || params.url) {
+                        // User is navigating to specific folder/content
+                        displayContent();
+                    } else {
+                        // No URL params - show folders landing page
+                        displayAllFolders();
+                    }
+                } else {
+                    // No access - show login button only, keep folders section visible
+                    updateHeaderButtons(false);
+                    console.log('� No folder access - user needs to login');
+                    
+                    // Show the folders section with SIGN UP button
+                    document.querySelector('.folders-section').style.display = 'block';
+                    document.getElementById('contentViewer').style.display = 'none';
                 }
                 
                 
