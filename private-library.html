@@ -1246,6 +1246,28 @@
             // NEW FORMAT: ?folder=X&url=Y&view=pdf-only or flipbook-only
             // Load content by folder table_name and content custom_url
             if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && folderSlug && contentUrl) {
+                // CRITICAL: Check authentication for standalone links
+                const accessList = JSON.parse(sessionStorage.getItem('folderAccess') || '[]');
+                const authTimestamp = sessionStorage.getItem('authTimestamp');
+                const hasAccess = accessList.length > 0;
+                
+                // Check if session is still valid (24 hour expiration)
+                const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+                const isSessionValid = authTimestamp && (Date.now() - parseInt(authTimestamp)) < SESSION_DURATION;
+                
+                if (!hasAccess || !isSessionValid) {
+                    console.warn('🔒 Unauthenticated access to standalone link - showing login');
+                    // Show login modal for standalone link access
+                    document.querySelector('.folders-section').style.display = 'block';
+                    document.getElementById('contentViewer').style.display = 'none';
+                    document.getElementById('loginPromptSection').style.display = 'none';
+                    document.getElementById('foldersDisplaySection').style.display = 'none';
+                    
+                    // Show login form directly
+                    showLoginForm();
+                    return;
+                }
+                
                 document.querySelector('.folders-section').style.display = 'none';
                 document.getElementById('contentViewer').style.display = 'block';
                 
@@ -1304,6 +1326,28 @@
             
             // OLD FORMAT: ?content=X&view=pdf-only (fallback for backward compatibility)
             if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && contentSlug) {
+                // CRITICAL: Check authentication for standalone links
+                const accessList = JSON.parse(sessionStorage.getItem('folderAccess') || '[]');
+                const authTimestamp = sessionStorage.getItem('authTimestamp');
+                const hasAccess = accessList.length > 0;
+                
+                // Check if session is still valid (24 hour expiration)
+                const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+                const isSessionValid = authTimestamp && (Date.now() - parseInt(authTimestamp)) < SESSION_DURATION;
+                
+                if (!hasAccess || !isSessionValid) {
+                    console.warn('🔒 Unauthenticated access to standalone link - showing login');
+                    // Show login modal for standalone link access
+                    document.querySelector('.folders-section').style.display = 'block';
+                    document.getElementById('contentViewer').style.display = 'none';
+                    document.getElementById('loginPromptSection').style.display = 'none';
+                    document.getElementById('foldersDisplaySection').style.display = 'none';
+                    
+                    // Show login form directly
+                    showLoginForm();
+                    return;
+                }
+                
                 document.querySelector('.folders-section').style.display = 'none';
                 document.getElementById('contentViewer').style.display = 'block';
                 
@@ -1367,7 +1411,12 @@
             viewer.innerHTML = `
                 <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
                     <div class="sidebar" id="leftSidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px);">
-                        <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 15px;">${currentFolder.title}</h2>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h2 style="color: #ffffff; font-size: 18px; margin: 0;">${currentFolder.title}</h2>
+                            <button onclick="handleLogout()" style="background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; padding: 6px 12px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3); font-size: 12px;">
+                                🚪 Log Out
+                            </button>
+                        </div>
                         <div class="content-grid" id="contentList"></div>
                     </div>
                     <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px); display: none;">
@@ -2319,6 +2368,9 @@
                 // Grant access to the folder
                 PasswordUtils.grantAccess(passwordData.folder_id);
                 
+                // Set authentication timestamp for session tracking
+                sessionStorage.setItem('authTimestamp', Date.now().toString());
+                
                 // Close the login modal
                 document.getElementById('loginFormModal').style.display = 'none';
                 
@@ -2335,7 +2387,9 @@
         async function handleLogout() {
             try {
                 PasswordUtils.clearAccess();
-                window.location.reload();
+                sessionStorage.removeItem('authTimestamp');
+                // Return to private library main page with login prompt
+                window.location.href = 'private-library.html';
             } catch (error) {
                 console.error('Logout error:', error);
             }
