@@ -1331,10 +1331,37 @@ async function downloadFlipbook() {
 }
 
 /**
- * Go back to library (returns to where user came from)
+ * Go back to library (returns to folder content page)
  */
 function goBack() {
-    if (document.referrer) {
+    // Get the manifest URL from query params
+    const urlParams = new URLSearchParams(window.location.search);
+    const manifestUrl = urlParams.get('manifest');
+    
+    if (manifestUrl) {
+        // Extract folder and content info from manifest URL
+        // Manifest URL format: https://.../?folder=X&url=Y or similar
+        try {
+            const manifestUrlObj = new URL(manifestUrl);
+            const folder = manifestUrlObj.searchParams.get('folder');
+            
+            if (folder) {
+                // Determine if this is private or public library
+                const isPrivate = window.location.pathname.includes('private') || 
+                                 document.referrer.includes('private-library.html');
+                const libraryPage = isPrivate ? 'private-library.html' : 'library.html';
+                
+                // Return to folder content page
+                window.location.href = `${libraryPage}?folder=${folder}`;
+                return;
+            }
+        } catch (error) {
+            console.error('Error parsing manifest URL:', error);
+        }
+    }
+    
+    // Fallback: use referrer or history
+    if (document.referrer && !document.referrer.includes('flipbook-viewer.html')) {
         window.location.href = document.referrer;
     } else {
         window.history.back();
