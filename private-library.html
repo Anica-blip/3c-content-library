@@ -1403,12 +1403,16 @@
             
             folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
             
+            // Get subfolders for this folder
+            const subfolders = library.folders.filter(f => f.parentId === currentFolder.id).sort((a, b) => a.title.localeCompare(b.title));
+            
             // Create left/right layout
             const viewer = document.getElementById('viewer');
             viewer.innerHTML = `
                 <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
                     <div class="sidebar" id="leftSidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px);">
                         <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 15px;">${currentFolder.title}</h2>
+                        <div id="subfoldersContainer"></div>
                         <div class="content-grid" id="contentList"></div>
                     </div>
                     <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; overflow-y: auto; max-height: calc(100vh - 140px); display: none;">
@@ -1418,10 +1422,20 @@
                 <div class="comments-section" id="commentsSection" style="display: none;"></div>
             `;
             
-            if (folderContent.length === 0) {
-                document.getElementById('contentList').innerHTML = '<p style="color: #999;">No content</p>';
+            if (folderContent.length === 0 && subfolders.length === 0) {
+                document.getElementById('contentList').innerHTML = '<p style="color: #999;">No subfolders or content</p>';
                 return;
             }
+            
+            let subfoldersHtml = '';
+            if (subfolders.length > 0) {
+                subfoldersHtml = '<div style="margin-bottom:20px;">';
+                subfolders.forEach(sf => {
+                    subfoldersHtml += `<div onclick="location.href='?folder=${sf.slug}'" style="background:rgba(155,89,182,0.1);border:1px solid rgba(155,89,182,0.3);border-radius:8px;padding:12px;margin-bottom:10px;cursor:pointer"><div style="display:flex;gap:10px"><div style="font-size:24px">📂</div><div style="flex:1"><div style="font-weight:600;color:#fff;font-size:14px">${sf.title}</div><div style="font-size:11px;color:#808080">${sf.actualItemCount||0} items</div></div><div style="color:#9b59b6">→</div></div></div>`;
+                });
+                subfoldersHtml += '</div>';
+            }
+            document.getElementById('subfoldersContainer').innerHTML = subfoldersHtml;
             
             // Build thumbnail grid for left sidebar (2 columns, left-aligned titles)
             const html = folderContent.map(item => {
