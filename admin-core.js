@@ -467,6 +467,8 @@ async function createFolder() {
         return;
     }
     
+    console.log('✅ All validations passed, proceeding to create folder...');
+    
     try {
         console.log('📁 Creating folder in Supabase...');
         debugLog('📁 Creating folder: ' + title + ' (type: ' + folderType + ', table: ' + tableName + ', visibility: ' + visibility + ', parent: ' + (parentId || 'root') + ', custom URL: ' + (customURL || 'auto') + ')');
@@ -1199,10 +1201,10 @@ function openFolderSidebar(folderId) {
         contentHtml += '<div><h4 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(139, 92, 246, 0.2); padding-bottom: 8px;">📄 Content Items</h4>';
         
         folderContent.forEach((content, index) => {
-            // For flipbooks and presentations, show web view image instead of thumbnail container
+            // For flipbooks, presentations, and PDFs, show larger thumbnail
             let thumbnailHtml;
-            if (content.type === 'flipbook' || content.type === 'presentation') {
-                const icon = content.type === 'presentation' ? '📊' : '📖';
+            if (content.type === 'flipbook' || content.type === 'presentation' || content.type === 'pdf') {
+                const icon = content.type === 'presentation' ? '📊' : content.type === 'flipbook' ? '📖' : '📄';
                 thumbnailHtml = content.thumbnail_url 
                     ? `<img src="${content.thumbnail_url}" style="width: 100%; max-width: 150px; height: auto; border-radius: 8px; object-fit: cover;" alt="Thumbnail">`
                     : `<div style="width: 100%; max-width: 150px; height: 200px; background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 48px; border-radius: 8px;">${icon}</div>`;
@@ -1216,12 +1218,14 @@ function openFolderSidebar(folderId) {
             const canMoveDown = index < folderContent.length - 1;
             const isInteractive = content.project_json ? ' 📖 Interactive' : '';
             
-            // For flipbooks and presentations, add "Click to view" link
+            // For flipbooks, presentations, and PDFs, add "Click to view" link
             let viewLink = '';
             if (content.type === 'flipbook' && content.url) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Click to view flipbook</a></div>`;
             } else if (content.type === 'presentation' && content.url) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Click to view presentation</a></div>`;
+            } else if (content.type === 'pdf' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📄</span> Click to view PDF</a></div>`;
             }
             contentHtml += `
                 <div class="content-card" style="margin-bottom: 10px;">
