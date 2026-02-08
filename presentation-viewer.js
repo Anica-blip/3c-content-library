@@ -1386,15 +1386,10 @@ function goBack() {
     const ref = urlParams.get('ref');
     const folderSlug = urlParams.get('folder');
     
-    // Check if opened from private library
-    if (ref === 'private') {
-        if (folderSlug) {
-            // Return to private library content page
-            window.location.href = `private-library.html?folder=${folderSlug}`;
-        } else {
-            // Return to private library main page
-            window.location.href = 'private-library.html';
-        }
+    // Check if opened from private library - return to content landing page
+    if (ref === 'private' && folderSlug) {
+        // Return to private library content landing page (with folder parameter)
+        window.location.href = `private-library.html?folder=${folderSlug}`;
         return;
     }
     
