@@ -1396,6 +1396,20 @@ async function downloadFlipbook() {
  * Go back to library (returns to where user came from)
  */
 function goBack() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    const folderSlug = urlParams.get('folder');
+    
+    if (ref === 'private') {
+        if (document.referrer && !document.referrer.includes('interactive-pdf-viewer.html')) {
+            window.location.href = document.referrer;
+        } else if (folderSlug) {
+            window.location.href = `private-library.html?folder=${folderSlug}`;
+        }
+        return;
+    }
+    
+    // Default: use referrer or history (for public library)
     if (document.referrer) {
         window.location.href = document.referrer;
     } else {
