@@ -449,9 +449,9 @@ async function createFolder() {
         return;
     }
     
-    // Validate table name (lowercase, underscores only)
-    if (!/^[a-z_]+$/.test(tableName)) {
-        showAlert('error', 'Table name must be lowercase letters and underscores only (e.g., anica_chats)');
+    // Validate table name (lowercase, underscores, numbers, dots)
+    if (!/^[a-z0-9_.]+$/.test(tableName)) {
+        showAlert('error', 'Table name must be lowercase letters, numbers, underscores, and dots only (e.g., anica_chats, roadmap_lv1, roadmap_lv.01)');
         return;
     }
     
@@ -463,7 +463,7 @@ async function createFolder() {
     
     // Validate custom URL format
     if (customURL && !/^[a-z0-9_.-]+$/.test(customURL)) {
-        showAlert('error', 'Custom URL can only contain lowercase letters, numbers, underscores, dots, and hyphens');
+        showAlert('error', 'Custom URL can only contain lowercase letters, numbers, underscores, dots, and hyphens (e.g., roadmap_lv1, roadmap_lv.01)');
         return;
     }
     
@@ -1201,18 +1201,21 @@ function openFolderSidebar(folderId) {
         contentHtml += '<div><h4 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(139, 92, 246, 0.2); padding-bottom: 8px;">📄 Content Items</h4>';
         
         folderContent.forEach((content, index) => {
-            // For flipbooks, presentations, and PDFs, show larger thumbnail
+            // Show larger thumbnail for all content types
             let thumbnailHtml;
-            if (content.type === 'flipbook' || content.type === 'presentation' || content.type === 'pdf') {
-                const icon = content.type === 'presentation' ? '📊' : content.type === 'flipbook' ? '📖' : '📄';
-                thumbnailHtml = content.thumbnail_url 
-                    ? `<img src="${content.thumbnail_url}" style="width: 100%; max-width: 150px; height: auto; border-radius: 8px; object-fit: cover;" alt="Thumbnail">`
-                    : `<div style="width: 100%; max-width: 150px; height: 200px; background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 48px; border-radius: 8px;">${icon}</div>`;
-            } else {
-                thumbnailHtml = content.thumbnail_url 
-                    ? `<img src="${content.thumbnail_url}" class="content-thumbnail" alt="Thumbnail">`
-                    : `<div class="content-thumbnail" style="background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 24px;">${getTypeIcon(content.type)}</div>`;
-            }
+            const iconMap = {
+                'flipbook': '📖',
+                'presentation': '📊',
+                'pdf': '📄',
+                'video': '🎥',
+                'image': '🖼️',
+                'audio': '🎵',
+                'link': '🔗'
+            };
+            const icon = iconMap[content.type] || '📄';
+            thumbnailHtml = content.thumbnail_url 
+                ? `<img src="${content.thumbnail_url}" style="width: 100%; max-width: 150px; height: auto; border-radius: 8px; object-fit: cover;" alt="Thumbnail">`
+                : `<div style="width: 100%; max-width: 150px; height: 200px; background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 48px; border-radius: 8px;">${icon}</div>`;
             
             const canMoveUp = index > 0;
             const canMoveDown = index < folderContent.length - 1;
@@ -1226,6 +1229,14 @@ function openFolderSidebar(folderId) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Click to view presentation</a></div>`;
             } else if (content.type === 'pdf' && content.url) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📄</span> Click to view PDF</a></div>`;
+            } else if (content.type === 'video' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🎥</span> Click to view video</a></div>`;
+            } else if (content.type === 'image' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🖼️</span> Click to view image</a></div>`;
+            } else if (content.type === 'audio' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🎵</span> Click to view audio</a></div>`;
+            } else if (content.type === 'link' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🔗</span> Click to view link</a></div>`;
             }
             contentHtml += `
                 <div class="content-card" style="margin-bottom: 10px;">

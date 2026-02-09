@@ -1758,16 +1758,16 @@
                 `;
             } else if (content.type === 'video') {
                 if (content.url.startsWith('data:')) {
-                    viewerHtml = `<video controls style="width: 100%; max-height: 700px;"><source src="${content.url}"></video>`;
+                    viewerHtml = `<video controls style="width: 100%; max-width: 1200px; max-height: 800px; margin: 0 auto; display: block;"><source src="${content.url}"></video>`;
                 } else {
-                    viewerHtml = `<iframe src="${content.url}" allowfullscreen></iframe>`;
+                    viewerHtml = `<iframe src="${content.url}" style="width: 100%; max-width: 1200px; height: 675px; margin: 0 auto; display: block;" allowfullscreen></iframe>`;
                 }
             } else if (content.type === 'image') {
                 viewerHtml = `<img src="${content.url}" style="max-width: 100%; height: auto; border-radius: 4px;">`;
             } else if (content.type === 'audio') {
                 viewerHtml = `<audio controls style="width: 100%;"><source src="${content.url}"></audio>`;
             } else {
-                viewerHtml = `<iframe src="${content.url}"></iframe>`;
+                viewerHtml = `<iframe src="${content.url}" style="width: 100%; max-width: 1200px; height: 800px; margin: 0 auto; display: block; border: none;"></iframe>`;
             }
             
             // Add back button for navigating between content

@@ -1716,7 +1716,7 @@
                 viewerHtml = `
                     <div style="text-align: center;">
                         <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                        <a href="${flipbookUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
+                        <a href="${flipbookUrl}" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
                             <span style="font-size: 24px;">📖</span>
                             Click to View Flipbook
                         </a>
@@ -1739,7 +1739,7 @@
                 viewerHtml = `
                     <div style="text-align: center;">
                         <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                        <a href="${presentationUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
+                        <a href="${presentationUrl}" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
                             <span style="font-size: 24px;">📊</span>
                             Click to View Presentation
                         </a>
@@ -1747,16 +1747,16 @@
                 `;
             } else if (content.type === 'video') {
                 if (content.url.startsWith('data:')) {
-                    viewerHtml = `<video controls style="width: 100%; max-height: 700px;"><source src="${content.url}"></video>`;
+                    viewerHtml = `<video controls style="width: 100%; max-width: 1200px; max-height: 800px; margin: 0 auto; display: block;"><source src="${content.url}"></video>`;
                 } else {
-                    viewerHtml = `<iframe src="${content.url}" allowfullscreen></iframe>`;
+                    viewerHtml = `<iframe src="${content.url}" style="width: 100%; max-width: 1200px; height: 675px; margin: 0 auto; display: block;" allowfullscreen></iframe>`;
                 }
             } else if (content.type === 'image') {
-                viewerHtml = `<img src="${content.url}" style="max-width: 100%; height: auto; border-radius: 4px;">`;
+                viewerHtml = `<img src="${content.url}" style="max-width: 1200px; width: 100%; height: auto; border-radius: 4px; margin: 0 auto; display: block;">`;
             } else if (content.type === 'audio') {
-                viewerHtml = `<audio controls style="width: 100%;"><source src="${content.url}"></audio>`;
+                viewerHtml = `<audio controls style="width: 100%; max-width: 800px; margin: 0 auto; display: block;"><source src="${content.url}"></audio>`;
             } else {
-                viewerHtml = `<iframe src="${content.url}"></iframe>`;
+                viewerHtml = `<iframe src="${content.url}" style="width: 100%; max-width: 1200px; height: 800px; margin: 0 auto; display: block; border: none;"></iframe>`;
             }
             
             // Add back button for navigating between content
