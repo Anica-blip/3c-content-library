@@ -1747,16 +1747,16 @@
                 `;
             } else if (content.type === 'video') {
                 if (content.url.startsWith('data:')) {
-                    viewerHtml = `<video controls style="width: 100%; max-width: 1200px; max-height: 800px; margin: 0 auto; display: block;"><source src="${content.url}"></video>`;
+                    viewerHtml = `<div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;"><video controls style="max-width: 90%; max-height: 85vh; width: auto; height: auto;"><source src="${content.url}"></video></div>`;
                 } else {
-                    viewerHtml = `<iframe src="${content.url}" style="width: 100%; max-width: 1200px; height: 675px; margin: 0 auto; display: block;" allowfullscreen></iframe>`;
+                    viewerHtml = `<div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;"><iframe src="${content.url}" style="width: 90%; max-width: 800px; height: 80vh; max-height: 600px;" allowfullscreen></iframe></div>`;
                 }
             } else if (content.type === 'image') {
-                viewerHtml = `<img src="${content.url}" style="max-width: 1200px; width: 100%; height: auto; border-radius: 4px; margin: 0 auto; display: block;">`;
+                viewerHtml = `<div style="display: flex; justify-content: center; padding: 20px;"><img src="${content.url}" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>`;
             } else if (content.type === 'audio') {
-                viewerHtml = `<audio controls style="width: 100%; max-width: 800px; margin: 0 auto; display: block;"><source src="${content.url}"></audio>`;
+                viewerHtml = `<div style="display: flex; justify-content: center; padding: 40px;"><audio controls style="width: 100%; max-width: 600px; height: 54px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"><source src="${content.url}"></audio></div>`;
             } else {
-                viewerHtml = `<iframe src="${content.url}" style="width: 100%; max-width: 1200px; height: 800px; margin: 0 auto; display: block; border: none;"></iframe>`;
+                viewerHtml = `<div style="display: flex; justify-content: center; padding: 20px;"><iframe src="${content.url}" style="width: 100%; max-width: 600px; height: 800px; border: none; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></iframe></div>`;
             }
             
             // Add back button for navigating between content
