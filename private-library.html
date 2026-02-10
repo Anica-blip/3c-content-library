@@ -1747,9 +1747,9 @@
                 `;
             } else if (content.type === 'video') {
                 if (content.url.startsWith('data:')) {
-                    viewerHtml = `<div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;"><video controls style="max-width: 90%; max-height: 85vh; width: auto; height: auto;"><source src="${content.url}"></video></div>`;
+                    viewerHtml = `<video controls style="width: 100%; height: auto; max-height: 90vh; display: block; object-fit: contain;"><source src="${content.url}"></video>`;
                 } else {
-                    viewerHtml = `<div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;"><iframe src="${content.url}" style="width: 90%; max-width: 800px; height: 80vh; max-height: 600px;" allowfullscreen></iframe></div>`;
+                    viewerHtml = `<iframe src="${content.url}" style="width: 100%; height: 90vh; border: none; display: block;" allowfullscreen></iframe>`;
                 }
             } else if (content.type === 'image') {
                 viewerHtml = `<div style="display: flex; justify-content: center; padding: 20px;"><img src="${content.url}" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>`;

@@ -441,6 +441,12 @@ function handleElementClick(element) {
             if (isVideoUrl(emojiUrl)) {
                 console.log('🎥 Emoji: Opening video...');
                 playMedia({...element, url: emojiUrl}, 'video');
+            } else if (isAudioUrl(emojiUrl)) {
+                console.log('🎵 Emoji: Opening audio...');
+                playMedia({...element, url: emojiUrl}, 'audio');
+            } else if (isImageUrl(emojiUrl)) {
+                console.log('🖼️ Emoji: Opening image/GIF...');
+                showAnimatedMedia(emojiUrl);
             } else if (isAnimatedMediaUrl(emojiUrl)) {
                 console.log('🎬 Emoji: Opening animated media (GIF)...');
                 showAnimatedMedia(emojiUrl);
@@ -480,6 +486,39 @@ function isVideoUrl(url) {
         /files\.3c-public-library\.org.*\.(mp4|webm|mov)/i
     ];
     return videoPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is an audio file
+ */
+function isAudioUrl(url) {
+    if (!url) return false;
+    const audioPatterns = [
+        /\.mp3$/i,
+        /\.wav$/i,
+        /\.ogg$/i,
+        /\.m4a$/i,
+        /\.aac$/i,
+        /\.flac$/i
+    ];
+    return audioPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is an image or GIF
+ */
+function isImageUrl(url) {
+    if (!url) return false;
+    const imagePatterns = [
+        /\.gif$/i,
+        /\.jpg$/i,
+        /\.jpeg$/i,
+        /\.png$/i,
+        /\.webp$/i,
+        /\.svg$/i,
+        /\.bmp$/i
+    ];
+    return imagePatterns.some(pattern => pattern.test(url));
 }
 
 /**
