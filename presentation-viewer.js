@@ -459,14 +459,23 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         // Log each element type for debugging
         console.log(`   Element ${idx + 1}: type="${element.type}", x=${element.x}, y=${element.y}, width=${element.width}, height=${element.height}`);
         
-        // Element positions are saved relative to editor canvas (595px x 842px)
-        // We need to scale them to current viewer size (pageWidth x pageHeight)
-        const scaleX = pageWidth / EDITOR_WIDTH_PX;
-        const scaleY = pageHeight / EDITOR_HEIGHT_PX;
+        // Element positions are saved relative to editor canvas
+        // Editor uses different dimensions for landscape vs portrait:
+        // - Portrait: 595px x 842px
+        // - Landscape: 842px x 595px
+        // Detect current page orientation to use correct editor dimensions
+        const pageIsLandscape = pageWidth > pageHeight;
+        const editorWidth = pageIsLandscape ? 842 : EDITOR_WIDTH_PX;
+        const editorHeight = pageIsLandscape ? 595 : EDITOR_HEIGHT_PX;
+        
+        // Scale elements to current viewer size
+        const scaleX = pageWidth / editorWidth;
+        const scaleY = pageHeight / editorHeight;
         
         if (idx === 0) {
             console.log('🔍 Element scaling:');
-            console.log('   Editor canvas:', EDITOR_WIDTH_PX, 'x', EDITOR_HEIGHT_PX);
+            console.log('   Orientation:', pageIsLandscape ? 'LANDSCAPE' : 'PORTRAIT');
+            console.log('   Editor canvas:', editorWidth, 'x', editorHeight);
             console.log('   Viewer page:', pageWidth, 'x', pageHeight);
             console.log('   Scale factors:', scaleX.toFixed(3), 'x', scaleY.toFixed(3));
         }
@@ -701,15 +710,30 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                         try {
                             console.log('🎭 3C Emoji clicked:', element);
                             if (element.url) {
-                                console.log('📍 Emoji URL:', element.url);
-                                if (isVideoUrl(element.url)) {
-                                    console.log('🎥 Opening video...');
-                                    playMedia(element, 'video');
+                                console.log('�� Emoji URL:', element.url);
+                                
+                                // Ensure URL has protocol
+                                let emojiUrl = element.url;
+                                if (!emojiUrl.startsWith('http://') && !emojiUrl.startsWith('https://')) {
+                                    emojiUrl = 'https://' + emojiUrl;
+                                }
+                                
+                                // Detect media type and open in appropriate popup
+                                if (isVideoUrl(emojiUrl)) {
+                                    console.log('🎥 Video detected - opening in popup...');
+                                    playMedia({...element, url: emojiUrl}, 'video');
+                                } else if (isAudioUrl(emojiUrl)) {
+                                    console.log('🎵 Audio detected - opening in popup...');
+                                    playMedia({...element, url: emojiUrl}, 'audio');
+                                } else if (isImageUrl(emojiUrl)) {
+                                    console.log('🖼️ Image/GIF detected - opening in popup...');
+                                    showGif({...element, url: emojiUrl});
                                 } else {
-                                    console.log('🔗 Opening link...');
-                                    const popup = window.open(element.url, '_blank', 'width=800,height=600');
+                                    console.log('🔗 Opening link in new window...');
+                                    const popup = window.open(emojiUrl, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no,scrollbars=yes,resizable=yes');
                                     if (!popup) {
                                         console.error('❌ Popup blocked');
+                                        window.location.href = emojiUrl;
                                     } else {
                                         console.log('✅ Link opened successfully');
                                     }
@@ -882,6 +906,39 @@ function isVideoUrl(url) {
         /customer-.*\.cloudflarestream\.com/i // Cloudflare Stream customer domains
     ];
     return videoPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Detect if URL is an audio file
+ */
+function isAudioUrl(url) {
+    if (!url) return false;
+    const audioPatterns = [
+        /\.mp3$/i,
+        /\.wav$/i,
+        /\.ogg$/i,
+        /\.m4a$/i,
+        /\.aac$/i,
+        /\.flac$/i
+    ];
+    return audioPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Detect if URL is an image or GIF
+ */
+function isImageUrl(url) {
+    if (!url) return false;
+    const imagePatterns = [
+        /\.gif$/i,
+        /\.jpg$/i,
+        /\.jpeg$/i,
+        /\.png$/i,
+        /\.webp$/i,
+        /\.svg$/i,
+        /\.bmp$/i
+    ];
+    return imagePatterns.some(pattern => pattern.test(url));
 }
 
 /**
