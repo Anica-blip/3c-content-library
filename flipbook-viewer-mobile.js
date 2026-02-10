@@ -478,6 +478,39 @@ function isVideoUrl(url) {
 }
 
 /**
+ * Detect if URL is an audio file
+ */
+function isAudioUrl(url) {
+    if (!url) return false;
+    const audioPatterns = [
+        /\.mp3$/i,
+        /\.wav$/i,
+        /\.ogg$/i,
+        /\.m4a$/i,
+        /\.aac$/i,
+        /\.flac$/i
+    ];
+    return audioPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Detect if URL is an image or GIF
+ */
+function isImageUrl(url) {
+    if (!url) return false;
+    const imagePatterns = [
+        /\.gif$/i,
+        /\.jpg$/i,
+        /\.jpeg$/i,
+        /\.png$/i,
+        /\.webp$/i,
+        /\.svg$/i,
+        /\.bmp$/i
+    ];
+    return imagePatterns.some(pattern => pattern.test(url));
+}
+
+/**
  * Check if URL is animated media (GIF, etc.)
  */
 function isAnimatedMediaUrl(url) {
