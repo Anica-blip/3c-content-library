@@ -30,98 +30,162 @@ let isLandscape = true;  // Default to landscape
 const EDITOR_WIDTH_PX = 595;  // 794 * 0.75
 const EDITOR_HEIGHT_PX = 842;  // 1123 * 0.75
 
-// DOM elements
-const loading = document.getElementById('loading');
-const mediaOverlay = document.getElementById('media-overlay');
-const mediaPlayerWrapper = document.getElementById('media-player-wrapper');
-const mediaTitle = document.getElementById('media-title');
-const closeMediaBtn = document.getElementById('close-media');
+// Get URL parameters
+const urlParams = new URLSearchParams(window.location.search);
+const pdfUrl = urlParams.get('pdf') || '';
+const manifestUrl = urlParams.get('manifest') || '';
+const projectId = urlParams.get('project') || '';
 
-/**
- * Get URL parameters
- */
-function getUrlParams() {
-    const params = new URLSearchParams(window.location.search);
-    return {
-        content: params.get('content'),
-        manifest: params.get('manifest')
-    };
+console.log('Presentation v20241231-2023 - Loading with parameters:', {
+    pdfUrl: pdfUrl,
+    manifestUrl: manifestUrl,
+    projectId: projectId    
+});
+
+// Check for sessionStorage manifest (from builder preview)
+const sessionManifest = sessionStorage.getItem('flipbookManifest');
+console.log('SessionStorage check:', {
+    hasManifest: !!sessionManifest,
+    manifestLength: sessionManifest ? sessionManifest.length : 0,
+    manifestPreview: sessionManifest ? sessionManifest.substring(0, 100) + '...' : 'null'
+});
+
+// DOM elements - will be initialized after DOM is ready
+let loading = null;
+let videoOverlay = null;
+let videoPlayerWrapper = null;
+let videoTitle = null;
+let closeVideoBtn = null;
+let mediaOverlay = null;
+let closeMediaBtn = null;
+let mediaTitle = null;
+let mediaPlayerWrapper = null;
+
+// Initialize DOM elements
+function initDOMElements() {
+    loading = document.getElementById('loading');
+    videoOverlay = document.getElementById('video-overlay');
+    videoPlayerWrapper = document.getElementById('video-player-wrapper');
+    videoTitle = document.getElementById('video-title');
+    closeVideoBtn = document.getElementById('close-video');
+    mediaOverlay = document.getElementById('media-overlay');
+    closeMediaBtn = document.getElementById('close-media');
+    mediaTitle = document.getElementById('media-title');
+    mediaPlayerWrapper = document.getElementById('media-player-wrapper');
+    
+    if (!loading) {
+        console.error('Loading element not found!');
+        return false;
+    }
+    return true;
 }
 
 /**
- * Detect if device is mobile/tablet
+ * Load project from Supabase using project ID
  */
-function isMobileDevice() {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    
-    // Check for mobile/tablet devices
-    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
-    const isMobileUA = mobileRegex.test(userAgent);
-    
-    // Check for touch support
-    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    
-    // Check screen size (tablets and phones typically < 1024px width)
-    const isSmallScreen = window.innerWidth < 1024;
-    
-    return isMobileUA || (hasTouch && isSmallScreen);
-}
-
-/**
- * Initialize presentation
- */
-async function init() {
+async function loadProjectFromSupabase(projectId) {
     try {
-        // Redirect mobile devices to mobile viewer
-        if (isMobileDevice()) {
-            console.log('📱 Mobile device detected, redirecting to mobile viewer...');
-            const params = new URLSearchParams(window.location.search);
-            window.location.href = 'presentation-viewer-mobile.html?' + params.toString();
-            return;
+        console.log('Loading project from Supabase:', projectId);
+        
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/pdf_projects?id=eq.${projectId}&select=*`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'apikey': SUPABASE_ANON_KEY
+            }
+        });
+        
+        console.log('Response status:', response.status, response.statusText);
+        console.log('Response headers:', response.headers.get('content-type'));
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Response error text:', errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
         }
         
-        console.log('🖥️ Desktop device detected, loading desktop presentation...');
-        const params = getUrlParams();
-        contentId = params.content;
-        const manifestUrl = params.manifest;
-
-        // Priority 1: Load from manifest URL (Cloudflare R2)
-        if (manifestUrl) {
-            console.log('Loading from manifest URL (Cloudflare R2):', manifestUrl);
-            await loadManifestFromUrl(manifestUrl);
+        // Get response as text first to debug
+        const responseText = await response.text();
+        console.log('Raw response text (first 500 chars):', responseText.substring(0, 500));
+        
+        let projects;
+        try {
+            projects = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('Failed to parse response as JSON');
+            console.error('Full response text:', responseText);
+            throw new Error(`Invalid JSON response: ${parseError.message}`);
         }
-        // Priority 2: Load from content ID (Supabase)
-        else if (contentId) {
-            console.log('Loading from content ID (Supabase):', contentId);
-            // Initialize Supabase
-            if (!supabaseClient.isConnected) {
-                await supabaseClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
+        console.log('Response from Supabase:', projects);
+        
+        if (!projects || projects.length === 0) {
+            throw new Error('Project not found');
+        }
+        
+        const project = projects[0];
+        console.log('Project loaded:', project.title || 'Untitled');
+        console.log('Full project object:', project);
+        console.log('project_json exists?', !!project.project_json);
+        console.log('project_json type:', typeof project.project_json);
+        console.log('project_json value:', project.project_json);
+        
+        // Parse the JSON data from project_json column
+        
+        let projectData;
+        if (!project.project_json) {
+            throw new Error('project_json column is empty or null');
+        }
+        
+        // Supabase JSONB columns are returned as objects, not strings
+        if (typeof project.project_json === 'object' && project.project_json !== null) {
+            console.log('project_json is an object, using directly');
+            projectData = project.project_json;
+        } else if (typeof project.project_json === 'string') {
+            console.log('project_json is a string, attempting to parse');
+            try {
+                projectData = JSON.parse(project.project_json);
+            } catch (parseError) {
+                console.error('JSON parse error:', parseError);
+                console.error('Raw JSON string (first 500 chars):', project.project_json.substring(0, 500));
+                throw new Error(`Failed to parse project JSON: ${parseError.message}`);
             }
-            // Load content from Supabase
-            await loadContentFromSupabase(contentId);
+        } else {
+            console.error('project_json type is invalid:', typeof project.project_json);
+            console.error('project_json value:', project.project_json);
+            throw new Error(`project_json is not an object or string, it is: ${typeof project.project_json}`);
         }
-        else {
-            // alert('No presentation data provided. Use ?manifest=URL or ?content=ID');
-            loading.classList.add('hidden');
-            goBack();
-            return;
-        }
-
-        loading.classList.add('hidden');
+        
+        console.log('projectData parsed successfully');
+        console.log('projectData.pages count:', projectData.pages?.length || 0);
+        console.log('projectData.settings:', projectData.settings);
+        
+        // Create manifest from project data
+        const manifest = {
+            title: projectData.settings?.title || project.title || 'Interactive Presentation',
+            author: projectData.settings?.author || project.author || 'Chef',
+            pages: projectData.pages || [],
+            settings: projectData.settings || {},
+            createdAt: project.created_at
+        };
+        
+        console.log('Manifest created with', manifest.pages.length, 'pages');
+        console.log('First page preview:', manifest.pages[0]);
+        
+        await initFromManifest(manifest);
+        
     } catch (error) {
-        console.error('Init error:', error);
-        // alert('Failed to load presentation: ' + error.message);
-        loading.classList.add('hidden');
-        goBack();
+        console.error('Failed to load project from Supabase:', error);
+        throw error;
     }
 }
 
 /**
- * Load manifest JSON from URL (for Cloudflare R2)
+ * Load manifest JSON from URL (for 3C Content Library)
  */
 async function loadManifestFromUrl(url) {
     try {
-        console.log(' Fetching manifest from:', url);
+        console.log('Fetching manifest from:', url);
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -129,63 +193,93 @@ async function loadManifestFromUrl(url) {
         }
         
         const manifestData = await response.json();
-        console.log(' Manifest loaded from URL:', manifestData.title || 'Untitled');
-        console.log(' Pages:', manifestData.pages?.length || 0);
+        console.log('Manifest loaded from URL:', manifestData.title || 'Untitled');
+        console.log('Pages:', manifestData.pages?.length || 0);
         
-        await initFromManifest(manifestData);
+        return manifestData;
     } catch (error) {
-        console.error(' Failed to load manifest from URL:', error);
+        console.error('Failed to load manifest from URL:', error);
         throw new Error(`Failed to load presentation manifest: ${error.message}`);
     }
 }
 
 /**
- * Load content from Supabase
+ * Initialize presentation
  */
-async function loadContentFromSupabase(id) {
+async function init() {
     try {
-        // Try content_public first
-        let { data, error } = await supabaseClient.client
-            .from('content_public')
-            .select('*')
-            .eq('id', id)
-            .single();
-        
-        if (error || !data) {
-            // Try content_private
-            const privateResult = await supabaseClient.client
-                .from('content_private')
-                .select('*')
-                .eq('id', id)
-                .single();
-            
-            data = privateResult.data;
-            error = privateResult.error;
-        }
-        
-        if (error || !data) {
-            throw new Error('Content not found: ' + (error?.message || 'Unknown error'));
-        }
-
-        contentData = data;
-        
-        // Check if this has project_json (interactive presentation data)
-        if (!contentData.project_json) {
-            // No presentation data - redirect to normal viewer
-            window.location.href = `library.html?content=${id}`;
+        // Initialize DOM elements first
+        if (!initDOMElements()) {
+            console.error('Failed to initialize DOM elements');
             return;
         }
 
-        // Parse project data
-        manifest = JSON.parse(contentData.project_json);
-        console.log('Presentation manifest loaded:', manifest);
-
-        // Initialize from manifest
-        await initFromManifest(manifest);
-
+        console.log('🖥️ Desktop device detected, loading desktop presentation...');
+        
+        // Priority 1: Check for project ID (from Supabase)
+        if (projectId) {
+            console.log('Loading from Supabase project:', projectId);
+            await loadProjectFromSupabase(projectId);
+            
+            // Render all pages
+            await renderPagesAtScale();
+            
+            // Initialize presentation
+            initPresentation();
+        
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Hide loading indicator
+            loading.classList.add('hidden');
+        }
+        // Priority 2: Check for sessionStorage manifest (from builder preview)
+        else if (sessionManifest) {
+            console.log('Loading from builder preview (sessionStorage)');
+            await initFromManifest(JSON.parse(sessionManifest));
+            // Clear sessionStorage after loading
+            sessionStorage.removeItem('presentationManifest');
+            
+            // Render all pages
+            await renderPagesAtScale();
+            
+            // Initialize presentation
+            initPresentation();
+        
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Hide loading indicator
+            loading.classList.add('hidden');
+        }
+        // Priority 3: Check for manifest URL (from 3C Content Library - JSON only)
+        else if (manifestUrl) {
+            console.log('Loading from manifest URL (3C Content Library)');
+            const manifestData = await loadManifestFromUrl(manifestUrl);
+            await initFromManifest(manifestData);
+            
+            // Render all pages
+            await renderPagesAtScale();
+            
+            // Initialize presentation
+            initPresentation();
+        
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Hide loading indicator
+            loading.classList.add('hidden');
+        }
+        // No data source
+        else {
+            alert('⚠️ No presentation data found!\n\nTo view presentation:\n1. From editor: Click "View Presentation" button\n2. From Supabase: Use URL ?project=PROJECT_ID\n3. From library: Use URL ?manifest=JSON_URL');
+            loading.classList.add('hidden');
+            return;
+        }
     } catch (error) {
-        console.error('Error loading content:', error);
-        throw error;
+        console.error('Init error:', error);
+        alert('Failed to load presentation: ' + error.message);
+        loading.classList.add('hidden');
     }
 }
 
@@ -270,7 +364,8 @@ async function initFromManifest(manifestData) {
 }
 
 /**
- * Render all pages at the current scale with 2x resolution for quality
+ * Render all pages at the current scale
+ * This is called on init and whenever zoom changes
  */
 async function renderPagesAtScale() {
     pageCanvases = [];
@@ -460,19 +555,18 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         console.log(`   Element ${idx + 1}: type="${element.type}", x=${element.x}, y=${element.y}, width=${element.width}, height=${element.height}`);
         
         // Element positions are saved relative to editor canvas
-        // Editor uses different dimensions for landscape vs portrait:
+        // Editor dimensions depend on orientation:
         // - Portrait: 595px x 842px
         // - Landscape: 842px x 595px
-        const pageIsLandscape = pageWidth > pageHeight;
-        const editorWidth = pageIsLandscape ? 842 : EDITOR_WIDTH_PX;
-        const editorHeight = pageIsLandscape ? 595 : EDITOR_HEIGHT_PX;
+        // We need to scale them to current viewer size (pageWidth x pageHeight)
+        const editorWidth = isLandscape ? 842 : EDITOR_WIDTH_PX;
+        const editorHeight = isLandscape ? 595 : EDITOR_HEIGHT_PX;
         const scaleX = pageWidth / editorWidth;
         const scaleY = pageHeight / editorHeight;
         
         if (idx === 0) {
             console.log('🔍 Element scaling:');
-            console.log('   Orientation:', pageIsLandscape ? 'LANDSCAPE' : 'PORTRAIT');
-            console.log('   Editor canvas:', editorWidth, 'x', editorHeight);
+            console.log('   Editor canvas:', EDITOR_WIDTH_PX, 'x', EDITOR_HEIGHT_PX);
             console.log('   Viewer page:', pageWidth, 'x', pageHeight);
             console.log('   Scale factors:', scaleX.toFixed(3), 'x', scaleY.toFixed(3));
         }
@@ -707,7 +801,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                         try {
                             console.log('🎭 3C Emoji clicked:', element);
                             if (element.url) {
-                                console.log('�� Emoji URL:', element.url);
+                                console.log('📍 Emoji URL:', element.url);
                                 
                                 // Ensure URL has protocol
                                 let emojiUrl = element.url;
@@ -727,9 +821,11 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                                     showGif({...element, url: emojiUrl});
                                 } else {
                                     console.log('🔗 Opening link in new window...');
+                                    // Mobile-friendly popup settings
                                     const popup = window.open(emojiUrl, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no,scrollbars=yes,resizable=yes');
                                     if (!popup) {
                                         console.error('❌ Popup blocked');
+                                        // Fallback for mobile - try direct navigation
                                         window.location.href = emojiUrl;
                                     } else {
                                         console.log('✅ Link opened successfully');
@@ -743,6 +839,8 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 }
                 
                 elementDiv.append(img);
+            } else {
+                console.error(`   ❌ 3C Emoji missing imagePath! Element:`, element);
             }
         } else if (element.type === 'hotspot' || element.type === 'link') {
             // Invisible clickable area
@@ -1081,8 +1179,12 @@ function playMedia(element, type) {
                 }
             }
         } else if (type === 'audio') {
-            const audioUrl = element.url || element.mediaUrl;
-            console.log('🎵 Loading audio:', audioUrl);
+            const audioUrl = element.url || element.audioUrl || element.mediaUrl;
+            console.log('📍 Audio URL:', audioUrl);
+            
+            // Hide title for cleaner look
+            mediaTitle.textContent = '';
+            mediaTitle.style.display = 'none';
             const audio = document.createElement('audio');
             audio.src = audioUrl;
             audio.controls = true;
@@ -1210,14 +1312,6 @@ function setupEventListeners() {
         await reloadPresentation();
     });
     
-    $('#prev-page').on('click', () => {
-        $('#presentation').turn('previous');
-    });
-    
-    $('#next-page').on('click', () => {
-        $('#presentation').turn('next');
-    });
-    
     $('#last-page').on('click', () => {
         console.log('⏭ Last page clicked');
         $('#presentation').turn('page', totalPages);
@@ -1256,12 +1350,20 @@ function setupEventListeners() {
     });
     
     // Navigation arrows
-    $('#nav-arrow-left').on('click', () => {
-        $('#presentation').turn('previous');
+    $('#prev-page').on('click', () => {
+        const current = $('#presentation').turn('page');
+        console.log('Previous clicked - current:', current, 'going to:', current - 1);
+        if (current > 1) {
+            $('#presentation').turn('page', current - 1);
+        }
     });
     
-    $('#nav-arrow-right').on('click', () => {
-        $('#presentation').turn('next');
+    $('#next-page').on('click', () => {
+        const current = $('#presentation').turn('page');
+        console.log('Next clicked - current:', current, 'going to:', current + 1);
+        if (current < totalPages) {
+            $('#presentation').turn('page', current + 1);
+        }
     });
     
     // Close media
@@ -1350,8 +1452,8 @@ function updatePageInfo() {
     $('#next-page, #last-page').prop('disabled', currentPage === totalPages);
     
     // Update navigation arrows visibility
-    const leftArrow = document.getElementById('nav-arrow-left');
-    const rightArrow = document.getElementById('nav-arrow-right');
+    const leftArrow = document.getElementById('prev-page');
+    const rightArrow = document.getElementById('next-page');
     
     if (leftArrow) {
         if (currentPage === 1) {
@@ -1436,20 +1538,6 @@ async function downloadPresentation() {
  * Go back to library (returns to where user came from)
  */
 function goBack() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const ref = urlParams.get('ref');
-    const folderSlug = urlParams.get('folder');
-    
-    if (ref === 'private') {
-        if (document.referrer && !document.referrer.includes('presentation-viewer.html')) {
-            window.location.href = document.referrer;
-        } else if (folderSlug) {
-            window.location.href = `private-library.html?folder=${folderSlug}`;
-        }
-        return;
-    }
-    
-    // Default: use referrer or history (for public library)
     if (document.referrer) {
         window.location.href = document.referrer;
     } else {
@@ -1551,8 +1639,5 @@ function setupInteractiveElementHandlers() {
 // Initialize on load
 $(document).ready(() => {
     setupInteractiveElementHandlers();
-    init();
-});
-s();
     init();
 });
