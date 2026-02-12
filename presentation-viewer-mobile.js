@@ -298,21 +298,8 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
     if (positionedElements.length === 0) return;
     
     // Calculate scale from editor canvas to actual page
-    // Editor uses different dimensions for landscape vs portrait:
-    // - Portrait: 595px x 842px
-    // - Landscape: 842px x 595px
-    const pageIsLandscape = pageWidth > pageHeight;
-    const editorWidth = pageIsLandscape ? 842 : EDITOR_WIDTH_PX;
-    const editorHeight = pageIsLandscape ? 595 : EDITOR_HEIGHT_PX;
-    const scaleX = pageWidth / editorWidth;
-    const scaleY = pageHeight / editorHeight;
-    
-    console.log('📱 Mobile element scaling:', {
-        pageSize: `${pageWidth}x${pageHeight}`,
-        orientation: pageIsLandscape ? 'LANDSCAPE' : 'PORTRAIT',
-        editorCanvas: `${editorWidth}x${editorHeight}`,
-        scale: `${scaleX.toFixed(3)}x${scaleY.toFixed(3)}`
-    });
+    const scaleX = pageWidth / EDITOR_WIDTH_PX;
+    const scaleY = pageHeight / EDITOR_HEIGHT_PX;
     
     positionedElements.forEach((element, idx) => {
         const scaledX = element.x * scaleX;
@@ -353,36 +340,25 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 console.warn('⚠️ Button has no image:', element);
             }
         } else if (element.type === '3c-emoji' || element.type === '3c-emoji-decoration') {
-            console.log('📱 Processing emoji element:', element);
             if (element.imagePath || element.image) {
                 let imgSrc = element.imagePath || element.image;
-                console.log('📱 Original emoji path:', imgSrc);
                 // Convert relative paths to full GitHub Pages URL
                 // Supports: public/3C Buttons/Emojis, public/3C Buttons/Emojis/General
                 if (imgSrc && !imgSrc.startsWith('http')) {
                     imgSrc = 'https://anica-blip.github.io/interactive-PDF/public' + (imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc);
                 }
-                console.log('📱 Final emoji URL:', imgSrc);
-                console.log('📱 Element position:', {x: scaledX, y: scaledY, w: scaledWidth, h: scaledHeight});
+                console.log('🖼️ Emoji image:', imgSrc);
                 const img = document.createElement('img');
                 img.src = imgSrc;
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.objectFit = 'contain';
                 img.style.borderRadius = '50%';
-                img.style.display = 'block';
-                img.onerror = (e) => {
-                    console.error('❌ Failed to load emoji image:', imgSrc);
-                    console.error('Error event:', e);
-                };
-                img.onload = () => {
-                    console.log('✅ Emoji image loaded successfully:', imgSrc);
-                    console.log('Image dimensions:', img.naturalWidth, 'x', img.naturalHeight);
-                };
+                img.onerror = () => console.error('❌ Failed to load emoji image:', imgSrc);
+                img.onload = () => console.log('✅ Emoji image loaded:', imgSrc);
                 elementDiv.appendChild(img);
-                console.log('📱 Emoji img element appended to elementDiv');
             } else {
-                console.warn('⚠️ Emoji has no imagePath or image property:', element);
+                console.warn('⚠️ Emoji has no image:', element);
             }
         } else if (element.type === 'video' || element.type === 'cloudflare-stream') {
             // Show play button overlay
