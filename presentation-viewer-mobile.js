@@ -354,25 +354,40 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                 console.warn('⚠️ Button has no image:', element);
             }
         } else if (element.type === '3c-emoji' || element.type === '3c-emoji-decoration') {
+            console.log('📱 EMOJI ELEMENT DETECTED:', element);
+            console.log('📱 Element position:', {x: scaledX, y: scaledY, w: scaledWidth, h: scaledHeight});
+            console.log('📱 Has imagePath?', !!element.imagePath, 'Has image?', !!element.image);
+            
             if (element.imagePath || element.image) {
                 let imgSrc = element.imagePath || element.image;
+                console.log('📱 Original image path:', imgSrc);
+                
                 // Convert relative paths to full GitHub Pages URL
                 // Supports: public/3C Buttons/Emojis, public/3C Buttons/Emojis/General
                 if (imgSrc && !imgSrc.startsWith('http')) {
                     imgSrc = 'https://anica-blip.github.io/interactive-PDF/public' + (imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc);
                 }
-                console.log('🖼️ Emoji image:', imgSrc);
+                console.log('📱 Final emoji URL:', imgSrc);
+                
                 const img = document.createElement('img');
                 img.src = imgSrc;
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.objectFit = 'contain';
                 img.style.borderRadius = '50%';
-                img.onerror = () => console.error('❌ Failed to load emoji image:', imgSrc);
-                img.onload = () => console.log('✅ Emoji image loaded:', imgSrc);
+                img.style.display = 'block';
+                img.onerror = (e) => {
+                    console.error('❌ FAILED to load emoji image:', imgSrc);
+                    console.error('Error event:', e);
+                };
+                img.onload = () => {
+                    console.log('✅ EMOJI IMAGE LOADED:', imgSrc);
+                    console.log('Image natural size:', img.naturalWidth, 'x', img.naturalHeight);
+                };
                 elementDiv.appendChild(img);
+                console.log('📱 Emoji img appended to elementDiv');
             } else {
-                console.warn('⚠️ Emoji has no image:', element);
+                console.warn('⚠️ Emoji has NO imagePath or image property:', element);
             }
         } else if (element.type === 'video' || element.type === 'cloudflare-stream') {
             // Show play button overlay
@@ -408,7 +423,16 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         });
         
         pageDiv.appendChild(elementDiv);
+        
+        // Debug: Verify element was added to DOM
+        if (element.type === '3c-emoji' || element.type === '3c-emoji-decoration') {
+            console.log('📱 Emoji elementDiv appended to pageDiv');
+            console.log('📱 ElementDiv in DOM?', document.contains(elementDiv));
+            console.log('📱 ElementDiv computed style:', window.getComputedStyle(elementDiv).display);
+        }
     });
+    
+    console.log('📱 Total elements rendered:', positionedElements.length);
 }
 
 /**
