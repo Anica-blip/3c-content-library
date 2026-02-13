@@ -298,8 +298,22 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
     if (positionedElements.length === 0) return;
     
     // Calculate scale from editor canvas to actual page
-    const scaleX = pageWidth / EDITOR_WIDTH_PX;
-    const scaleY = pageHeight / EDITOR_HEIGHT_PX;
+    // Editor canvas dimensions depend on page orientation:
+    // - Landscape: 842px x 595px (1123*0.75 x 794*0.75)
+    // - Portrait: 595px x 842px (794*0.75 x 1123*0.75)
+    const pageIsLandscape = pageWidth > pageHeight;
+    const editorWidth = pageIsLandscape ? 842 : EDITOR_WIDTH_PX;
+    const editorHeight = pageIsLandscape ? 595 : EDITOR_HEIGHT_PX;
+    
+    const scaleX = pageWidth / editorWidth;
+    const scaleY = pageHeight / editorHeight;
+    
+    console.log('📱 Mobile element scaling:', {
+        orientation: pageIsLandscape ? 'LANDSCAPE' : 'PORTRAIT',
+        editorCanvas: `${editorWidth}x${editorHeight}`,
+        viewerPage: `${pageWidth}x${pageHeight}`,
+        scale: `${scaleX.toFixed(3)}x${scaleY.toFixed(3)}`
+    });
     
     positionedElements.forEach((element, idx) => {
         const scaledX = element.x * scaleX;
