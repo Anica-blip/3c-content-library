@@ -664,10 +664,14 @@ function showAnimatedMedia(url) {
     
     const img = document.createElement('img');
     img.src = url;
+    img.style.width = '100%';
+    img.style.height = 'auto';
     img.style.maxWidth = '100%';
-    img.style.maxHeight = '70vh';
+    img.style.maxHeight = '90vh';
     img.style.objectFit = 'contain';
     img.style.borderRadius = '8px';
+    img.style.display = 'block';
+    img.style.margin = '0 auto';
     
     mediaPlayer.appendChild(img);
     mediaOverlay.classList.add('active');
