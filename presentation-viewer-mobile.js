@@ -635,7 +635,7 @@ function getVideoEmbedUrl(url) {
 }
 
 /**
- * Show link in popup iframe
+ * Show link in popup iframe (with fallback to new tab if blocked)
  */
 function showLinkPopup(url) {
     console.log('🔗 Opening link in popup:', url);
@@ -645,10 +645,27 @@ function showLinkPopup(url) {
     const iframe = document.createElement('iframe');
     iframe.src = url;
     iframe.style.width = '100%';
-    iframe.style.height = '70vh';
+    iframe.style.height = '90vh';
     iframe.style.border = 'none';
     iframe.style.borderRadius = '8px';
     iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+    
+    // Detect if iframe fails to load (blocked by X-Frame-Options)
+    let iframeLoaded = false;
+    
+    iframe.onload = () => {
+        iframeLoaded = true;
+        console.log('✅ Iframe loaded successfully');
+    };
+    
+    // If iframe doesn't load within 3 seconds, open in new tab
+    setTimeout(() => {
+        if (!iframeLoaded) {
+            console.log('⚠️ Iframe blocked - opening in new tab');
+            mediaOverlay.classList.remove('active');
+            window.open(url, '_blank');
+        }
+    }, 3000);
     
     mediaPlayer.appendChild(iframe);
     mediaOverlay.classList.add('active');
