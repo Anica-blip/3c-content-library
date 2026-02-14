@@ -698,6 +698,20 @@ function showAnimatedMedia(url) {
     img.style.display = 'block';
     img.style.margin = '0 auto';
     
+    // Ensure mobile responsive sizing
+    img.onload = () => {
+        const aspectRatio = img.naturalWidth / img.naturalHeight;
+        if (aspectRatio > 1) {
+            // Landscape image
+            img.style.width = '100%';
+            img.style.height = 'auto';
+        } else {
+            // Portrait image
+            img.style.width = 'auto';
+            img.style.height = '90vh';
+        }
+    };
+    
     mediaPlayer.appendChild(img);
     mediaOverlay.classList.add('active');
 }
