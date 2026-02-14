@@ -31,11 +31,11 @@ const EDITOR_WIDTH_PX = 595;  // 794 * 0.75
 const EDITOR_HEIGHT_PX = 842;  // 1123 * 0.75
 
 // DOM elements
-const loading = document.getElementById('loading');
-const mediaOverlay = document.getElementById('media-overlay');
-const mediaPlayerWrapper = document.getElementById('media-player-wrapper');
-const mediaTitle = document.getElementById('media-title');
-const closeMediaBtn = document.getElementById('close-media');
+let loading = null;
+let mediaOverlay = null;
+let mediaPlayerWrapper = null;
+let mediaTitle = null;
+let closeMediaBtn = null;
 
 /**
  * Get URL parameters
@@ -1162,6 +1162,13 @@ function closeMedia() {
  * Setup event listeners
  */
 function setupEventListeners() {
+    // Initialize DOM elements
+    loading = document.getElementById('loading');
+    mediaOverlay = document.getElementById('media-overlay');
+    mediaPlayerWrapper = document.getElementById('media-player-wrapper');
+    mediaTitle = document.getElementById('media-title');
+    closeMediaBtn = document.getElementById('close-media');
+    
     // Navigation buttons
     $('#first-page').on('click', async () => {
         console.log('⏮ First page clicked - reloading JSON');
