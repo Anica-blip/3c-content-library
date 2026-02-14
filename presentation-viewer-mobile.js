@@ -689,27 +689,39 @@ function showAnimatedMedia(url) {
     
     const img = document.createElement('img');
     img.src = url;
-    img.style.width = '100%';
-    img.style.height = 'auto';
-    img.style.maxWidth = '100%';
-    img.style.maxHeight = '90vh';
-    img.style.objectFit = 'contain';
-    img.style.borderRadius = '8px';
     img.style.display = 'block';
     img.style.margin = '0 auto';
+    img.style.borderRadius = '8px';
+    img.style.objectFit = 'contain';
     
-    // Ensure mobile responsive sizing
+    // Mobile-responsive sizing - handle both orientations
     img.onload = () => {
         const aspectRatio = img.naturalWidth / img.naturalHeight;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        console.log('📐 Image loaded:', img.naturalWidth, 'x', img.naturalHeight, 'aspect:', aspectRatio.toFixed(2));
+        console.log('📱 Viewport:', viewportWidth, 'x', viewportHeight);
+        
         if (aspectRatio > 1) {
-            // Landscape image
-            img.style.width = '100%';
+            // Landscape image - fit to width
+            img.style.width = '95vw';
             img.style.height = 'auto';
+            img.style.maxHeight = '85vh';
+            img.style.maxWidth = '95vw';
+            console.log('🖼️ Landscape mode: width=95vw, height=auto');
         } else {
-            // Portrait image
+            // Portrait image - fit to height
             img.style.width = 'auto';
-            img.style.height = '90vh';
+            img.style.height = '85vh';
+            img.style.maxWidth = '95vw';
+            img.style.maxHeight = '85vh';
+            console.log('🖼️ Portrait mode: width=auto, height=85vh');
         }
+    };
+    
+    img.onerror = () => {
+        console.error('❌ Failed to load image:', url);
     };
     
     mediaPlayer.appendChild(img);
