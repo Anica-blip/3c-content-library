@@ -1149,6 +1149,10 @@ function closeMedia() {
         stream.remove();
     });
     
+    // Clear all content immediately
+    mediaPlayerWrapper.innerHTML = '';
+    mediaTitle.textContent = '';
+    mediaOverlay.classList.remove('active');
     
     // Force garbage collection and cache clearing
     if (window.gc) {
