@@ -649,6 +649,8 @@ function showLinkPopup(url) {
     iframe.style.border = 'none';
     iframe.style.borderRadius = '8px';
     iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+    iframe.referrerPolicy = 'no-referrer-when-downgrade';
+    iframe.sandbox = 'allow-same-origin allow-scripts allow-popups allow-forms allow-modals';
     
     // Detect if iframe fails to load (blocked by X-Frame-Options)
     let iframeLoaded = false;
@@ -656,6 +658,12 @@ function showLinkPopup(url) {
     iframe.onload = () => {
         iframeLoaded = true;
         console.log('✅ Iframe loaded successfully');
+    };
+    
+    iframe.onerror = (e) => {
+        console.log('⚠️ Iframe error - opening in new tab');
+        mediaOverlay.classList.remove('active');
+        window.open(url, '_blank');
     };
     
     // If iframe doesn't load within 3 seconds, open in new tab

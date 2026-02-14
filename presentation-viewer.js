@@ -540,14 +540,8 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                             console.log('🎥 Detected as video URL, opening in popup...');
                             playMedia(element, 'video');
                         } else {
-                            console.log('🔗 Opening link in new window...');
-                            const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no,scrollbars=yes,resizable=yes');
-                            if (!popup) {
-                                console.error('❌ Popup blocked by browser');
-                                // alert('⚠️ Popup Blocked\n\nPlease allow popups for this site to open links.\n\nURL: ' + element.url);
-                            } else {
-                                console.log('✅ Link opened successfully');
-                            }
+                            console.log('🔗 Opening link in popup overlay...');
+                            showLinkPopup(element.url);
                         }
                     } else {
                         console.warn('⚠️ Button has no URL configured');
@@ -649,14 +643,8 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                             console.log('🎥 Detected as video URL, opening in popup...');
                             playMedia(element, 'video');
                         } else {
-                            console.log('🔗 Opening link in new window...');
-                            const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
-                            if (!popup) {
-                                console.error('❌ Popup blocked by browser');
-                                // alert('⚠️ Popup Blocked\n\nPlease allow popups for this site.\n\nURL: ' + element.url);
-                            } else {
-                                console.log('✅ Link opened successfully');
-                            }
+                            console.log('🔗 Opening link in popup overlay...');
+                            showLinkPopup(element.url);
                         }
                     } else if (element.videoUrl || element.streamId) {
                         console.log('🎥 Opening video from videoUrl/streamId...');
@@ -713,13 +701,8 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                                     console.log('🎥 Opening video...');
                                     playMedia(element, 'video');
                                 } else {
-                                    console.log('🔗 Opening link...');
-                                    const popup = window.open(element.url, '_blank', 'width=800,height=600');
-                                    if (!popup) {
-                                        console.error('❌ Popup blocked');
-                                    } else {
-                                        console.log('✅ Link opened successfully');
-                                    }
+                                    console.log('🔗 Opening link in popup overlay...');
+                                    showLinkPopup(element.url);
                                 }
                             }
                         } catch (error) {
@@ -1117,6 +1100,42 @@ function showGif(element) {
 }
 
 /**
+ * Show link in popup overlay (like video/image popups)
+ */
+function showLinkPopup(url) {
+    console.log('\n🔗 ========== OPENING LINK IN POPUP ==========');
+    console.log('URL:', url);
+    
+    mediaPlayerWrapper.innerHTML = '';
+    mediaTitle.textContent = '';
+    mediaTitle.style.display = 'none';
+    
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    iframe.style.width = '100%';
+    iframe.style.height = '80vh';
+    iframe.style.border = 'none';
+    iframe.style.borderRadius = '8px';
+    iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+    iframe.referrerPolicy = 'no-referrer-when-downgrade';
+    iframe.sandbox = 'allow-same-origin allow-scripts allow-popups allow-forms allow-modals';
+    
+    iframe.onload = () => {
+        console.log('✅ Link loaded in popup overlay');
+    };
+    
+    iframe.onerror = (e) => {
+        console.error('❌ Failed to load link in iframe:', e);
+    };
+    
+    mediaPlayerWrapper.appendChild(iframe);
+    mediaOverlay.classList.add('active');
+    
+    console.log('✅ Link popup overlay opened');
+    console.log('========================================\n');
+}
+
+/**
  * Close media overlay
  */
 function closeMedia() {
@@ -1139,10 +1158,6 @@ function closeMedia() {
         stream.remove();
     });
     
-    // Clear all content immediately
-    mediaPlayerWrapper.innerHTML = '';
-    mediaTitle.textContent = '';
-    mediaOverlay.classList.remove('active');
     
     // Force garbage collection and cache clearing
     if (window.gc) {
