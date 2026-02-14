@@ -730,21 +730,12 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                     if (element.url) {
                         console.log('📍 Hotspot URL:', element.url);
                         if (isVideoUrl(element.url)) {
-                            console.log('🎥 Detected as video URL, opening in popup...');
+                            console.log('🎥 Opening video...');
                             playMedia(element, 'video');
                         } else {
-                            console.log('🔗 Opening link in new window...');
-                            const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
-                            if (!popup) {
-                                console.error('❌ Popup blocked by browser');
-                                // alert('⚠️ Popup Blocked\n\nPlease allow popups for this site.\n\nURL: ' + element.url);
-                            } else {
-                                console.log('✅ Link opened successfully');
-                            }
+                            console.log('🔗 Opening link in popup overlay...');
+                            showLinkPopup(element.url);
                         }
-                    } else {
-                        console.warn('⚠️ Hotspot has no URL configured');
-                        // alert('⚠️ Hotspot Error\n\nThis hotspot has no URL configured.');
                     }
                 } catch (error) {
                     console.error('❌ Error handling hotspot click:', error);
