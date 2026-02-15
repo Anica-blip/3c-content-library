@@ -444,27 +444,14 @@ function handleElementClick(element) {
     const elementType = element.type;
     
     if (elementType === '3c-button' || elementType === 'button') {
+        // 3C Buttons ONLY handle website links
         if (element.url) {
             let buttonUrl = element.url;
             if (!buttonUrl.startsWith('http://') && !buttonUrl.startsWith('https://')) {
                 buttonUrl = 'https://' + buttonUrl;
             }
-            
-            if (isVideoUrl(buttonUrl)) {
-                console.log('🎥 3C Button: Opening video...');
-                playMedia({...element, url: buttonUrl}, 'video');
-            } else if (isAnimatedMediaUrl(buttonUrl)) {
-                console.log('🎬 3C Button: Opening animated media (GIF)...');
-                showAnimatedMedia(buttonUrl);
-            } else if (isPresentationUrl(buttonUrl)) {
-                console.log('📊 3C Button: Opening presentation viewer...');
-                window.location.href = buttonUrl;
-            } else {
-                console.log('🔗 3C Button: Opening external link in popup...');
-                showLinkPopup(buttonUrl);
-            }
-        } else if (element.videoUrl || element.streamId) {
-            playMedia(element, 'video');
+            console.log('� 3C Button: Opening website link...');
+            showLinkPopup(buttonUrl);
         }
     } else if (elementType === 'video' || elementType === 'cloudflare-stream') {
         console.log('🎬 Opening video element...');
