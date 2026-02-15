@@ -453,8 +453,8 @@ function handleElementClick(element) {
             if (isVideoUrl(buttonUrl)) {
                 console.log('🎥 3C Button: Opening video...');
                 playMedia({...element, url: buttonUrl}, 'video');
-            } else if (isAnimatedMediaUrl(buttonUrl)) {
-                console.log('🎬 3C Button: Opening animated media (GIF)...');
+            } else if (isImageUrl(buttonUrl)) {
+                console.log('🖼️ 3C Button: Opening image from Cloudflare...');
                 showAnimatedMedia(buttonUrl);
             } else if (isPresentationUrl(buttonUrl)) {
                 console.log('📊 3C Button: Opening presentation viewer...');
@@ -479,8 +479,8 @@ function handleElementClick(element) {
             if (isVideoUrl(emojiUrl)) {
                 console.log('🎥 Emoji: Opening video...');
                 playMedia({...element, url: emojiUrl}, 'video');
-            } else if (isAnimatedMediaUrl(emojiUrl)) {
-                console.log('🎬 Emoji: Opening animated media (GIF)...');
+            } else if (isImageUrl(emojiUrl)) {
+                console.log('🖼️ Emoji: Opening image from Cloudflare...');
                 showAnimatedMedia(emojiUrl);
             } else if (isPresentationUrl(emojiUrl)) {
                 console.log('📊 Emoji: Opening presentation viewer...');
@@ -521,16 +521,30 @@ function isVideoUrl(url) {
 }
 
 /**
- * Check if URL is animated media (GIF, etc.)
+ * Check if URL is an image (including GIFs, PNGs, JPGs, etc.)
+ */
+function isImageUrl(url) {
+    if (!url) return false;
+    const imagePatterns = [
+        /\.gif$/i,
+        /\.png$/i,
+        /\.jpg$/i,
+        /\.jpeg$/i,
+        /\.webp$/i,
+        /\.svg$/i,
+        /\.bmp$/i,
+        /giphy\.com/i,
+        /tenor\.com/i,
+        /files\.3c-public-library\.org.*\.(gif|png|jpg|jpeg|webp)/i
+    ];
+    return imagePatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is animated media (GIF, etc.) - DEPRECATED, use isImageUrl instead
  */
 function isAnimatedMediaUrl(url) {
-    if (!url) return false;
-    const animatedPatterns = [
-        /\.gif$/i,
-        /giphy\.com/i,
-        /tenor\.com/i
-    ];
-    return animatedPatterns.some(pattern => pattern.test(url));
+    return isImageUrl(url);
 }
 
 /**
