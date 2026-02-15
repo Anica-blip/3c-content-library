@@ -866,6 +866,43 @@ function isVideoUrl(url) {
 }
 
 /**
+ * Check if URL is an image (including GIFs, PNGs, JPGs, etc.)
+ */
+function isImageUrl(url) {
+    if (!url) return false;
+    const imagePatterns = [
+        /\.gif$/i,
+        /\.png$/i,
+        /\.jpg$/i,
+        /\.jpeg$/i,
+        /\.webp$/i,
+        /\.svg$/i,
+        /\.bmp$/i,
+        /giphy\.com/i,
+        /tenor\.com/i,
+        /files\.3c-public-library\.org.*\.(gif|png|jpg|jpeg|webp)/i
+    ];
+    return imagePatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is an audio file
+ */
+function isAudioUrl(url) {
+    if (!url) return false;
+    const audioPatterns = [
+        /\.mp3$/i,
+        /\.wav$/i,
+        /\.ogg$/i,
+        /\.m4a$/i,
+        /\.aac$/i,
+        /\.flac$/i,
+        /files\.3c-public-library\.org.*\.(mp3|wav|ogg|m4a|aac|flac)/i
+    ];
+    return audioPatterns.some(pattern => pattern.test(url));
+}
+
+/**
  * Convert video URL to embed iframe URL
  */
 function getVideoEmbedUrl(url) {
@@ -1435,20 +1472,13 @@ function setupInteractiveElementHandlers() {
         
         // Handle different element types
         if (elementType === '3c-button' || elementType === 'button') {
+            // 3C Buttons ONLY handle website links
             if (elementData.url) {
-                console.log('📍 URL:', elementData.url);
-                if (isVideoUrl(elementData.url)) {
-                    console.log('🎥 Opening video...');
-                    playMedia(elementData, 'video');
-                } else {
-                    console.log('🔗 Opening link...');
-                    const popup = window.open(elementData.url, '_blank', 'width=800,height=600');
-                    if (!popup) {
-                        // alert('⚠️ Popup blocked. Please allow popups for this site.\n\nURL: ' + elementData.url);
-                    }
+                console.log('🔗 3C Button: Opening website link...');
+                const popup = window.open(elementData.url, '_blank', 'width=800,height=600');
+                if (!popup) {
+                    // alert('⚠️ Popup blocked. Please allow popups for this site.\n\nURL: ' + elementData.url);
                 }
-            } else if (elementData.videoUrl || elementData.streamId) {
-                playMedia(elementData, 'video');
             }
         } else if (elementType === 'hotspot' || elementType === 'link') {
             if (elementData.url) {
@@ -1471,16 +1501,24 @@ function setupInteractiveElementHandlers() {
             console.log('🎵 Opening audio element...');
             playMedia(elementData, 'audio');
         } else if (elementType === '3c-emoji' || elementType === '3c-emoji-decoration') {
+            // Emojis/General handle ALL media types: videos, images, audio, GIFs, etc.
             if (elementData.url) {
                 let emojiUrl = elementData.url;
                 if (!emojiUrl.startsWith('http://') && !emojiUrl.startsWith('https://')) {
                     emojiUrl = 'https://' + emojiUrl;
                 }
-                // Check if it's a video URL
+                
                 if (isVideoUrl(emojiUrl)) {
-                    console.log('🎥 3c-emoji video detected, using purple overlay...');
+                    console.log('🎥 Emoji/General: Opening video...');
                     playMedia({...elementData, url: emojiUrl}, 'video');
+                } else if (isAudioUrl(emojiUrl)) {
+                    console.log('🎵 Emoji/General: Opening audio...');
+                    playMedia({...elementData, url: emojiUrl}, 'audio');
+                } else if (isImageUrl(emojiUrl)) {
+                    console.log('🖼️ Emoji/General: Opening image...');
+                    showGif({...elementData, url: emojiUrl});
                 } else {
+                    console.log('🔗 Emoji/General: Opening link...');
                     const popup = window.open(emojiUrl, '_blank', 'width=800,height=600');
                     if (!popup) alert('Please allow popups');
                 }

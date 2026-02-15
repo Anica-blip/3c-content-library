@@ -457,6 +457,7 @@ function handleElementClick(element) {
         console.log('🎬 Opening video element...');
         playMedia(element, 'video');
     } else if (elementType === '3c-emoji' || elementType === '3c-emoji-decoration') {
+        // Emojis/General handle ALL media types: videos, images, audio, GIFs, etc.
         if (element.url) {
             let emojiUrl = element.url;
             if (!emojiUrl.startsWith('http://') && !emojiUrl.startsWith('https://')) {
@@ -464,19 +465,25 @@ function handleElementClick(element) {
             }
             
             if (isVideoUrl(emojiUrl)) {
-                console.log('🎥 Emoji: Opening video...');
+                console.log('🎥 Emoji/General: Opening video...');
                 playMedia({...element, url: emojiUrl}, 'video');
+            } else if (isAudioUrl(emojiUrl)) {
+                console.log('🎵 Emoji/General: Opening audio...');
+                playMedia({...element, url: emojiUrl}, 'audio');
             } else if (isImageUrl(emojiUrl)) {
-                console.log('🖼️ Emoji: Opening image from Cloudflare...');
+                console.log('🖼️ Emoji/General: Opening image from Cloudflare...');
                 showAnimatedMedia(emojiUrl);
             } else if (isPresentationUrl(emojiUrl)) {
-                console.log('📊 Emoji: Opening presentation viewer...');
+                console.log('📊 Emoji/General: Opening presentation viewer...');
                 window.location.href = emojiUrl;
             } else {
-                console.log('🔗 Emoji: Opening link in popup...');
+                console.log('🔗 Emoji/General: Opening link in popup...');
                 showLinkPopup(emojiUrl);
             }
         }
+    } else if (elementType === 'audio') {
+        console.log('🎵 Opening audio element...');
+        playMedia(element, 'audio');
     } else if (elementType === 'hotspot' || elementType === 'link') {
         if (element.url) {
             if (isVideoUrl(element.url)) {
@@ -525,6 +532,23 @@ function isImageUrl(url) {
         /files\.3c-public-library\.org.*\.(gif|png|jpg|jpeg|webp)/i
     ];
     return imagePatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is an audio file
+ */
+function isAudioUrl(url) {
+    if (!url) return false;
+    const audioPatterns = [
+        /\.mp3$/i,
+        /\.wav$/i,
+        /\.ogg$/i,
+        /\.m4a$/i,
+        /\.aac$/i,
+        /\.flac$/i,
+        /files\.3c-public-library\.org.*\.(mp3|wav|ogg|m4a|aac|flac)/i
+    ];
+    return audioPatterns.some(pattern => pattern.test(url));
 }
 
 /**
