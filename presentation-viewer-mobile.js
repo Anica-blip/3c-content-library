@@ -453,8 +453,8 @@ function handleElementClick(element) {
             if (isVideoUrl(buttonUrl)) {
                 console.log('🎥 3C Button: Opening video...');
                 playMedia({...element, url: buttonUrl}, 'video');
-            } else if (isImageUrl(buttonUrl)) {
-                console.log('🖼️ 3C Button: Opening image from Cloudflare...');
+            } else if (isAnimatedMediaUrl(buttonUrl)) {
+                console.log('🎬 3C Button: Opening animated media (GIF)...');
                 showAnimatedMedia(buttonUrl);
             } else if (isPresentationUrl(buttonUrl)) {
                 console.log('📊 3C Button: Opening presentation viewer...');
