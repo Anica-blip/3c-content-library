@@ -419,7 +419,9 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         // Add click handler
         elementDiv.addEventListener('click', (e) => {
             e.stopPropagation();
-            handleElementClick(element);
+            // Parse element data from dataset to ensure we get the correct stored data
+            const elementData = JSON.parse(e.currentTarget.dataset.elementData);
+            handleElementClick(elementData);
         });
         
         pageDiv.appendChild(elementDiv);
