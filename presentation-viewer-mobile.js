@@ -689,10 +689,7 @@ function showAnimatedMedia(url) {
     
     const img = document.createElement('img');
     img.src = url;
-    img.style.display = 'block';
-    img.style.margin = '0 auto';
-    img.style.borderRadius = '8px';
-    img.style.objectFit = 'contain';
+    img.style.cssText = 'display: block; margin: 0 auto; border-radius: 8px; object-fit: contain;';
     
     // Mobile-responsive sizing - handle both orientations
     img.onload = () => {
@@ -704,18 +701,30 @@ function showAnimatedMedia(url) {
         console.log('📱 Viewport:', viewportWidth, 'x', viewportHeight);
         
         if (aspectRatio > 1) {
-            // Landscape image - fit to width
-            img.style.width = '95vw';
-            img.style.height = 'auto';
-            img.style.maxHeight = '85vh';
-            img.style.maxWidth = '95vw';
+            // Landscape image - fit to width with max constraints
+            img.style.cssText = `
+                display: block !important;
+                margin: 0 auto !important;
+                border-radius: 8px !important;
+                object-fit: contain !important;
+                width: 95vw !important;
+                height: auto !important;
+                max-width: 95vw !important;
+                max-height: 85vh !important;
+            `;
             console.log('🖼️ Landscape mode: width=95vw, height=auto');
         } else {
-            // Portrait image - fit to height
-            img.style.width = 'auto';
-            img.style.height = '85vh';
-            img.style.maxWidth = '95vw';
-            img.style.maxHeight = '85vh';
+            // Portrait image - fit to height with max constraints
+            img.style.cssText = `
+                display: block !important;
+                margin: 0 auto !important;
+                border-radius: 8px !important;
+                object-fit: contain !important;
+                width: auto !important;
+                height: 85vh !important;
+                max-width: 95vw !important;
+                max-height: 85vh !important;
+            `;
             console.log('🖼️ Portrait mode: width=auto, height=85vh');
         }
     };
