@@ -385,7 +385,9 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
         // Add click handler
         elementDiv.addEventListener('click', (e) => {
             e.stopPropagation();
-            handleElementClick(element);
+            // Parse element data from dataset to ensure we get the correct stored data
+            const elementData = JSON.parse(e.currentTarget.dataset.elementData);
+            handleElementClick(elementData);
         });
         
         pageDiv.appendChild(elementDiv);
@@ -401,32 +403,20 @@ function handleElementClick(element) {
     const elementType = element.type;
     
     if (elementType === '3c-button' || elementType === 'button') {
+        // 3C Buttons ONLY handle website links
         if (element.url) {
             let buttonUrl = element.url;
             if (!buttonUrl.startsWith('http://') && !buttonUrl.startsWith('https://')) {
                 buttonUrl = 'https://' + buttonUrl;
             }
-            
-            if (isVideoUrl(buttonUrl)) {
-                console.log('🎥 3C Button: Opening video...');
-                playMedia({...element, url: buttonUrl}, 'video');
-            } else if (isAnimatedMediaUrl(buttonUrl)) {
-                console.log('🎬 3C Button: Opening animated media (GIF)...');
-                showAnimatedMedia(buttonUrl);
-            } else if (isPresentationUrl(buttonUrl)) {
-                console.log('📊 3C Button: Opening presentation viewer...');
-                window.location.href = buttonUrl;
-            } else {
-                console.log('🔗 3C Button: Opening external link in popup...');
-                showLinkPopup(buttonUrl);
-            }
-        } else if (element.videoUrl || element.streamId) {
-            playMedia(element, 'video');
+            console.log('🔗 3C Button: Opening website link...');
+            showLinkPopup(buttonUrl);
         }
     } else if (elementType === 'video' || elementType === 'cloudflare-stream') {
         console.log('🎬 Opening video element...');
         playMedia(element, 'video');
     } else if (elementType === '3c-emoji' || elementType === '3c-emoji-decoration') {
+        // Emojis/General handle ALL media types: videos, images, audio, GIFs, etc.
         if (element.url) {
             let emojiUrl = element.url;
             if (!emojiUrl.startsWith('http://') && !emojiUrl.startsWith('https://')) {
@@ -434,19 +424,25 @@ function handleElementClick(element) {
             }
             
             if (isVideoUrl(emojiUrl)) {
-                console.log('🎥 Emoji: Opening video...');
+                console.log('🎥 Emoji/General: Opening video...');
                 playMedia({...element, url: emojiUrl}, 'video');
-            } else if (isAnimatedMediaUrl(emojiUrl)) {
-                console.log('🎬 Emoji: Opening animated media (GIF)...');
+            } else if (isAudioUrl(emojiUrl)) {
+                console.log('🎵 Emoji/General: Opening audio...');
+                playMedia({...element, url: emojiUrl}, 'audio');
+            } else if (isImageUrl(emojiUrl)) {
+                console.log('🖼️ Emoji/General: Opening image from Cloudflare...');
                 showAnimatedMedia(emojiUrl);
             } else if (isPresentationUrl(emojiUrl)) {
-                console.log('📊 Emoji: Opening presentation viewer...');
+                console.log('📊 Emoji/General: Opening presentation viewer...');
                 window.location.href = emojiUrl;
             } else {
-                console.log('🔗 Emoji: Opening link in popup...');
+                console.log('🔗 Emoji/General: Opening link in popup...');
                 showLinkPopup(emojiUrl);
             }
         }
+    } else if (elementType === 'audio') {
+        console.log('🎵 Opening audio element...');
+        playMedia(element, 'audio');
     } else if (elementType === 'hotspot' || elementType === 'link') {
         if (element.url) {
             if (isVideoUrl(element.url)) {
@@ -488,7 +484,8 @@ function isAudioUrl(url) {
         /\.ogg$/i,
         /\.m4a$/i,
         /\.aac$/i,
-        /\.flac$/i
+        /\.flac$/i,
+        /files\.3c-public-library\.org.*\.(mp3|wav|ogg|m4a|aac|flac)/i
     ];
     return audioPatterns.some(pattern => pattern.test(url));
 }
@@ -505,7 +502,10 @@ function isImageUrl(url) {
         /\.png$/i,
         /\.webp$/i,
         /\.svg$/i,
-        /\.bmp$/i
+        /\.bmp$/i,
+        /giphy\.com/i,
+        /tenor\.com/i,
+        /files\.3c-public-library\.org.*\.(gif|png|jpg|jpeg|webp)/i
     ];
     return imagePatterns.some(pattern => pattern.test(url));
 }
@@ -645,7 +645,7 @@ function showLinkPopup(url) {
 }
 
 /**
- * Show animated media (GIF) in overlay
+ * Show animated media (GIF/image) in overlay
  */
 function showAnimatedMedia(url) {
     console.log('🎬 Opening animated media:', url);
@@ -654,10 +654,49 @@ function showAnimatedMedia(url) {
     
     const img = document.createElement('img');
     img.src = url;
-    img.style.maxWidth = '100%';
-    img.style.maxHeight = '70vh';
-    img.style.objectFit = 'contain';
-    img.style.borderRadius = '8px';
+    img.style.cssText = 'display: block; margin: 0 auto; border-radius: 8px; object-fit: contain;';
+    
+    // Mobile-responsive sizing - handle both orientations
+    img.onload = () => {
+        const aspectRatio = img.naturalWidth / img.naturalHeight;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        console.log('📐 Image loaded:', img.naturalWidth, 'x', img.naturalHeight, 'aspect:', aspectRatio.toFixed(2));
+        console.log('📱 Viewport:', viewportWidth, 'x', viewportHeight);
+        
+        if (aspectRatio > 1) {
+            // Landscape image - fit to width
+            img.style.cssText = `
+                display: block !important;
+                margin: 0 auto !important;
+                border-radius: 8px !important;
+                object-fit: contain !important;
+                width: 95vw !important;
+                height: auto !important;
+                max-width: 95vw !important;
+                max-height: 85vh !important;
+            `;
+            console.log('🖼️ Landscape mode: width=95vw, height=auto');
+        } else {
+            // Portrait image - fit to height (80vh so close button is reachable)
+            img.style.cssText = `
+                display: block !important;
+                margin: 0 auto !important;
+                border-radius: 8px !important;
+                object-fit: contain !important;
+                width: auto !important;
+                height: 80vh !important;
+                max-width: 95vw !important;
+                max-height: 80vh !important;
+            `;
+            console.log('🖼️ Portrait mode: width=auto, height=80vh');
+        }
+    };
+    
+    img.onerror = () => {
+        console.error('❌ Failed to load image:', url);
+    };
     
     mediaPlayer.appendChild(img);
     mediaOverlay.classList.add('active');

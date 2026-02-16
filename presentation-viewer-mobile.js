@@ -741,18 +741,18 @@ function showAnimatedMedia(url) {
             `;
             console.log('🖼️ Landscape mode: width=95vw, height=auto');
         } else {
-            // Portrait image - fit to height with max constraints
+            // Portrait image - fit to height (reduced to 80vh so close button is reachable)
             img.style.cssText = `
                 display: block !important;
                 margin: 0 auto !important;
                 border-radius: 8px !important;
                 object-fit: contain !important;
                 width: auto !important;
-                height: 85vh !important;
+                height: 80vh !important;
                 max-width: 95vw !important;
-                max-height: 85vh !important;
+                max-height: 80vh !important;
             `;
-            console.log('🖼️ Portrait mode: width=auto, height=85vh');
+            console.log('🖼️ Portrait mode: width=auto, height=80vh');
         }
     };
     
