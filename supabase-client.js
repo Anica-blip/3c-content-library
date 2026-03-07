@@ -193,7 +193,7 @@ class SupabaseClient {
         
         const { data, error } = await this.client
             .from(tableName)
-            .select('*')
+            .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, file_size, custom_url, slug, table_name, display_order, view_count, last_viewed_at, created_at, updated_at')
             .eq('folder_id', folderId)
             .order('display_order', { ascending: true });
         
@@ -208,7 +208,7 @@ class SupabaseClient {
         // Try public first
         let { data, error } = await this.client
             .from('content_public')
-            .select('*, folders(*)')
+            .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, file_size, custom_url, slug, table_name, display_order, view_count, last_viewed_at, created_at, updated_at, folders(*)')
             .eq('id', id)
             .single();
         
@@ -217,7 +217,7 @@ class SupabaseClient {
         // Try private
         ({ data, error } = await this.client
             .from('content_private')
-            .select('*, folders(*)')
+            .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, file_size, custom_url, slug, table_name, display_order, view_count, last_viewed_at, created_at, updated_at, folders(*)')
             .eq('id', id)
             .single());
         
@@ -341,7 +341,7 @@ class SupabaseClient {
         // Get content above
         const { data: contentAbove } = await this.client
             .from(tableName)
-            .select('*')
+            .select('id, folder_id, display_order')
             .eq('folder_id', content.folder_id)
             .eq('display_order', content.display_order - 1)
             .single();
@@ -366,7 +366,7 @@ class SupabaseClient {
         // Get content below
         const { data: contentBelow } = await this.client
             .from(tableName)
-            .select('*')
+            .select('id, folder_id, display_order')
             .eq('folder_id', content.folder_id)
             .eq('display_order', content.display_order + 1)
             .single();
