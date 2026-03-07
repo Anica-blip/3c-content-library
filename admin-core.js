@@ -710,7 +710,6 @@ async function saveContent(event) {
     try {
         let fileUrl = urlInput;
         let thumbnailUrl = null;
-        let projectJson = null;
         
         // Check if R2 is enabled
         const useR2 = CONFIG && CONFIG.features && CONFIG.features.useCloudflareR2;
@@ -722,10 +721,7 @@ async function saveContent(event) {
                 debugLog('📖 Processing flipbook JSON file...');
                 try {
                     const jsonText = await currentFile.text();
-                    const jsonData = JSON.parse(jsonText);
-                    
-                    // Store JSON content in project_json field for backward compatibility
-                    projectJson = jsonText;
+                    JSON.parse(jsonText); // Validate JSON is valid
                     
                     // Upload JSON file to Cloudflare R2 (MUST be Cloudflare URL, not base64)
                     debugLog('📤 Uploading flipbook JSON to R2...');
@@ -756,10 +752,7 @@ async function saveContent(event) {
                 debugLog('📖 Processing presentation JSON file...');
                 try {
                     const jsonText = await currentFile.text();
-                    const jsonData = JSON.parse(jsonText);
-                    
-                    // Store JSON content in project_json field for backward compatibility
-                    projectJson = jsonText;
+                    JSON.parse(jsonText); // Validate JSON is valid
                     
                     // Upload JSON file to Cloudflare R2 (MUST be Cloudflare URL, not base64)
                     console.log('📤 Uploading presentation JSON to R2...');
@@ -828,7 +821,7 @@ async function saveContent(event) {
             }
         }
         
-        if (!fileUrl && !externalUrl && !projectJson) {
+        if (!fileUrl && !externalUrl) {
             showAlert('error', 'Please upload a file or enter a URL');
             return;
         }
@@ -844,16 +837,6 @@ async function saveContent(event) {
             file_size: currentFile ? currentFile.size : (editMode ? allContent.find(c => c.id === contentId)?.file_size : null),
             custom_url: customURL
         };
-        
-        // Add project_json for flipbook documents
-        if (projectJson) {
-            contentData.project_json = projectJson;
-        }
-            
-        // Add project_json for presentation documents
-        if (projectJson) {
-            contentData.project_json = projectJson;
-        }
         
         if (editMode) {
             // Update existing content
@@ -1219,7 +1202,7 @@ function openFolderSidebar(folderId) {
             
             const canMoveUp = index > 0;
             const canMoveDown = index < folderContent.length - 1;
-            const isInteractive = content.project_json ? ' 📖 Interactive' : '';
+            const isInteractive = (content.type === 'flipbook' || content.type === 'presentation') && content.url ? ' 📖 Interactive' : '';
             
             // For flipbooks, presentations, and PDFs, add "Click to view" link
             let viewLink = '';
