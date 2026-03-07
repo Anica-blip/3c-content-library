@@ -38,7 +38,8 @@ export default {
                 const formData = await request.formData();
                 const file = formData.get('file');
                 const filename = formData.get('filename');
-                const contentType = formData.get('contentType');
+                const folder = formData.get('folder') || 'content';
+                const contentType = formData.get('contentType') || file.type || 'application/octet-stream';
 
                 if (!file) {
                     return new Response(JSON.stringify({ error: 'No file provided' }), {
@@ -47,16 +48,23 @@ export default {
                     });
                 }
 
+                // Build full R2 key including folder path
+                const key = `${folder}/${filename}`;
+
                 // Upload to R2
-                await env.R2_BUCKET.put(filename, file, {
+                await env.R2_BUCKET.put(key, file, {
                     httpMetadata: {
                         contentType: contentType
                     }
                 });
 
+                // Build public URL using R2_PUBLIC_URL env variable
+                const publicUrl = `${env.R2_PUBLIC_URL}/${key}`;
+
                 return new Response(JSON.stringify({
                     success: true,
-                    filename: filename,
+                    filename: key,
+                    url: publicUrl,
                     size: file.size
                 }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
