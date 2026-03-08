@@ -1241,7 +1241,7 @@
                 try {
                     const { data, error } = await supabaseClient.client
                         .from('content_public')
-                        .select('*')
+                        .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, custom_url, slug, display_order, view_count')
                         .eq('folder_id', folder.id)
                         .or(`custom_url.eq.${contentUrl},slug.eq.${contentUrl}`)
                         .single();
@@ -1260,8 +1260,7 @@
                             customUrl: data.custom_url,
                             thumbnail: data.thumbnail_url,
                             description: data.description,
-                            externalUrl: data.external_url,
-                            project_json: data.project_json
+                            externalUrl: data.external_url
                         };
                         
                         currentFolder = folder;
@@ -1292,7 +1291,7 @@
                         try {
                             const { data, error } = await supabaseClient.client
                                 .from('content_public')
-                                .select('*')
+                                .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, custom_url, slug, display_order, view_count')
                                 .or(`id.eq.${contentSlug},slug.eq.${contentSlug},custom_url.eq.${contentSlug}`)
                                 .single();
                             
@@ -1308,8 +1307,7 @@
                                     url: data.url,
                                     thumbnail: data.thumbnail_url,
                                     description: data.description,
-                                    externalUrl: data.external_url,
-                                    project_json: data.project_json
+                                    externalUrl: data.external_url
                                 };
                                 showViewer(content, true); // true = standalone mode
                             }
@@ -1360,7 +1358,7 @@
                         thumbnail: c.thumbnail_url,
                         description: c.description,
                         externalUrl: c.external_url,
-                        project_json: c.project_json
+                        order: c.display_order
                     }));
                     contentCache[currentFolder.id] = mappedContent;
                     library.content = [...library.content, ...mappedContent];
@@ -1572,7 +1570,7 @@
             try {
                 const { data, error } = await supabaseClient.client
                     .from('content_public')
-                    .select('*')
+                    .select('id, folder_id, title, type, url, thumbnail_url, description, slug, display_order')
                     .eq('folder_id', folderId)
                     .order('display_order', { ascending: true });
                 
@@ -1586,9 +1584,9 @@
                         type: item.type,
                         folderId: item.folder_id,
                         url: item.url,
-                        thumbnail: item.thumbnail,
+                        thumbnail: item.thumbnail_url,
                         description: item.description,
-                        order: item.order
+                        order: item.display_order
                     }));
                     console.log('✅ Loaded folder content:', folderContent.length, 'items');
                 } else if (error) {
@@ -1676,13 +1674,6 @@
         
         function showViewer(content, pdfOnlyMode = false) {
             currentContent = content;
-            
-            // CHECK FOR INTERACTIVE PDF - Redirect to flipbook viewer
-            if (content.type === 'pdf' && content.project_json) {
-                console.log('🎯 Interactive PDF detected! Redirecting to flipbook viewer...');
-                window.location.href = `flipbook-viewer.html?content=${content.id}`;
-                return;
-            }
             
             let viewerHtml = '';
             
