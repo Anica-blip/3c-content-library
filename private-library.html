@@ -949,7 +949,7 @@
                 </h2>
                 <p style="color: #999; margin-bottom: 20px; font-size: 14px; line-height: 1.6;">
                     This section: folders are password protected, to gain access you need to get the password from admin. Then use the Sign Up button, with your username and the password provided to you.<br><br>
-                    You can send an email to <a href="mailto:3c.innertherapy@gmail.com" style="color: #9b59b6; text-decoration: none;">3c.innertherapy@gmail.com</a> to learn how this applies to you.
+                    You can send an email to <a href="/cdn-cgi/l/email-protection#f6c595d89f98989384829e938497868fb6919b979f9ad895999b" style="color: #9b59b6; text-decoration: none;"><span class="__cf_email__" data-cfemail="a99aca87c0c7c7ccdbddc1ccdbc8d9d0e9cec4c8c0c587cac6c4">[email&#160;protected]</span></a> to learn how this applies to you.
                 </p>
                 <div style="text-align: center; margin-bottom: 30px;">
                     <button onclick="showLoginForm()" style="background: linear-gradient(135deg, #27ae60, #229954); color: white; padding: 12px 32px; border-radius: 6px; border: none; font-weight: 600; font-size: 15px; cursor: pointer; box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(39, 174, 96, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 4px 12px rgba(39, 174, 96, 0.3)'">
@@ -1123,7 +1123,7 @@
         </div>
     </div>
     
-    <script>
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
         // PDF.js setup
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         
@@ -1300,7 +1300,6 @@
                             thumbnail: c.thumbnail_url,
                             description: c.description,
                             externalUrl: c.external_url,
-                            project_json: c.project_json,
                             order: c.display_order || 0
                         }));
                         library.content.push(...mappedContent);
@@ -1391,7 +1390,6 @@
                         thumbnail: c.thumbnail_url,
                         description: c.description,
                         externalUrl: c.external_url,
-                        project_json: c.project_json,
                         order: c.display_order || 0
                     }));
                     library.content.push(...mappedContent);
@@ -1539,7 +1537,6 @@
                             thumbnail: c.thumbnail_url,
                             description: c.description,
                             externalUrl: c.external_url,
-                            project_json: c.project_json,
                             order: c.display_order || 0
                         }));
                         library.content.push(...mappedContent);
@@ -1659,15 +1656,6 @@
         
         function showViewer(content, pdfOnlyMode = false) {
             currentContent = content;
-            
-            // CHECK FOR INTERACTIVE PDF - Redirect to flipbook viewer
-            if (content.type === 'pdf' && content.project_json) {
-                console.log('🎯 Interactive PDF detected! Redirecting to flipbook viewer...');
-                const params = getUrlParams();
-                const folderSlug = params.folder || currentFolder?.slug || '';
-                window.location.href = `flipbook-viewer.html?content=${content.id}&ref=private&folder=${folderSlug}`;
-                return;
-            }
             
             let viewerHtml = '';
             
@@ -2421,12 +2409,3 @@
             
             if (isAuthenticated) {
                 if (loginBtn) loginBtn.style.display = 'none';
-                if (logoutBtn) logoutBtn.style.display = 'flex';
-            } else {
-                if (loginBtn) loginBtn.style.display = 'flex';
-                if (logoutBtn) logoutBtn.style.display = 'none';
-            }
-        }
-    </script>
-</body>
-</html>
