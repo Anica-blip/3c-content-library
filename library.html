@@ -1973,12 +1973,14 @@
                     thumbnailSrc = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E📖%3C/text%3E%3C/svg%3E';
                 }
                 
-                const flipbookUrl = content.url ? `flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}` : `flipbook-viewer.html?content=${content.id}`;
+                const isMobile = window.innerWidth <= 768;
+                const flipbookViewerPage = isMobile ? 'flipbook-viewer-mobile.html' : 'flipbook-viewer.html';
+                const flipbookUrl = content.url ? `${flipbookViewerPage}?manifest=${encodeURIComponent(content.url)}` : `${flipbookViewerPage}?content=${content.id}`;
                 
                 viewerHtml = `
                     <div style="text-align: center;">
                         <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                        <a href="${flipbookUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
+                        <a href="${flipbookUrl}" onclick="event.stopPropagation(); window.location.href='${flipbookUrl}'; return false;" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
                             <span style="font-size: 24px;">📖</span>
                             Click to View Flipbook
                         </a>
