@@ -1752,12 +1752,21 @@
             
             console.log('✅ Displaying only root folders');
             
-            // Get only root folders sorted alphabetically, exclude Testing folder
+            // Get only root folders, exclude Testing folder
+            const pinnedOrder = ['beginner', 'a_knowledge_base', 'mini_courses'];
+            
             const rootFolders = library.folders.filter(f => {
                 const isRoot = !f.parentId && f.depth === 0;
                 const notTesting = f.title !== 'Testing' && f.slug !== 'intermediary_level.03';
                 return isRoot && notTesting;
-            }).sort((a, b) => a.title.localeCompare(b.title));
+            }).sort((a, b) => {
+                const aPin = pinnedOrder.indexOf(a.tableName);
+                const bPin = pinnedOrder.indexOf(b.tableName);
+                if (aPin !== -1 && bPin !== -1) return aPin - bPin; // both pinned — use defined order
+                if (aPin !== -1) return -1; // a pinned, b not — a goes first
+                if (bPin !== -1) return 1;  // b pinned, a not — b goes first
+                return a.title.localeCompare(b.title); // neither pinned — alphabetical
+            });
             
             let html = '';
             rootFolders.forEach(folder => {
