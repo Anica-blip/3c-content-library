@@ -666,43 +666,78 @@ function getVideoEmbedUrl(url) {
  */
 function showLinkPopup(url) {
     console.log('🔗 Opening link in popup:', url);
-    
+
     mediaPlayer.innerHTML = '';
-    
+
+    // Wrapper holds iframe + fallback button
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'width:100%; display:flex; flex-direction:column; gap:10px;';
+
     const iframe = document.createElement('iframe');
     iframe.src = url;
-    iframe.style.width = '100%';
-    iframe.style.height = '90vh';
-    iframe.style.border = 'none';
-    iframe.style.borderRadius = '8px';
+    iframe.style.cssText = 'width:100%; height:70vh; border:none; border-radius:8px; background:#111;';
     iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
     iframe.referrerPolicy = 'no-referrer-when-downgrade';
     iframe.sandbox = 'allow-same-origin allow-scripts allow-popups allow-forms allow-modals';
-    
-    // Detect if iframe fails to load (blocked by X-Frame-Options)
-    let iframeLoaded = false;
-    
-    iframe.onload = () => {
-        iframeLoaded = true;
-        console.log('✅ Iframe loaded successfully');
-    };
-    
-    iframe.onerror = (e) => {
-        console.log('⚠️ Iframe error - opening in new tab');
+
+    // Fallback button — always visible so user can tap it if iframe is blank
+    const fallbackBtn = document.createElement('button');
+    fallbackBtn.textContent = '🔗 Open in browser tab →';
+    fallbackBtn.style.cssText = `
+        background: linear-gradient(135deg, #b19cd9, #9d84c8);
+        color: white; border: none; padding: 12px 20px;
+        border-radius: 8px; font-size: 14px; font-weight: 600;
+        cursor: pointer; width: 100%; text-align: center;
+    `;
+    fallbackBtn.onclick = () => {
         mediaOverlay.classList.remove('active');
         window.open(url, '_blank');
     };
-    
-    // If iframe doesn't load within 3 seconds, open in new tab
-    setTimeout(() => {
-        if (!iframeLoaded) {
-            console.log('⚠️ Iframe blocked - opening in new tab');
-            mediaOverlay.classList.remove('active');
-            window.open(url, '_blank');
+
+    // Auto-detect blocked iframe: onload fires even when blocked, so we check
+    // if the iframe content is accessible. If not, open new tab automatically.
+    let autoFallbackDone = false;
+
+    iframe.onload = () => {
+        try {
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            if (!doc || doc.body === null || doc.body.innerHTML === '') {
+                throw new Error('Empty or inaccessible');
+            }
+            console.log('✅ Iframe loaded successfully');
+        } catch (e) {
+            if (!autoFallbackDone) {
+                autoFallbackDone = true;
+                console.log('⚠️ Iframe blocked by X-Frame-Options — opening in new tab');
+                mediaOverlay.classList.remove('active');
+                window.open(url, '_blank');
+            }
         }
-    }, 3000);
-    
-    mediaPlayer.appendChild(iframe);
+    };
+
+    // Belt-and-suspenders: if iframe hasn't confirmed a real load in 2.5s, open new tab
+    setTimeout(() => {
+        if (!autoFallbackDone) {
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                if (!doc || doc.body === null || doc.body.innerHTML === '') {
+                    autoFallbackDone = true;
+                    console.log('⏱️ Iframe timeout — opening in new tab');
+                    mediaOverlay.classList.remove('active');
+                    window.open(url, '_blank');
+                }
+            } catch (e) {
+                autoFallbackDone = true;
+                console.log('⏱️ Iframe blocked (timeout) — opening in new tab');
+                mediaOverlay.classList.remove('active');
+                window.open(url, '_blank');
+            }
+        }
+    }, 2500);
+
+    wrapper.appendChild(iframe);
+    wrapper.appendChild(fallbackBtn);
+    mediaPlayer.appendChild(wrapper);
     mediaOverlay.classList.add('active');
 }
 
@@ -857,63 +892,67 @@ function setupEventListeners() {
  * Download PDF - generate and download
  */
 async function downloadPDF() {
-    console.log('📥 Download PDF clicked - generating PDF');
-    
+    console.log('📥 Download PDF clicked');
+
     try {
-        // Check if PDF URL exists in manifest
-        if (manifest.pdfUrl) {
-            console.log('📄 PDF URL found, downloading:', manifest.pdfUrl);
-            const a = document.createElement('a');
-            a.href = manifest.pdfUrl;
-            a.download = manifest.title || 'presentation.pdf';
-            a.click();
-            return;
-        }
-        
-        // If no PDF URL, generate PDF from pages
-        console.log('📄 No PDF URL, generating from pages...');
         loading.classList.remove('hidden');
-        
-        // Use jsPDF to generate PDF from page images
+
+        if (manifest.pdfUrl) {
+            console.log('📄 PDF URL found, fetching as blob:', manifest.pdfUrl);
+            try {
+                const response = await fetch(manifest.pdfUrl);
+                if (!response.ok) throw new Error('Fetch failed: ' + response.status);
+                const blob = await response.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = objectUrl;
+                a.download = (manifest.title || 'presentation') + '.pdf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 3000);
+                console.log('✅ PDF downloaded via blob');
+                return;
+            } catch (fetchErr) {
+                // Fetch failed (CORS or network) — fall back to direct link in new tab
+                console.warn('⚠️ Blob fetch failed, opening direct URL:', fetchErr.message);
+                window.open(manifest.pdfUrl, '_blank');
+                return;
+            }
+        }
+
+        // No pdfUrl — generate PDF from rendered page canvases
+        console.log('📄 No PDF URL, generating from page canvases...');
+
         if (typeof jspdf === 'undefined') {
             console.error('❌ jsPDF library not loaded');
             alert('PDF generation not available. Please contact support.');
-            loading.classList.add('hidden');
             return;
         }
-        
+
         const { jsPDF } = jspdf;
-        const pdf = new jsPDF({
-            orientation: 'landscape',
-            unit: 'px',
-            format: [A4_WIDTH_PX, A4_HEIGHT_PX]
-        });
-        
-        for (let i = 0; i < manifest.pages.length; i++) {
-            const page = manifest.pages[i];
-            
-            // Get background source
-            let backgroundSource = null;
-            if (page.backgroundData) {
-                backgroundSource = page.backgroundData;
-            } else if (page.background) {
-                backgroundSource = page.background;
-            } else if (page.imageUrl) {
-                backgroundSource = page.imageUrl;
-            }
-            
-            if (backgroundSource) {
-                if (i > 0) pdf.addPage();
-                pdf.addImage(backgroundSource, 'PNG', 0, 0, A4_WIDTH_PX, A4_HEIGHT_PX);
-            }
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [A4_WIDTH_PX, A4_HEIGHT_PX] });
+
+        // Use the already-rendered canvases in the DOM — no re-fetch needed
+        const pageCanvases = document.querySelectorAll('#page-wrapper .page canvas');
+
+        if (pageCanvases.length === 0) {
+            alert('No pages found to download. Please make sure the presentation has loaded.');
+            return;
         }
-        
-        pdf.save(manifest.title || 'presentation.pdf');
+
+        for (let i = 0; i < pageCanvases.length; i++) {
+            if (i > 0) pdf.addPage();
+            const imgData = pageCanvases[i].toDataURL('image/jpeg', 0.92);
+            pdf.addImage(imgData, 'JPEG', 0, 0, A4_WIDTH_PX, A4_HEIGHT_PX);
+        }
+
+        pdf.save((manifest.title || 'presentation') + '.pdf');
         console.log('✅ PDF generated and downloaded');
-        
+
     } catch (error) {
-        console.error('❌ Error generating PDF:', error);
-        alert('Error generating PDF: ' + error.message);
+        console.error('❌ Error downloading PDF:', error);
+        alert('Error downloading PDF: ' + error.message);
     } finally {
         loading.classList.add('hidden');
     }
