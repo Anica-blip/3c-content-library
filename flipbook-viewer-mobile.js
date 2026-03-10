@@ -1,378 +1,963 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <title>3C Mobile Flipbook Viewer</title>
-    <link rel="icon" type="image/png" href="favicon.png">
+/**
+ * 3C Mobile Flipbook Viewer
+ * Single-page viewer for mobile devices with swipe navigation and pinch-to-zoom
+ */
+
+// PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// Global state
+let manifest = null;
+let currentPage = 1;
+let totalPages = 0;
+let pageCanvases = [];
+let contentId = null;
+let manifestUrl = null;
+
+// A4 dimensions at 96 DPI
+const A4_WIDTH_PX = 794;
+const A4_HEIGHT_PX = 1123;
+
+// Editor saves at 75% scale (595px × 842px)
+const EDITOR_WIDTH_PX = 595;
+const EDITOR_HEIGHT_PX = 842;
+
+// Render scale for crisp images
+const RENDER_SCALE = 2;
+
+// DOM elements
+const loading = document.getElementById('loading');
+const pageContainer = document.getElementById('page-container');
+const pageWrapper = document.getElementById('page-wrapper');
+const pageCounter = document.getElementById('page-counter');
+const mediaOverlay = document.getElementById('media-overlay');
+const mediaPlayer = document.getElementById('media-player');
+const closeMediaBtn = document.getElementById('close-media');
+
+/**
+ * Initialize the mobile flipbook viewer
+ */
+async function init() {
+    console.log('🚀 Initializing 3C Mobile Flipbook Viewer');
     
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    // Get URL parameters
+    const params = getUrlParams();
+    contentId = params.content;
+    manifestUrl = params.manifest;
     
-    <!-- PDF.js Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    console.log('📍 Content ID:', contentId);
+    console.log('📍 Manifest URL:', manifestUrl);
     
-    <!-- Cloudflare Stream Player -->
-    <script src="https://embed.cloudflarestream.com/embed/sdk.latest.js"></script>
+    if (!contentId && !manifestUrl) {
+        console.error('❌ No content ID or manifest URL provided');
+        alert('Error: No flipbook content specified');
+        goBack();
+        return;
+    }
     
-    <!-- Hammer.js for touch gestures -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    try {
+        // Load manifest
+        if (manifestUrl) {
+            await loadManifestFromUrl(manifestUrl);
+        } else if (contentId) {
+            await loadContentFromSupabase(contentId);
+        }
+        
+        if (!manifest) {
+            throw new Error('Failed to load manifest');
+        }
+        
+        // Initialize viewer
+        await initFromManifest();
+        setupEventListeners();
+        setupTouchGestures();
+        
+    } catch (error) {
+        console.error('❌ Error initializing flipbook:', error);
+        alert('Error loading flipbook: ' + error.message);
+        goBack();
+    }
+}
+
+/**
+ * Get URL parameters
+ */
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        content: params.get('content'),
+        manifest: params.get('manifest')
+    };
+}
+
+/**
+ * Load manifest from Cloudflare R2 URL
+ */
+async function loadManifestFromUrl(url) {
+    console.log('📥 Loading manifest from URL:', url);
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        manifest = await response.json();
+        console.log('✅ Manifest loaded:', manifest);
+    } catch (error) {
+        console.error('❌ Error loading manifest:', error);
+        throw error;
+    }
+}
+
+/**
+ * Load content from Supabase
+ */
+async function loadContentFromSupabase(contentId) {
+    console.log('📥 Loading content from Supabase:', contentId);
+    try {
+        const { data, error } = await supabase
+            .from('content')
+            .select('*')
+            .eq('id', contentId)
+            .single();
+        
+        if (error) throw error;
+        if (!data) throw new Error('Content not found');
+        
+        console.log('✅ Content loaded:', data);
+        
+        // Check if it's a flipbook (has project_json)
+        if (!data.project_json) {
+            console.log('⚠️ Not a flipbook, redirecting to library');
+            window.location.href = `library.html?content=${contentId}`;
+            return;
+        }
+        
+        manifest = data.project_json;
+        console.log('✅ Manifest extracted from Supabase');
+    } catch (error) {
+        console.error('❌ Error loading from Supabase:', error);
+        throw error;
+    }
+}
+
+/**
+ * Initialize from manifest
+ */
+async function initFromManifest() {
+    console.log('📖 Initializing from manifest');
     
-    <!-- jsPDF for PDF generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    // Sort pages by page number
+    if (manifest.pages) {
+        manifest.pages.sort((a, b) => a.page - b.page);
+    }
     
-    <!-- Configuration -->
-    <script src="config.js"></script>
+    totalPages = manifest.pages ? manifest.pages.length : 0;
+    console.log('📄 Total pages:', totalPages);
     
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
+    if (totalPages === 0) {
+        throw new Error('No pages found in manifest');
+    }
+    
+    // Update page counter
+    updatePageCounter();
+    
+    // Render first page
+    await renderPage(currentPage);
+    
+    loading.classList.add('hidden');
+    console.log('✅ Mobile flipbook initialized');
+}
+
+/**
+ * Render a single page
+ */
+async function renderPage(pageNum) {
+    console.log('🎨 Rendering page:', pageNum);
+    loading.classList.remove('hidden');
+    
+    try {
+        const pageData = manifest.pages[pageNum - 1];
+        if (!pageData) {
+            throw new Error(`Page ${pageNum} not found`);
         }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            color: #ffffff;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            height: 100dvh;
-            width: 100vw;
-            touch-action: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+        
+        // Clear page wrapper
+        pageWrapper.innerHTML = '';
+        
+        // Calculate responsive page size
+        const containerWidth = pageContainer.clientWidth;
+        const containerHeight = pageContainer.clientHeight;
+        
+        // Calculate scale to fit container while maintaining aspect ratio
+        const scaleX = (containerWidth - 40) / A4_WIDTH_PX; // 40px padding
+        const scaleY = (containerHeight - 40) / A4_HEIGHT_PX;
+        const scale = Math.min(scaleX, scaleY, 1); // Don't scale up beyond 100%
+        
+        const displayWidth = Math.round(A4_WIDTH_PX * scale);
+        const displayHeight = Math.round(A4_HEIGHT_PX * scale);
+        
+        console.log('📐 Page dimensions:', displayWidth, 'x', displayHeight, 'at', Math.round(scale * 100) + '%');
+        
+        // Create page div
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'page';
+        pageDiv.style.width = displayWidth + 'px';
+        pageDiv.style.height = displayHeight + 'px';
+        
+        // Create canvas for page image
+        const canvas = document.createElement('canvas');
+        canvas.width = displayWidth * RENDER_SCALE;
+        canvas.height = displayHeight * RENDER_SCALE;
+        canvas.style.width = displayWidth + 'px';
+        canvas.style.height = displayHeight + 'px';
+        
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        // Load and draw page image (same logic as desktop viewer)
+        // Check for backgroundData, background (data: or URL)
+        let backgroundSource = null;
+        if (pageData.backgroundData) {
+            backgroundSource = pageData.backgroundData;
+            console.log('📸 Loading page from backgroundData');
+        } else if (pageData.background && pageData.background.startsWith('data:')) {
+            backgroundSource = pageData.background;
+            console.log('📸 Loading page from background (data URL)');
+        } else if (pageData.background) {
+            backgroundSource = pageData.background;
+            console.log('📸 Loading page from background URL:', pageData.background);
+        } else if (pageData.imageUrl) {
+            backgroundSource = pageData.imageUrl;
+            console.log('📸 Loading page from imageUrl:', pageData.imageUrl);
         }
-
-        /* Toolbar Styles */
-        #toolbar {
-            background: rgba(42, 42, 42, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 10px 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-            z-index: 100;
+        
+        if (backgroundSource) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            await new Promise((resolve, reject) => {
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    console.log('✅ Page image rendered successfully');
+                    resolve();
+                };
+                img.onerror = (e) => {
+                    console.error('❌ Error loading page image:', backgroundSource);
+                    console.error('Error details:', e);
+                    // Draw white background if image fails to load
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    resolve(); // Don't reject, continue with white background
+                };
+                img.src = backgroundSource;
+            });
+        } else {
+            console.warn('⚠️ No background image found in page data');
+            console.log('Page data keys:', Object.keys(pageData));
+            // Draw white background if no image source
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
-
-        /* Top Line: Logo + Title */
-        .toolbar-top {
-            display: flex;
-            justify-content: flex-start;
-            align-items: center;
-            gap: 10px;
+        
+        pageDiv.appendChild(canvas);
+        
+        // Render interactive elements
+        if (pageData.elements && pageData.elements.length > 0) {
+            console.log('🎯 Rendering', pageData.elements.length, 'interactive elements');
+            renderInteractiveElements(pageDiv, pageData.elements, displayWidth, displayHeight);
         }
+        
+        pageWrapper.appendChild(pageDiv);
+        
+    } catch (error) {
+        console.error('❌ Error rendering page:', error);
+        alert('Error rendering page: ' + error.message);
+    } finally {
+        loading.classList.add('hidden');
+    }
+}
 
-        #logo {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
+/**
+ * Render interactive elements on page
+ */
+function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
+    // Filter positioned elements
+    const positionedElements = elements.filter(element => {
+        return (element.x !== undefined && element.x !== null) && 
+               (element.y !== undefined && element.y !== null) &&
+               element.type !== 'container' &&
+               element.type !== 'element-container';
+    });
+    
+    if (positionedElements.length === 0) return;
+    
+    // Calculate scale from editor canvas to actual page
+    const scaleX = pageWidth / EDITOR_WIDTH_PX;
+    const scaleY = pageHeight / EDITOR_HEIGHT_PX;
+    
+    positionedElements.forEach((element, idx) => {
+        const scaledX = element.x * scaleX;
+        const scaledY = element.y * scaleY;
+        const scaledWidth = (element.width || 100) * scaleX;
+        const scaledHeight = (element.height || 40) * scaleY;
+        
+        const elementDiv = document.createElement('div');
+        elementDiv.className = 'interactive-element';
+        elementDiv.style.left = scaledX + 'px';
+        elementDiv.style.top = scaledY + 'px';
+        elementDiv.style.width = scaledWidth + 'px';
+        elementDiv.style.height = scaledHeight + 'px';
+        
+        // Store element data
+        elementDiv.dataset.elementType = element.type;
+        elementDiv.dataset.elementData = JSON.stringify(element);
+        
+        // Add visual representation based on element type
+        if (element.type === '3c-button' || element.type === 'button') {
+            if (element.imagePath || element.image) {
+                let imgSrc = element.imagePath || element.image;
+                // Convert relative paths to full GitHub Pages URL
+                // Supports: public/3C Buttons, public/3C Buttons/Emojis, public/3C Buttons/Emojis/General
+                if (imgSrc && !imgSrc.startsWith('http')) {
+                    imgSrc = 'https://anica-blip.github.io/interactive-PDF/public' + (imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc);
+                }
+                console.log('🖼️ Button image:', imgSrc);
+                const img = document.createElement('img');
+                img.src = imgSrc;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'contain';
+                img.onerror = () => console.error('❌ Failed to load button image:', imgSrc);
+                img.onload = () => console.log('✅ Button image loaded:', imgSrc);
+                elementDiv.appendChild(img);
+            } else {
+                console.warn('⚠️ Button has no image:', element);
+            }
+        } else if (element.type === '3c-emoji' || element.type === '3c-emoji-decoration') {
+            if (element.imagePath || element.image) {
+                let imgSrc = element.imagePath || element.image;
+                // Convert relative paths to full GitHub Pages URL
+                // Supports: public/3C Buttons/Emojis, public/3C Buttons/Emojis/General
+                if (imgSrc && !imgSrc.startsWith('http')) {
+                    imgSrc = 'https://anica-blip.github.io/interactive-PDF/public' + (imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc);
+                }
+                console.log('🖼️ Emoji image:', imgSrc);
+                const img = document.createElement('img');
+                img.src = imgSrc;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'contain';
+                img.style.borderRadius = '50%';
+                img.onerror = () => console.error('❌ Failed to load emoji image:', imgSrc);
+                img.onload = () => console.log('✅ Emoji image loaded:', imgSrc);
+                elementDiv.appendChild(img);
+            } else {
+                console.warn('⚠️ Emoji has no image:', element);
+            }
+        } else if (element.type === 'video' || element.type === 'cloudflare-stream') {
+            // Show play button overlay
+            if (element.thumbnailUrl) {
+                console.log('🖼️ Video thumbnail:', element.thumbnailUrl);
+                const img = document.createElement('img');
+                img.src = element.thumbnailUrl;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                img.onerror = () => console.error('❌ Failed to load video thumbnail:', element.thumbnailUrl);
+                img.onload = () => console.log('✅ Video thumbnail loaded:', element.thumbnailUrl);
+                elementDiv.appendChild(img);
+            }
+            // Add play icon
+            const playIcon = document.createElement('div');
+            playIcon.innerHTML = '▶';
+            playIcon.style.position = 'absolute';
+            playIcon.style.top = '50%';
+            playIcon.style.left = '50%';
+            playIcon.style.transform = 'translate(-50%, -50%)';
+            playIcon.style.fontSize = Math.min(scaledWidth, scaledHeight) * 0.3 + 'px';
+            playIcon.style.color = 'white';
+            playIcon.style.textShadow = '0 2px 4px rgba(0,0,0,0.5)';
+            playIcon.style.pointerEvents = 'none';
+            elementDiv.appendChild(playIcon);
         }
+        
+        // Add click handler
+        elementDiv.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Parse element data from dataset to ensure we get the correct stored data
+            const elementData = JSON.parse(e.currentTarget.dataset.elementData);
+            handleElementClick(elementData);
+        });
+        
+        pageDiv.appendChild(elementDiv);
+    });
+}
 
-        #title {
-            font-size: 20px;
-            color: #b19cd9;
-            font-weight: 500;
+/**
+ * Handle interactive element click
+ */
+function handleElementClick(element) {
+    console.log('🖱️ Element clicked:', element.type);
+    
+    const elementType = element.type;
+    
+    if (elementType === '3c-button' || elementType === 'button') {
+        // 3C Buttons ONLY handle website links
+        if (element.url) {
+            let buttonUrl = element.url;
+            if (!buttonUrl.startsWith('http://') && !buttonUrl.startsWith('https://')) {
+                buttonUrl = 'https://' + buttonUrl;
+            }
+            console.log('🔗 3C Button: Opening website link...');
+            showLinkPopup(buttonUrl);
         }
-
-        /* Second Line: Page Navigation */
-        .toolbar-middle {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
+    } else if (elementType === 'video' || elementType === 'cloudflare-stream') {
+        console.log('🎬 Opening video element...');
+        playMedia(element, 'video');
+    } else if (elementType === '3c-emoji' || elementType === '3c-emoji-decoration') {
+        // Emojis/General handle ALL media types: videos, images, audio, GIFs, etc.
+        if (element.url) {
+            let emojiUrl = element.url;
+            if (!emojiUrl.startsWith('http://') && !emojiUrl.startsWith('https://')) {
+                emojiUrl = 'https://' + emojiUrl;
+            }
+            
+            if (isVideoUrl(emojiUrl)) {
+                console.log('🎥 Emoji/General: Opening video...');
+                playMedia({...element, url: emojiUrl}, 'video');
+            } else if (isAudioUrl(emojiUrl)) {
+                console.log('🎵 Emoji/General: Opening audio...');
+                playMedia({...element, url: emojiUrl}, 'audio');
+            } else if (isImageUrl(emojiUrl)) {
+                console.log('🖼️ Emoji/General: Opening image from Cloudflare...');
+                showAnimatedMedia(emojiUrl);
+            } else if (isPresentationUrl(emojiUrl)) {
+                console.log('📊 Emoji/General: Opening presentation viewer...');
+                window.location.href = emojiUrl;
+            } else {
+                console.log('🔗 Emoji/General: Opening link in popup...');
+                showLinkPopup(emojiUrl);
+            }
         }
-
-        /* Third Line: Action Buttons */
-        .toolbar-bottom {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
+    } else if (elementType === 'audio') {
+        console.log('🎵 Opening audio element...');
+        playMedia(element, 'audio');
+    } else if (elementType === 'hotspot' || elementType === 'link') {
+        if (element.url) {
+            if (isVideoUrl(element.url)) {
+                playMedia(element, 'video');
+            } else {
+                console.log('🔗 Hotspot/link - staying in viewer');
+                // Don't open in new tab
+            }
         }
+    }
+}
 
-        /* Button Styles */
-        .btn {
-            background: linear-gradient(135deg, #b19cd9, #9d84c8);
-            border: none;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 40px;
-            min-height: 40px;
-            box-shadow: 0 2px 8px rgba(177, 156, 217, 0.3);
-            transition: all 0.2s ease;
-            -webkit-tap-highlight-color: transparent;
+/**
+ * Check if URL is a video
+ */
+function isVideoUrl(url) {
+    if (!url) return false;
+    const videoPatterns = [
+        /youtube\.com\/watch/i,
+        /youtu\.be\//i,
+        /vimeo\.com\//i,
+        /\.mp4$/i,
+        /\.webm$/i,
+        /\.mov$/i,
+        /cloudflarestream\.com/i,
+        /files\.3c-public-library\.org.*\.(mp4|webm|mov)/i
+    ];
+    return videoPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Detect if URL is an audio file
+ */
+function isAudioUrl(url) {
+    if (!url) return false;
+    const audioPatterns = [
+        /\.mp3$/i,
+        /\.wav$/i,
+        /\.ogg$/i,
+        /\.m4a$/i,
+        /\.aac$/i,
+        /\.flac$/i,
+        /files\.3c-public-library\.org.*\.(mp3|wav|ogg|m4a|aac|flac)/i
+    ];
+    return audioPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Detect if URL is an image or GIF
+ */
+function isImageUrl(url) {
+    if (!url) return false;
+    const imagePatterns = [
+        /\.gif$/i,
+        /\.jpg$/i,
+        /\.jpeg$/i,
+        /\.png$/i,
+        /\.webp$/i,
+        /\.svg$/i,
+        /\.bmp$/i,
+        /giphy\.com/i,
+        /tenor\.com/i,
+        /files\.3c-public-library\.org.*\.(gif|png|jpg|jpeg|webp)/i
+    ];
+    return imagePatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is animated media (GIF, etc.)
+ */
+function isAnimatedMediaUrl(url) {
+    if (!url) return false;
+    const animatedPatterns = [
+        /\.gif$/i,
+        /giphy\.com/i,
+        /tenor\.com/i
+    ];
+    return animatedPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is a presentation viewer link
+ */
+function isPresentationUrl(url) {
+    if (!url) return false;
+    return url.includes('presentation-viewer.html') || url.includes('interactive-pdf-viewer.html');
+}
+
+/**
+ * Play media in overlay
+ */
+function playMedia(element, type) {
+    console.log('🎬 Playing media:', element);
+    
+    mediaPlayer.innerHTML = '';
+    
+    if (type === 'video') {
+        const videoUrl = element.url || element.videoUrl || element.mediaUrl || element.iframeUrl;
+        
+        if (!videoUrl && !element.streamId) {
+            console.error('❌ No video URL found');
+            return;
         }
-
-        .btn:active {
-            transform: scale(0.95);
-            box-shadow: 0 1px 4px rgba(177, 156, 217, 0.3);
+        
+        // Cloudflare Stream
+        if (element.type === 'cloudflare-stream' && element.streamId) {
+            const streamElement = document.createElement('stream');
+            streamElement.setAttribute('src', element.streamId);
+            streamElement.setAttribute('controls', '');
+            streamElement.setAttribute('autoplay', '');
+            if (element.poster) {
+                streamElement.setAttribute('poster', element.poster);
+            }
+            mediaPlayer.appendChild(streamElement);
         }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        // Cloudflare Stream iframe
+        else if (videoUrl && (videoUrl.includes('/iframe') || videoUrl.includes('cloudflarestream.com'))) {
+            const iframe = document.createElement('iframe');
+            iframe.src = videoUrl;
+            iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+            iframe.allowFullscreen = true;
+            iframe.style.width = '100%';
+            iframe.style.height = '60vh';
+            iframe.style.border = 'none';
+            mediaPlayer.appendChild(iframe);
         }
-
-        .btn-orange {
-            background: linear-gradient(135deg, #ff6b35, #ff8c42);
-            box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+        // YouTube/Vimeo
+        else if (videoUrl) {
+            const embedUrl = getVideoEmbedUrl(videoUrl);
+            if (embedUrl) {
+                const iframe = document.createElement('iframe');
+                iframe.src = embedUrl;
+                iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+                iframe.allowFullscreen = true;
+                iframe.style.width = '100%';
+                iframe.style.height = '60vh';
+                iframe.style.border = 'none';
+                mediaPlayer.appendChild(iframe);
+            } else {
+                // Direct video file
+                const video = document.createElement('video');
+                video.src = videoUrl;
+                video.controls = true;
+                video.autoplay = true;
+                video.style.width = '100%';
+                video.style.maxHeight = '80vh';
+                video.setAttribute('crossorigin', 'anonymous');
+                if (element.thumbnailUrl || element.poster) {
+                    video.poster = element.thumbnailUrl || element.poster;
+                }
+                mediaPlayer.appendChild(video);
+            }
         }
+    }
+    
+    mediaOverlay.classList.add('active');
+}
 
-        .btn-green {
-            background: linear-gradient(135deg, #4caf50, #66bb6a);
-            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+/**
+ * Get video embed URL
+ */
+function getVideoEmbedUrl(url) {
+    // YouTube
+    if (url.includes('youtube.com/watch')) {
+        const videoId = url.split('v=')[1]?.split('&')[0];
+        return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1` : null;
+    }
+    if (url.includes('youtu.be/')) {
+        const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+        return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1` : null;
+    }
+    
+    // Vimeo
+    if (url.includes('vimeo.com/')) {
+        const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
+        return videoId ? `https://player.vimeo.com/video/${videoId}?autoplay=1` : null;
+    }
+    
+    return null;
+}
+
+/**
+ * Show link in popup iframe
+ */
+function showLinkPopup(url) {
+    console.log('🔗 Opening link in popup:', url);
+    
+    mediaPlayer.innerHTML = '';
+    
+    const iframe = document.createElement('iframe');
+    iframe.src = url;
+    iframe.style.width = '100%';
+    iframe.style.height = '70vh';
+    iframe.style.border = 'none';
+    iframe.style.borderRadius = '8px';
+    iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture';
+    
+    mediaPlayer.appendChild(iframe);
+    mediaOverlay.classList.add('active');
+}
+
+/**
+ * Show animated media (GIF/image) in overlay
+ */
+function showAnimatedMedia(url) {
+    console.log('🎬 Opening animated media:', url);
+    
+    mediaPlayer.innerHTML = '';
+    
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = 'display: block; margin: 0 auto; border-radius: 8px; object-fit: contain;';
+    
+    // Mobile-responsive sizing - handle both orientations
+    img.onload = () => {
+        const aspectRatio = img.naturalWidth / img.naturalHeight;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        console.log('📐 Image loaded:', img.naturalWidth, 'x', img.naturalHeight, 'aspect:', aspectRatio.toFixed(2));
+        console.log('📱 Viewport:', viewportWidth, 'x', viewportHeight);
+        
+        if (aspectRatio > 1) {
+            // Landscape image - fit to width
+            img.style.cssText = `
+                display: block !important;
+                margin: 0 auto !important;
+                border-radius: 8px !important;
+                object-fit: contain !important;
+                width: 95vw !important;
+                height: auto !important;
+                max-width: 95vw !important;
+                max-height: 85vh !important;
+            `;
+            console.log('🖼️ Landscape mode: width=95vw, height=auto');
+        } else {
+            // Portrait image - fit to height (80vh so close button is reachable)
+            img.style.cssText = `
+                display: block !important;
+                margin: 0 auto !important;
+                border-radius: 8px !important;
+                object-fit: contain !important;
+                width: auto !important;
+                height: 80vh !important;
+                max-width: 95vw !important;
+                max-height: 80vh !important;
+            `;
+            console.log('🖼️ Portrait mode: width=auto, height=80vh');
         }
+    };
+    
+    img.onerror = () => {
+        console.error('❌ Failed to load image:', url);
+    };
+    
+    mediaPlayer.appendChild(img);
+    mediaOverlay.classList.add('active');
+}
 
-        #page-counter {
-            background: rgba(177, 156, 217, 0.2);
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 15px;
-            color: #b19cd9;
-            min-width: 50px;
-            text-align: center;
+/**
+ * Close media overlay
+ */
+function closeMedia() {
+    mediaOverlay.classList.remove('active');
+    mediaPlayer.innerHTML = '';
+}
+
+/**
+ * Navigate to page
+ */
+async function goToPage(pageNum) {
+    if (pageNum < 1 || pageNum > totalPages) return;
+    if (pageNum === currentPage) return;
+    
+    currentPage = pageNum;
+    updatePageCounter();
+    await renderPage(currentPage);
+}
+
+/**
+ * Update page counter
+ */
+function updatePageCounter() {
+    pageCounter.textContent = `${currentPage}/${totalPages}`;
+    
+    // Update button states
+    document.getElementById('first-page').disabled = currentPage === 1;
+    document.getElementById('prev-page').disabled = currentPage === 1;
+    document.getElementById('last-page').disabled = currentPage === totalPages;
+    document.getElementById('next-page').disabled = currentPage === totalPages;
+}
+
+/**
+ * Setup event listeners
+ */
+function setupEventListeners() {
+    // Navigation buttons
+    document.getElementById('first-page').addEventListener('click', () => goToPage(1));
+    document.getElementById('prev-page').addEventListener('click', () => goToPage(currentPage - 1));
+    document.getElementById('next-page').addEventListener('click', () => goToPage(currentPage + 1));
+    document.getElementById('last-page').addEventListener('click', () => goToPage(totalPages));
+    
+    // Refresh button - reload JSON from source
+    document.getElementById('refresh-btn').addEventListener('click', async () => {
+        console.log('🔄 Refresh clicked - reloading JSON');
+        loading.classList.remove('hidden');
+        try {
+            // Reload manifest from original source
+            if (manifestUrl) {
+                await loadManifestFromUrl(manifestUrl);
+            } else if (contentId) {
+                await loadContentFromSupabase(contentId);
+            }
+            // Re-initialize from manifest
+            await initFromManifest();
+        } catch (error) {
+            console.error('❌ Error reloading JSON:', error);
+            alert('Error reloading flipbook: ' + error.message);
+        } finally {
+            loading.classList.add('hidden');
         }
-
-        /* Page Container */
-        #page-container {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            position: relative;
-            background: #2a2a2a;
-            touch-action: pan-y pinch-zoom;
+    });
+    
+    // Close button
+    document.getElementById('close-btn').addEventListener('click', goBack);
+    
+    // Download button
+    document.getElementById('download-btn').addEventListener('click', downloadPDF);
+    
+    // Close media
+    closeMediaBtn.addEventListener('click', closeMedia);
+    mediaOverlay.addEventListener('click', (e) => {
+        if (e.target === mediaOverlay) {
+            closeMedia();
         }
+    });
+    
+    // Window resize
+    window.addEventListener('resize', debounce(async () => {
+        console.log('📐 Window resized, re-rendering page');
+        await renderPage(currentPage);
+    }, 300));
+}
 
-        #page-wrapper {
-            position: relative;
-            max-width: 100%;
-            max-height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            touch-action: pan-y pinch-zoom;
+/**
+ * Setup touch gestures
+ */
+
+/**
+ * Download PDF - generate and download
+ */
+async function downloadPDF() {
+    console.log('📥 Download PDF clicked - generating PDF');
+    
+    try {
+        // Check if PDF URL exists in manifest
+        if (manifest.pdfUrl) {
+            console.log('📄 PDF URL found, downloading:', manifest.pdfUrl);
+            const a = document.createElement('a');
+            a.href = manifest.pdfUrl;
+            a.download = manifest.title || 'flipbook.pdf';
+            a.click();
+            return;
         }
-
-        .page {
-            position: relative;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            background: white;
-            touch-action: pan-y pinch-zoom;
+        
+        // If no PDF URL, generate PDF from pages
+        console.log('📄 No PDF URL, generating from pages...');
+        loading.classList.remove('hidden');
+        
+        // Use jsPDF to generate PDF from page images
+        if (typeof jspdf === 'undefined') {
+            console.error('❌ jsPDF library not loaded');
+            alert('PDF generation not available. Please contact support.');
+            loading.classList.add('hidden');
+            return;
         }
-
-        .page canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
+        
+        const { jsPDF } = jspdf;
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'px',
+            format: [A4_WIDTH_PX, A4_HEIGHT_PX]
+        });
+        
+        for (let i = 0; i < manifest.pages.length; i++) {
+            const page = manifest.pages[i];
+            
+            // Get background source
+            let backgroundSource = null;
+            if (page.backgroundData) {
+                backgroundSource = page.backgroundData;
+            } else if (page.background) {
+                backgroundSource = page.background;
+            } else if (page.imageUrl) {
+                backgroundSource = page.imageUrl;
+            }
+            
+            if (backgroundSource) {
+                if (i > 0) pdf.addPage();
+                pdf.addImage(backgroundSource, 'PNG', 0, 0, A4_WIDTH_PX, A4_HEIGHT_PX);
+            }
         }
+        
+        pdf.save(manifest.title || 'flipbook.pdf');
+        console.log('✅ PDF generated and downloaded');
+        
+    } catch (error) {
+        console.error('❌ Error generating PDF:', error);
+        alert('Error generating PDF: ' + error.message);
+    } finally {
+        loading.classList.add('hidden');
+    }
+}
 
-        /* Interactive Elements */
-        .interactive-element {
-            position: absolute;
-            cursor: pointer;
-            z-index: 10;
-            transition: transform 0.2s ease;
+/**
+ * Go back - close window and return to landing page 2
+ */
+function goBack() {
+    // Close the current window/tab
+    window.close();
+    
+    // If window.close() doesn't work (some browsers block it), redirect to landing page 2
+    setTimeout(() => {
+        window.location.href = 'landing-page-2.html';
+    }, 100);
+}
+
+/**
+ * Debounce function
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', init);
+function setupTouchGestures() {
+    const hammer = new Hammer(pageContainer, {
+        touchAction: 'none'
+    });
+    
+    hammer.get('pinch').set({ enable: true });
+    hammer.get('pan').set({ direction: Hammer.DIRECTION_ALL });
+    hammer.get('swipe').set({ velocity: 0.3, threshold: 50 });
+    
+    let scale = 1;
+    let lastScale = 1;
+    let posX = 0;
+    let posY = 0;
+    let lastPosX = 0;
+    let lastPosY = 0;
+    
+    function updateTransform() {
+        const page = pageWrapper.querySelector('.page');
+        if (page) {
+            page.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+            page.style.transformOrigin = 'center';
         }
-
-        .interactive-element:active {
-            transform: scale(0.95);
+    }
+    
+    hammer.on('swipeleft', (e) => {
+        if (scale <= 1.1) {
+            e.preventDefault();
+            e.srcEvent.preventDefault();
+            e.srcEvent.stopPropagation();
+            if (currentPage < totalPages) goToPage(currentPage + 1);
         }
-
-        .interactive-element img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            pointer-events: none;
+    });
+    
+    hammer.on('swiperight', (e) => {
+        if (scale <= 1.1) {
+            e.preventDefault();
+            e.srcEvent.preventDefault();
+            e.srcEvent.stopPropagation();
+            if (currentPage > 1) goToPage(currentPage - 1);
         }
-
-        /* Loading Overlay */
-        #loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            flex-direction: column;
-            gap: 20px;
+    });
+    
+    hammer.on('panstart', () => {
+        lastPosX = posX;
+        lastPosY = posY;
+    });
+    
+    hammer.on('panmove', (e) => {
+        if (scale > 1) {
+            posX = lastPosX + e.deltaX;
+            posY = lastPosY + e.deltaY;
+            updateTransform();
         }
-
-        #loading.hidden {
-            display: none;
+    });
+    
+    hammer.on('pinchstart', () => {
+        lastScale = scale;
+    });
+    
+    hammer.on('pinchmove', (e) => {
+        scale = Math.max(1, Math.min(lastScale * e.scale, 3));
+        if (scale === 1) {
+            posX = 0;
+            posY = 0;
         }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(177, 156, 217, 0.3);
-            border-top-color: #b19cd9;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Media Overlay */
-        #media-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.95);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            padding: 20px;
-        }
-
-        #media-overlay.active {
-            display: flex;
-        }
-
-        #media-content {
-            position: relative;
-            max-width: 100%;
-            max-height: 90vh;
-            width: 100%;
-        }
-
-        #media-player {
-            width: 100%;
-            max-height: 80vh;
-        }
-
-        #media-player video,
-        #media-player iframe {
-            width: 100%;
-            height: auto;
-            max-height: 80vh;
-        }
-
-        #close-media {
-            position: absolute;
-            top: -40px;
-            right: 0;
-            background: #ff6b35;
-            border: none;
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 10px rgba(255, 107, 53, 0.5);
-        }
-
-        /* SVG Icons */
-        .icon {
-            width: 20px;
-            height: 20px;
-            fill: currentColor;
-        }
-    </style>
-</head>
-<body>
-    <!-- Loading Overlay -->
-    <div id="loading">
-        <div class="spinner"></div>
-        <div style="color: #b19cd9; font-size: 16px;">Loading flipbook...</div>
-    </div>
-
-    <!-- Toolbar -->
-    <div id="toolbar">
-        <!-- Top Line: Logo + Title -->
-        <div class="toolbar-top">
-            <img id="logo" src="3C Thread To Success logo.png" alt="3C Logo">
-            <div id="title">3C Interactive Flipbook</div>
-        </div>
-
-        <!-- Second Line: Page Navigation -->
-        <div class="toolbar-middle">
-            <button class="btn" id="first-page" title="First Page">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6zM6 6h2v12H6z"/>
-                </svg>
-            </button>
-            <div id="page-counter">1/1</div>
-            <button class="btn" id="last-page" title="Last Page">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6zM16 6h2v12h-2z"/>
-                </svg>
-            </button>
-        </div>
-
-        <!-- Third Line: Action Buttons -->
-        <div class="toolbar-bottom">
-            <button class="btn" id="prev-page" title="Previous">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
-                </svg>
-            </button>
-            <button class="btn" id="next-page" title="Next">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
-                </svg>
-            </button>
-            <button class="btn" id="refresh-btn" title="Refresh">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-                </svg>
-            </button>
-            <button class="btn btn-orange" id="close-btn" title="Close">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
-            </button>
-            <button class="btn btn-green" id="download-btn" title="Download">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    <!-- Page Container -->
-    <div id="page-container">
-        <div id="page-wrapper"></div>
-    </div>
-
-    <!-- Media Overlay -->
-    <div id="media-overlay">
-        <div id="media-content">
-            <button id="close-media">×</button>
-            <div id="media-player"></div>
-        </div>
-    </div>
-
-    <!-- Mobile Flipbook Script -->
-    <script src="flipbook-viewer-mobile.js"></script>
-</body>
-</html>
+        updateTransform();
+    });
+    
+    hammer.on('pinchend', () => {
+        lastScale = scale;
+    });
+    
+    console.log('✅ Touch gestures enabled with pan and zoom');
+}
