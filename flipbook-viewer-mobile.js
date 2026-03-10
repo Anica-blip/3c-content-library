@@ -861,13 +861,7 @@ async function downloadPDF() {
  * Go back - close window and return to landing page 2
  */
 function goBack() {
-    // Close the current window/tab
-    window.close();
-    
-    // If window.close() doesn't work (some browsers block it), redirect to landing page 2
-    setTimeout(() => {
-        window.location.href = 'landing-page-2.html';
-    }, 100);
+    history.back();
 }
 
 /**
