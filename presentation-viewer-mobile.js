@@ -713,13 +713,13 @@ function showLinkPopup(url) {
         line-height: 1.6;
     `;
     blockedMsg.innerHTML = `
-        <div style="font-size: 32px; margin-bottom: 12px;">🔒</div>
+        <div style="font-size: 32px; margin-bottom: 12px;">🌐</div>
         <div style="font-weight: 700; color: #c084fc; font-size: 16px; margin-bottom: 10px;">
-            This page cannot be embedded
+            This link opens in your browser
         </div>
         <div style="margin-bottom: 20px; font-size: 13px; color: #b0a0c8;">
-            This website has security settings that prevent it from opening inside the library.
-            You can open it directly in your browser using the button below.
+            This link needs to open as a new browser page.
+            Tap the button below to continue — it will open safely in your browser.
         </div>
         <button style="
             background: linear-gradient(135deg, #9b59b6, #8e44ad);
@@ -727,14 +727,21 @@ function showLinkPopup(url) {
             border-radius: 10px; font-size: 14px; font-weight: 700;
             cursor: pointer; width: 100%; letter-spacing: 0.3px;
             box-shadow: 0 2px 10px rgba(155,89,182,0.4);
-        " id="_3c-open-external-btn">Open in browser →</button>
+        " id="_3c-open-external-btn">Tap to open link →</button>
     `;
 
-    // Wire the open button — user must tap, nothing opens automatically
+    // Wire the open button — uses anchor click for Telegram WebView compatibility
+    // (Telegram blocks window.open but respects programmatic anchor clicks)
     blockedMsg.querySelector('#_3c-open-external-btn').onclick = () => {
         mediaOverlay.classList.remove('active');
         mediaPlayer.innerHTML = '';
-        window.open(url, '_blank');
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     };
 
     // Helper: swap iframe for blocked message inside the modal
