@@ -730,18 +730,29 @@ function showLinkPopup(url) {
         " id="_3c-open-external-btn">Tap to open link →</button>
     `;
 
-    // Wire the open button — uses anchor click for Telegram WebView compatibility
-    // (Telegram blocks window.open but respects programmatic anchor clicks)
+    // Wire the open button
+    // Order matters: open URL FIRST, then close overlay
+    // Telegram WebApp API checked first — only method Telegram WebView fully respects
     blockedMsg.querySelector('#_3c-open-external-btn').onclick = () => {
-        mediaOverlay.classList.remove('active');
-        mediaPlayer.innerHTML = '';
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        // Step 1: Open the URL before touching the DOM
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
+            // Telegram WebView — use official Telegram API
+            window.Telegram.WebApp.openLink(url);
+        } else {
+            // Regular browser — standard anchor click
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => document.body.removeChild(a), 100);
+        }
+        // Step 2: Close the overlay AFTER URL is handed off
+        setTimeout(() => {
+            mediaOverlay.classList.remove('active');
+            mediaPlayer.innerHTML = '';
+        }, 50);
     };
 
     // Helper: swap iframe for blocked message inside the modal
