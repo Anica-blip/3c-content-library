@@ -14,6 +14,9 @@ let pageCanvases = [];
 let contentId = null;
 let manifestUrl = null;
 
+// Tracks active link popup — used to cancel timer if user closes modal before it fires
+let linkPopupState = null;
+
 // A4 dimensions at 96 DPI
 const A4_WIDTH_PX = 794;
 const A4_HEIGHT_PX = 1123;
@@ -662,17 +665,33 @@ function getVideoEmbedUrl(url) {
 }
 
 /**
- * Show link in popup iframe (with fallback to new tab if blocked)
+ * Show link in popup iframe — modal is chief.
+ * Option 1: iframe loads inside modal.
+ * Option 2: if blocked by X-Frame-Options, a message appears INSIDE the modal
+ *           with a button the user must tap to open in browser. Nothing opens automatically.
+ * Closing the modal (✕) cancels all timers — no ghost tabs ever.
  */
 function showLinkPopup(url) {
     console.log('🔗 Opening link in popup:', url);
 
+    // Cancel any leftover state from a previous popup
+    if (linkPopupState) {
+        clearTimeout(linkPopupState.timer);
+        linkPopupState.cancelled = true;
+        linkPopupState = null;
+    }
+
+    // State object shared between iframe callbacks and closeMedia
+    const state = { timer: null, cancelled: false, iframeLoaded: false };
+    linkPopupState = state;
+
     mediaPlayer.innerHTML = '';
 
-    // Wrapper holds iframe + fallback button
+    // Wrapper
     const wrapper = document.createElement('div');
     wrapper.style.cssText = 'width:100%; display:flex; flex-direction:column; gap:10px;';
 
+    // ── Option 1: iframe ──
     const iframe = document.createElement('iframe');
     iframe.src = url;
     iframe.style.cssText = 'width:100%; height:70vh; border:none; border-radius:8px; background:#111;';
@@ -680,63 +699,88 @@ function showLinkPopup(url) {
     iframe.referrerPolicy = 'no-referrer-when-downgrade';
     iframe.sandbox = 'allow-same-origin allow-scripts allow-popups allow-forms allow-modals';
 
-    // Fallback button — always visible so user can tap it if iframe is blank
-    const fallbackBtn = document.createElement('button');
-    fallbackBtn.textContent = '🔗 Open in browser tab →';
-    fallbackBtn.style.cssText = `
-        background: linear-gradient(135deg, #b19cd9, #9d84c8);
-        color: white; border: none; padding: 12px 20px;
-        border-radius: 8px; font-size: 14px; font-weight: 600;
-        cursor: pointer; width: 100%; text-align: center;
+    // ── Option 2: blocked message (hidden until needed) ──
+    const blockedMsg = document.createElement('div');
+    blockedMsg.style.cssText = `
+        display: none;
+        background: rgba(155, 89, 182, 0.1);
+        border: 1px solid rgba(155, 89, 182, 0.3);
+        border-radius: 12px;
+        padding: 28px 20px;
+        text-align: center;
+        color: #d0c8e8;
+        font-size: 14px;
+        line-height: 1.6;
     `;
-    fallbackBtn.onclick = () => {
+    blockedMsg.innerHTML = `
+        <div style="font-size: 32px; margin-bottom: 12px;">🔒</div>
+        <div style="font-weight: 700; color: #c084fc; font-size: 16px; margin-bottom: 10px;">
+            This page cannot be embedded
+        </div>
+        <div style="margin-bottom: 20px; font-size: 13px; color: #b0a0c8;">
+            This website has security settings that prevent it from opening inside the library.
+            You can open it directly in your browser using the button below.
+        </div>
+        <button style="
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white; border: none; padding: 14px 24px;
+            border-radius: 10px; font-size: 14px; font-weight: 700;
+            cursor: pointer; width: 100%; letter-spacing: 0.3px;
+            box-shadow: 0 2px 10px rgba(155,89,182,0.4);
+        " id="_3c-open-external-btn">Open in browser →</button>
+    `;
+
+    // Wire the open button — user must tap, nothing opens automatically
+    blockedMsg.querySelector('#_3c-open-external-btn').onclick = () => {
         mediaOverlay.classList.remove('active');
+        mediaPlayer.innerHTML = '';
         window.open(url, '_blank');
     };
 
-    // Auto-detect blocked iframe: onload fires even when blocked, so we check
-    // if the iframe content is accessible. If not, open new tab automatically.
-    let autoFallbackDone = false;
+    // Helper: swap iframe for blocked message inside the modal
+    function showBlockedMessage() {
+        if (state.cancelled) return; // Modal was closed — do nothing
+        clearTimeout(state.timer);
+        console.log('🔒 Iframe blocked — showing message inside modal');
+        iframe.style.display = 'none';
+        blockedMsg.style.display = 'block';
+    }
 
+    // Detect blocked iframe on load
     iframe.onload = () => {
+        if (state.cancelled) return;
         try {
             const doc = iframe.contentDocument || iframe.contentWindow.document;
             if (!doc || doc.body === null || doc.body.innerHTML === '') {
                 throw new Error('Empty or inaccessible');
             }
+            // Iframe loaded successfully
+            state.iframeLoaded = true;
+            clearTimeout(state.timer);
             console.log('✅ Iframe loaded successfully');
         } catch (e) {
-            if (!autoFallbackDone) {
-                autoFallbackDone = true;
-                console.log('⚠️ Iframe blocked by X-Frame-Options — opening in new tab');
-                mediaOverlay.classList.remove('active');
-                window.open(url, '_blank');
-            }
+            showBlockedMessage();
         }
     };
 
-    // Belt-and-suspenders: if iframe hasn't confirmed a real load in 2.5s, open new tab
-    setTimeout(() => {
-        if (!autoFallbackDone) {
-            try {
-                const doc = iframe.contentDocument || iframe.contentWindow.document;
-                if (!doc || doc.body === null || doc.body.innerHTML === '') {
-                    autoFallbackDone = true;
-                    console.log('⏱️ Iframe timeout — opening in new tab');
-                    mediaOverlay.classList.remove('active');
-                    window.open(url, '_blank');
-                }
-            } catch (e) {
-                autoFallbackDone = true;
-                console.log('⏱️ Iframe blocked (timeout) — opening in new tab');
-                mediaOverlay.classList.remove('active');
-                window.open(url, '_blank');
+    // Belt-and-suspenders timeout — if iframe hasn't confirmed load in 2.5s,
+    // show blocked message inside the modal. Never opens new tab automatically.
+    state.timer = setTimeout(() => {
+        if (state.cancelled || state.iframeLoaded) return;
+        try {
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            if (!doc || doc.body === null || doc.body.innerHTML === '') {
+                console.log('⏱️ Iframe timeout — showing blocked message in modal');
+                showBlockedMessage();
             }
+        } catch (e) {
+            console.log('⏱️ Iframe blocked (timeout) — showing blocked message in modal');
+            showBlockedMessage();
         }
     }, 2500);
 
     wrapper.appendChild(iframe);
-    wrapper.appendChild(fallbackBtn);
+    wrapper.appendChild(blockedMsg);
     mediaPlayer.appendChild(wrapper);
     mediaOverlay.classList.add('active');
 }
@@ -800,9 +844,16 @@ function showAnimatedMedia(url) {
 }
 
 /**
- * Close media overlay
+ * Close media overlay.
+ * Cancels any active link popup timer so nothing fires after ✕ is pressed.
  */
 function closeMedia() {
+    // Kill any pending link popup timer/callbacks immediately
+    if (linkPopupState) {
+        clearTimeout(linkPopupState.timer);
+        linkPopupState.cancelled = true;
+        linkPopupState = null;
+    }
     mediaOverlay.classList.remove('active');
     mediaPlayer.innerHTML = '';
 }
