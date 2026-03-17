@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Use — 3C Public Library</title>
+    <link rel="icon" type="image/png" href="favicon1.png">
+    <style>
+        :root {
+            --bg-primary:     #0a0e27;
+            --bg-secondary:   rgba(26, 26, 26, 0.95);
+            --text-primary:   #ffffff;
+            --text-secondary: #d0c8e8;
+            --text-muted:     #9b9b9b;
+            --purple-light:   #c084fc;
+            --purple-mid:     #9b59b6;
+            --purple-dark:    #663399;
+            --border:         rgba(155, 89, 182, 0.25);
+            --card-bg:        rgba(88, 28, 135, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(135deg, #2d1b69 0%, #4a2c8f 50%, #3b1f7a 100%);
+            padding: 20px;
+            box-shadow: 0 2px 20px rgba(74, 44, 143, 0.4);
+            border-bottom: 1px solid rgba(155, 89, 182, 0.3);
+        }
+
+        .header .inner {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-img {
+            height: 46px;
+            width: 46px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: white;
+            padding: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            color: var(--purple-light);
+            font-size: 22px;
+            font-weight: 800;
+            text-shadow: 0 0 18px rgba(192, 132, 252, 0.45);
+        }
+
+        .back-link {
+            color: var(--purple-mid);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border: 1px solid rgba(155, 89, 182, 0.35);
+            border-radius: 8px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .back-link:hover {
+            background: rgba(155, 89, 182, 0.12);
+            color: var(--purple-light);
+            border-color: rgba(155, 89, 182, 0.55);
+        }
+
+        /* ── Main content ── */
+        .page-wrap {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 48px 20px 80px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--purple-light);
+            text-shadow: 0 0 20px rgba(192, 132, 252, 0.35);
+            margin-bottom: 6px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+        }
+
+        .page-subtitle strong { color: var(--purple-mid); }
+
+        /* ── Sections ── */
+        section {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        section::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(155,89,182,0.4), transparent);
+        }
+
+        h2 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--purple-light);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h2 .icon { font-size: 20px; }
+
+        p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        p:last-child { margin-bottom: 0; }
+
+        ul, ol {
+            padding-left: 20px;
+            margin-bottom: 12px;
+        }
+
+        li {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 7px;
+            line-height: 1.6;
+        }
+
+        li:last-child { margin-bottom: 0; }
+
+        strong { color: #ffffff; font-weight: 600; }
+
+        a {
+            color: var(--purple-mid);
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        a:hover { color: var(--purple-light); }
+
+        /* ── Warning box ── */
+        .warning-box {
+            background: rgba(255, 107, 53, 0.08);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-top: 14px;
+        }
+
+        .warning-box p {
+            margin-bottom: 0;
+            font-size: 13px;
+            color: #ffb08a;
+        }
+
+        /* ── Highlight box ── */
+        .highlight-box {
+            background: rgba(155, 89, 182, 0.1);
+            border: 1px solid rgba(155, 89, 182, 0.3);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-top: 14px;
+        }
+
+        .highlight-box p {
+            margin-bottom: 0;
+            font-size: 13px;
+        }
+
+        /* ── Footer ── */
+        footer {
+            text-align: center;
+            padding: 24px 20px;
+            border-top: 1px solid rgba(155, 89, 182, 0.2);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        footer a {
+            color: var(--purple-mid);
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        footer a:hover { color: var(--purple-light); }
+
+        footer span {
+            color: #555;
+            font-size: 11px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 600px) {
+            .page-title { font-size: 24px; }
+            section { padding: 20px 18px; }
+            .header h1 { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="inner">
+            <div class="header-left">
+                <img src="3C Thread To Success logo.png" alt="3C Logo" class="logo-img">
+                <h1>3C Public Library</h1>
+            </div>
+            <a href="library.html" class="back-link">← Back to Library</a>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="page-wrap">
+
+        <h1 class="page-title">Terms of Use</h1>
+        <p class="page-subtitle">
+            Last updated: <strong>March 2026</strong> &nbsp;·&nbsp;
+            Applies to: <strong>3c-public-library.org</strong>
+        </p>
+
+        <!-- 1. Acceptance -->
+        <section>
+            <h2><span class="icon">📌</span> Acceptance of Terms</h2>
+            <p>
+                By accessing or using the 3C Public Library ("the Library"), you agree to be
+                bound by these Terms of Use. If you do not agree with any part of these terms,
+                please do not use the Library.
+            </p>
+            <p>
+                These terms apply to all visitors and users of
+                <strong>3c-public-library.org</strong> and any related pages or sub-domains
+                operated by <strong>3C Thread To Success</strong>.
+            </p>
+        </section>
+
+        <!-- 2. About the Library -->
+        <section>
+            <h2><span class="icon">📚</span> About the 3C Public Library</h2>
+            <p>
+                The 3C Public Library is an educational platform providing personal development
+                content, interactive presentations, flipbooks, documents, and multimedia resources
+                created and curated by <strong>3C Thread To Success</strong>.
+            </p>
+            <p>
+                The Library is intended for personal learning and self-development purposes.
+                Content is made available to registered members and, where marked, to the
+                general public.
+            </p>
+        </section>
+
+        <!-- 3. Intellectual property -->
+        <section>
+            <h2><span class="icon">©️</span> Intellectual Property</h2>
+            <p>
+                All content available through the 3C Public Library — including but not limited
+                to presentations, flipbooks, PDFs, videos, audio, graphics, text, course materials,
+                and interactive elements — is the exclusive intellectual property of
+                <strong>3C Thread To Success</strong> unless otherwise stated.
+            </p>
+            <ul>
+                <li>You may access and view content for your own personal, non-commercial use.</li>
+                <li>You may <strong>not</strong> copy, reproduce, redistribute, republish, upload,
+                    or transmit any content without prior written permission.</li>
+                <li>You may <strong>not</strong> use any content for commercial purposes, resale,
+                    or to create derivative works.</li>
+                <li>The 3C name, logo, and brand identity are protected trademarks of
+                    3C Thread To Success.</li>
+            </ul>
+            <div class="highlight-box">
+                <p>
+                    💡 If you would like to share or reference any content from the Library,
+                    please contact us first at
+                    <a href="mailto:3c.innertherapy@gmail.com">3c.innertherapy@gmail.com</a>
+                    to request permission.
+                </p>
+            </div>
+        </section>
+
+        <!-- 4. Acceptable use -->
+        <section>
+            <h2><span class="icon">✅</span> Acceptable Use</h2>
+            <p>When using the 3C Public Library, you agree to:</p>
+            <ul>
+                <li>Use the Library only for lawful purposes and in a way that does not
+                    infringe the rights of others.</li>
+                <li>Treat other community members with respect in comments and interactions.</li>
+                <li>Provide accurate information when submitting comments or contact forms.</li>
+                <li>Not attempt to gain unauthorised access to any part of the Library or
+                    its infrastructure.</li>
+                <li>Not interfere with or disrupt the operation of the Library or its
+                    servers.</li>
+                <li>Not use automated tools, scrapers, or bots to access or extract
+                    content without written permission.</li>
+            </ul>
+        </section>
+
+        <!-- 5. Prohibited conduct -->
+        <section>
+            <h2><span class="icon">🚫</span> Prohibited Conduct</h2>
+            <p>The following are strictly prohibited:</p>
+            <ul>
+                <li>Posting comments that are defamatory, abusive, hateful, or
+                    discriminatory in nature.</li>
+                <li>Sharing, distributing, or re-uploading Library content to other
+                    platforms without permission.</li>
+                <li>Impersonating 3C Thread To Success or any member of our team.</li>
+                <li>Using the Library to promote unsolicited advertising or spam.</li>
+                <li>Attempting to reverse-engineer, decompile, or extract source code
+                    from the Library platform.</li>
+            </ul>
+            <div class="warning-box">
+                <p>
+                    ⚠️ Violation of these terms may result in immediate removal of access
+                    and, where applicable, legal action to protect our intellectual property.
+                </p>
+            </div>
+        </section>
+
+        <!-- 6. Comments & user content -->
+        <section>
+            <h2><span class="icon">💬</span> Comments &amp; User Submissions</h2>
+            <p>
+                When you post a comment on the Library, you grant <strong>3C Thread To
+                Success</strong> a non-exclusive, royalty-free licence to display that comment
+                on the platform.
+            </p>
+            <p>
+                You remain responsible for the content of your comments. We reserve the right
+                to remove any comment that violates these terms or that we deem inappropriate,
+                without notice or explanation.
+            </p>
+            <p>
+                We do not endorse or take responsibility for any views expressed in user
+                comments.
+            </p>
+        </section>
+
+        <!-- 7. Third-party links -->
+        <section>
+            <h2><span class="icon">🔗</span> Third-Party Links &amp; Content</h2>
+            <p>
+                The Library may contain links to external websites or embed third-party content
+                (such as videos). These are provided for convenience and informational purposes only.
+            </p>
+            <p>
+                <strong>3C Thread To Success</strong> has no control over the content or
+                availability of external sites and accepts no responsibility for them. Accessing
+                external links is at your own risk. We encourage you to review the privacy policies
+                of any third-party sites you visit.
+            </p>
+        </section>
+
+        <!-- 8. Disclaimer -->
+        <section>
+            <h2><span class="icon">⚠️</span> Disclaimer of Warranties</h2>
+            <p>
+                The 3C Public Library and all content within it is provided <strong>"as is"</strong>
+                without warranties of any kind, express or implied.
+            </p>
+            <p>
+                While we strive to ensure all content is accurate and up to date, we make no
+                guarantee that the Library will be error-free, uninterrupted, or free from
+                harmful components. Content is intended for general educational purposes and
+                does not constitute professional advice (legal, financial, medical, or otherwise).
+            </p>
+        </section>
+
+        <!-- 9. Limitation of liability -->
+        <section>
+            <h2><span class="icon">🛡️</span> Limitation of Liability</h2>
+            <p>
+                To the fullest extent permitted by applicable law, <strong>3C Thread To
+                Success</strong> shall not be liable for any direct, indirect, incidental,
+                consequential, or punitive damages arising from:
+            </p>
+            <ul>
+                <li>Your use of or inability to access the Library</li>
+                <li>Any errors or omissions in the content</li>
+                <li>Any unauthorised access to or alteration of your data</li>
+                <li>Any actions taken by third parties in connection with the Library</li>
+            </ul>
+        </section>
+
+        <!-- 10. Access & availability -->
+        <section>
+            <h2><span class="icon">🔑</span> Access &amp; Availability</h2>
+            <p>
+                We reserve the right to modify, suspend, or discontinue any part of the
+                Library at any time, with or without notice. We may also restrict access to
+                certain content or sections of the Library at our sole discretion.
+            </p>
+            <p>
+                Member access may be revoked at any time if these Terms of Use are breached
+                or if we determine that access is being misused.
+            </p>
+        </section>
+
+        <!-- 11. Governing law -->
+        <section>
+            <h2><span class="icon">⚖️</span> Governing Law</h2>
+            <p>
+                These Terms of Use are governed by and construed in accordance with applicable
+                law. Any disputes arising from the use of the 3C Public Library shall be
+                subject to the jurisdiction of the courts applicable to the location of
+                <strong>3C Thread To Success</strong>.
+            </p>
+            <p>
+                If any provision of these terms is found to be unenforceable, the remaining
+                provisions will continue in full force and effect.
+            </p>
+        </section>
+
+        <!-- 12. Changes to terms -->
+        <section>
+            <h2><span class="icon">🔄</span> Changes to These Terms</h2>
+            <p>
+                We may update these Terms of Use from time to time. The "Last updated" date
+                at the top of this page will reflect any changes. Continued use of the Library
+                after changes are posted constitutes your acceptance of the revised terms.
+            </p>
+            <p>
+                For significant changes, we will make reasonable efforts to notify users
+                via the Library platform.
+            </p>
+        </section>
+
+        <!-- 13. Contact -->
+        <section>
+            <h2><span class="icon">📬</span> Contact Us</h2>
+            <p>
+                If you have any questions about these Terms of Use, or wish to request
+                permission to use our content:
+            </p>
+            <ul>
+                <li><strong>Email:</strong> <a href="mailto:3c.innertherapy@gmail.com">3c.innertherapy@gmail.com</a></li>
+                <li><strong>Website:</strong> <a href="https://www.3c-innergrowth.com" target="_blank" rel="noopener">www.3c-innergrowth.com</a></li>
+            </ul>
+        </section>
+
+    </div><!-- /page-wrap -->
+
+    <!-- Footer -->
+    <footer>
+        <a href="library.html">← Back to Library</a>
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="terms.html">Terms of Use</a>
+        <span>© <script>document.write(new Date().getFullYear())</script> 3C Thread To Success. All rights reserved.</span>
+    </footer>
+
+    <script src="cookie-banner.js"></script>
+
+</body>
+</html>
