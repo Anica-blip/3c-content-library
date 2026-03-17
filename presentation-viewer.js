@@ -195,16 +195,18 @@ async function loadContentFromSupabase(id) {
  */
 function detectPageOrientation() {
     // Start with landscape as default (already set in global variables)
+    // CRITICAL: Use EDITOR dimensions (842×595) not A4 — content is created at editor scale
+    // This ensures calculateOptimalScale() produces the same result as the admin viewer
     isLandscape = true;
-    currentPageWidth = A4_HEIGHT_PX;
-    currentPageHeight = A4_WIDTH_PX;
+    currentPageWidth = EDITOR_HEIGHT_PX;  // Landscape: 842px (editor canvas width)
+    currentPageHeight = EDITOR_WIDTH_PX;  // Landscape: 595px (editor canvas height)
     
     // Check manifest metadata for orientation
     if (manifest.orientation) {
         if (manifest.orientation === 'portrait') {
             isLandscape = false;
-            currentPageWidth = A4_WIDTH_PX;
-            currentPageHeight = A4_HEIGHT_PX;
+            currentPageWidth = EDITOR_WIDTH_PX;   // Portrait: 595px
+            currentPageHeight = EDITOR_HEIGHT_PX; // Portrait: 842px
             console.log('📐 Portrait orientation from manifest metadata');
         } else {
             console.log('📐 Landscape orientation from manifest metadata');
@@ -217,8 +219,8 @@ function detectPageOrientation() {
             // Only switch to portrait if height is clearly greater than width
             if (firstPage.height > firstPage.width) {
                 isLandscape = false;
-                currentPageWidth = A4_WIDTH_PX;
-                currentPageHeight = A4_HEIGHT_PX;
+                currentPageWidth = EDITOR_WIDTH_PX;   // Portrait: 595px
+                currentPageHeight = EDITOR_HEIGHT_PX; // Portrait: 842px
                 console.log('📐 Portrait detected from page dimensions:', firstPage.width, 'x', firstPage.height);
             } else {
                 console.log('📐 Landscape detected from page dimensions:', firstPage.width, 'x', firstPage.height);
