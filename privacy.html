@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — 3C Public Library</title>
+    <link rel="icon" type="image/png" href="favicon1.png">
+    <style>
+        :root {
+            --bg-primary:     #0a0e27;
+            --bg-secondary:   rgba(26, 26, 26, 0.95);
+            --text-primary:   #ffffff;
+            --text-secondary: #d0c8e8;
+            --text-muted:     #9b9b9b;
+            --purple-light:   #c084fc;
+            --purple-mid:     #9b59b6;
+            --purple-dark:    #663399;
+            --border:         rgba(155, 89, 182, 0.25);
+            --card-bg:        rgba(88, 28, 135, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(135deg, #2d1b69 0%, #4a2c8f 50%, #3b1f7a 100%);
+            padding: 20px;
+            box-shadow: 0 2px 20px rgba(74, 44, 143, 0.4);
+            border-bottom: 1px solid rgba(155, 89, 182, 0.3);
+        }
+
+        .header .inner {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-img {
+            height: 46px;
+            width: 46px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: white;
+            padding: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            color: var(--purple-light);
+            font-size: 22px;
+            font-weight: 800;
+            text-shadow: 0 0 18px rgba(192, 132, 252, 0.45);
+        }
+
+        .back-link {
+            color: var(--purple-mid);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border: 1px solid rgba(155, 89, 182, 0.35);
+            border-radius: 8px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .back-link:hover {
+            background: rgba(155, 89, 182, 0.12);
+            color: var(--purple-light);
+            border-color: rgba(155, 89, 182, 0.55);
+        }
+
+        /* ── Main content ── */
+        .page-wrap {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 48px 20px 80px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--purple-light);
+            text-shadow: 0 0 20px rgba(192, 132, 252, 0.35);
+            margin-bottom: 6px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+        }
+
+        .page-subtitle strong {
+            color: var(--purple-mid);
+        }
+
+        /* ── Sections ── */
+        section {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        section::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(155,89,182,0.4), transparent);
+        }
+
+        h2 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--purple-light);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h2 .icon { font-size: 20px; }
+
+        p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        p:last-child { margin-bottom: 0; }
+
+        ul, ol {
+            padding-left: 20px;
+            margin-bottom: 12px;
+        }
+
+        li {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 7px;
+            line-height: 1.6;
+        }
+
+        li:last-child { margin-bottom: 0; }
+
+        strong { color: #ffffff; font-weight: 600; }
+
+        a {
+            color: var(--purple-mid);
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        a:hover { color: var(--purple-light); }
+
+        /* ── Cookie anchor highlight ── */
+        #cookies {
+            scroll-margin-top: 30px;
+            border-color: rgba(155, 89, 182, 0.45);
+        }
+
+        /* ── Table ── */
+        .cookie-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 14px;
+            font-size: 13px;
+        }
+
+        .cookie-table th {
+            background: rgba(155, 89, 182, 0.18);
+            color: var(--purple-light);
+            font-weight: 700;
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .cookie-table td {
+            padding: 10px 14px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(155, 89, 182, 0.1);
+            vertical-align: top;
+        }
+
+        .cookie-table tr:last-child td { border-bottom: none; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 9px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-essential {
+            background: rgba(76, 175, 80, 0.15);
+            color: #81c784;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        .badge-functional {
+            background: rgba(155, 89, 182, 0.15);
+            color: #c084fc;
+            border: 1px solid rgba(155, 89, 182, 0.3);
+        }
+
+        /* ── Highlight box ── */
+        .highlight-box {
+            background: rgba(155, 89, 182, 0.1);
+            border: 1px solid rgba(155, 89, 182, 0.3);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-top: 14px;
+        }
+
+        .highlight-box p {
+            margin-bottom: 0;
+            font-size: 13px;
+        }
+
+        /* ── Footer ── */
+        footer {
+            text-align: center;
+            padding: 24px 20px;
+            border-top: 1px solid rgba(155, 89, 182, 0.2);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        footer a {
+            color: var(--purple-mid);
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        footer a:hover { color: var(--purple-light); }
+
+        footer span {
+            color: #555;
+            font-size: 11px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 600px) {
+            .page-title { font-size: 24px; }
+            section { padding: 20px 18px; }
+            .header h1 { font-size: 18px; }
+            .cookie-table { font-size: 12px; }
+            .cookie-table th, .cookie-table td { padding: 8px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header">
+        <div class="inner">
+            <div class="header-left">
+                <img src="3C Thread To Success logo.png" alt="3C Logo" class="logo-img">
+                <h1>3C Public Library</h1>
+            </div>
+            <a href="library.html" class="back-link">← Back to Library</a>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="page-wrap">
+
+        <h1 class="page-title">Privacy Policy</h1>
+        <p class="page-subtitle">
+            Last updated: <strong>March 2026</strong> &nbsp;·&nbsp;
+            Applies to: <strong>3c-public-library.org</strong>
+        </p>
+
+        <!-- 1. Who we are -->
+        <section>
+            <h2><span class="icon">👤</span> Who We Are</h2>
+            <p>
+                The 3C Public Library is operated by <strong>3C Thread To Success</strong>, a personal
+                development and leadership training brand. Our platform provides educational content,
+                interactive presentations, and learning resources to our community.
+            </p>
+            <p>
+                For any privacy-related questions or requests, you can contact us at:<br>
+                <strong>📧 <a href="mailto:3c.innertherapy@gmail.com">3c.innertherapy@gmail.com</a></strong>
+            </p>
+        </section>
+
+        <!-- 2. What data we collect -->
+        <section>
+            <h2><span class="icon">📋</span> What Data We Collect</h2>
+            <p>We collect only what is necessary to operate the library and serve our community.</p>
+            <ul>
+                <li>
+                    <strong>Comments:</strong> When you post a comment, we collect your
+                    <strong>name</strong> and optionally your <strong>email address</strong>.
+                    Your email is never displayed publicly.
+                </li>
+                <li>
+                    <strong>Usage data:</strong> Standard web server logs may record your IP address,
+                    browser type, and pages visited. This data is used solely for security and
+                    performance purposes and is not shared with third parties.
+                </li>
+                <li>
+                    <strong>Session data:</strong> When you access the library, a session cookie is
+                    set to keep you authenticated. No personal profile is created automatically.
+                </li>
+            </ul>
+            <p>We do <strong>not</strong> collect payment data, run advertising trackers, or sell
+            any personal data to third parties.</p>
+        </section>
+
+        <!-- 3. How we use your data -->
+        <section>
+            <h2><span class="icon">🎯</span> How We Use Your Data</h2>
+            <ul>
+                <li>To display your comments on the content you engage with</li>
+                <li>To maintain your session so you do not need to log in repeatedly</li>
+                <li>To keep the library secure and monitor for abuse</li>
+                <li>To improve content and understand how resources are used (anonymised)</li>
+            </ul>
+            <p>
+                We process this data on the legal basis of <strong>legitimate interest</strong>
+                (running and securing the platform) and <strong>consent</strong> (optional
+                cookies and comments you choose to submit).
+            </p>
+        </section>
+
+        <!-- 4. Data storage & third parties -->
+        <section>
+            <h2><span class="icon">🗄️</span> Data Storage &amp; Third Parties</h2>
+            <p>Your data is stored using the following services:</p>
+            <ul>
+                <li>
+                    <strong>Supabase</strong> — database and authentication provider.
+                    Data is stored on servers within the EU/US under Supabase's
+                    <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Privacy Policy</a>.
+                </li>
+                <li>
+                    <strong>Cloudflare</strong> — content delivery, storage (R2), and Workers.
+                    Governed by Cloudflare's
+                    <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Privacy Policy</a>.
+                </li>
+                <li>
+                    <strong>Cloudflare Pages</strong> — hosting platform for this website,
+                    in addition to Cloudflare's CDN, Workers, and R2 storage listed above.
+                    All governed by Cloudflare's
+                    <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Privacy Policy</a>.
+                </li>
+            </ul>
+            <p>None of these providers sell your data. We do not use Google Analytics, Facebook
+            Pixel, or any advertising trackers.</p>
+        </section>
+
+        <!-- 5. How long we keep your data -->
+        <section>
+            <h2><span class="icon">🕐</span> How Long We Keep Your Data</h2>
+            <ul>
+                <li><strong>Comments:</strong> Kept until you request deletion or the content is removed.</li>
+                <li><strong>Session cookies:</strong> Expire when you close your browser or within 7 days.</li>
+                <li><strong>Server logs:</strong> Automatically deleted after 30 days.</li>
+            </ul>
+        </section>
+
+        <!-- 6. Your rights -->
+        <section>
+            <h2><span class="icon">⚖️</span> Your Rights (GDPR)</h2>
+            <p>If you are in the EU or UK, you have the following rights regarding your personal data:</p>
+            <ul>
+                <li><strong>Right of access</strong> — request a copy of data we hold about you</li>
+                <li><strong>Right to rectification</strong> — ask us to correct inaccurate data</li>
+                <li><strong>Right to erasure</strong> — ask us to delete your data ("right to be forgotten")</li>
+                <li><strong>Right to restrict processing</strong> — ask us to limit how we use your data</li>
+                <li><strong>Right to object</strong> — object to processing based on legitimate interest</li>
+                <li><strong>Right to data portability</strong> — request your data in a portable format</li>
+            </ul>
+            <p>
+                To exercise any of these rights, email us at
+                <a href="mailto:3c.innertherapy@gmail.com">3c.innertherapy@gmail.com</a>.
+                We will respond within <strong>30 days</strong>.
+            </p>
+            <div class="highlight-box">
+                <p>
+                    🇪🇺 You also have the right to lodge a complaint with your local data protection
+                    authority. In the UK this is the
+                    <a href="https://ico.org.uk" target="_blank" rel="noopener">ICO</a>.
+                    In the EU, find your authority at
+                    <a href="https://edpb.europa.eu/about-edpb/about-edpb/members_en" target="_blank" rel="noopener">edpb.europa.eu</a>.
+                </p>
+            </div>
+        </section>
+
+        <!-- 7. Cookies (anchor: #cookies) -->
+        <section id="cookies">
+            <h2><span class="icon">🍪</span> Cookie Policy</h2>
+            <p>
+                Cookies are small text files stored on your device. We use the following
+                cookies on the 3C Public Library:
+            </p>
+
+            <table class="cookie-table">
+                <thead>
+                    <tr>
+                        <th>Cookie</th>
+                        <th>Type</th>
+                        <th>Purpose</th>
+                        <th>Expires</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>sb-*</code></td>
+                        <td><span class="badge badge-essential">Essential</span></td>
+                        <td>Supabase authentication session. Required for the library to function.</td>
+                        <td>7 days</td>
+                    </tr>
+                    <tr>
+                        <td><code>3c_cookie_consent</code></td>
+                        <td><span class="badge badge-essential">Essential</span></td>
+                        <td>Stores your cookie preference so the banner does not show on every visit.</td>
+                        <td>1 year</td>
+                    </tr>
+                    <tr>
+                        <td><code>__cf_*</code></td>
+                        <td><span class="badge badge-essential">Essential</span></td>
+                        <td>Cloudflare security and performance cookies. Help protect against bots.</td>
+                        <td>Session</td>
+                    </tr>
+                    <tr>
+                        <td>Functional storage</td>
+                        <td><span class="badge badge-functional">Functional</span></td>
+                        <td>
+                            Browser <code>localStorage</code> used to remember your preferences
+                            (e.g. zoom level in the viewer). No personal data is stored.
+                        </td>
+                        <td>Until cleared</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p style="margin-top: 16px;">
+                You can manage or withdraw your cookie consent at any time using the
+                <strong>Cookie Settings</strong> link in the page footer, or by clearing
+                your browser cookies.
+            </p>
+        </section>
+
+        <!-- 8. Children -->
+        <section>
+            <h2><span class="icon">🧒</span> Children's Privacy</h2>
+            <p>
+                The 3C Public Library is intended for users aged <strong>16 and over</strong>.
+                We do not knowingly collect personal data from children under 16. If you believe
+                a child has submitted data to us, please contact us and we will delete it promptly.
+            </p>
+        </section>
+
+        <!-- 9. Changes -->
+        <section>
+            <h2><span class="icon">🔄</span> Changes to This Policy</h2>
+            <p>
+                We may update this Privacy Policy from time to time. When we do, the
+                "Last updated" date at the top of this page will change. We encourage
+                you to review this page periodically. Continued use of the library after
+                changes are posted constitutes your acceptance of the updated policy.
+            </p>
+        </section>
+
+        <!-- 10. Contact -->
+        <section>
+            <h2><span class="icon">📬</span> Contact Us</h2>
+            <p>
+                If you have any questions about this Privacy Policy or how we handle your data:
+            </p>
+            <ul>
+                <li><strong>Email:</strong> <a href="mailto:3c.innertherapy@gmail.com">3c.innertherapy@gmail.com</a></li>
+                <li><strong>Website:</strong> <a href="https://www.3c-innergrowth.com" target="_blank" rel="noopener">www.3c-innergrowth.com</a></li>
+            </ul>
