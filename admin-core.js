@@ -9,6 +9,7 @@ let currentThumbnail = null;
 let debugMode = false;
 let folders = [];
 let allContent = [];
+let vaultFolders = []; // Vault folders — separate from library folders
 
 // ==================== UTILITY FUNCTIONS ====================
 function debugLog(message) {
@@ -243,6 +244,12 @@ async function connectSupabase() {
         
         await supabaseClient.init(url, key);
         
+        // Also init vault client with same credentials
+        if (typeof vaultClient !== 'undefined') {
+            await vaultClient.init(url, key);
+            console.log('✅ Vault client also initialized');
+        }
+        
         saveSupabaseCredentials(url, key);
         updateConnectionStatus(true);
         showAlert('success', '✅ Connected to Supabase successfully!');
@@ -288,8 +295,20 @@ function updateConnectionStatus(connected) {
 // ==================== DATA LOADING ====================
 async function loadAllData() {
     try {
-        // Load folders
+        // Load library folders
         folders = await supabaseClient.getFolders();
+
+        // Load vault folders
+        if (typeof vaultClient !== 'undefined' && vaultClient.isConnected) {
+            try {
+                vaultFolders = await vaultClient.getFolders();
+                console.log('🥷 Vault folders loaded:', vaultFolders.length);
+            } catch (e) {
+                console.warn('⚠️ Could not load vault folders:', e.message);
+                vaultFolders = [];
+            }
+        }
+
         updateFolderSelects();
         displayFolders();
         
@@ -299,7 +318,7 @@ async function loadAllData() {
         // Load stats
         await loadStats();
         
-        debugLog('📊 Data loaded: ' + folders.length + ' folders, ' + allContent.length + ' content items');
+        debugLog('📊 Data loaded: ' + folders.length + ' folders, ' + allContent.length + ' content items, ' + vaultFolders.length + ' vault folders');
     } catch (error) {
         debugLog('❌ Error loading data: ' + error.message);
         showAlert('error', 'Error loading data: ' + error.message);
@@ -470,15 +489,25 @@ async function createFolder() {
     console.log('✅ All validations passed, proceeding to create folder...');
     
     try {
-        console.log('📁 Creating folder in Supabase...');
+        console.log('📁 Creating folder...');
         debugLog('📁 Creating folder: ' + title + ' (type: ' + folderType + ', table: ' + tableName + ', visibility: ' + visibility + ', parent: ' + (parentId || 'root') + ', custom URL: ' + (customURL || 'auto') + ')');
         const isPublic = visibility === 'public';
-        const folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
-        
-        console.log('✅ Folder created:', folder);
-        const folderTypeLabel = folderType === 'sub_root' ? 'Sub-root folder' : 'Root folder';
-        const displayURL = folder.custom_url || folder.slug;
-        showAlert('success', `✅ ${folderTypeLabel} created: ${displayURL} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}`);
+
+        // ── Route by destination ──
+        const destination = document.getElementById('folderDestination')?.value || 'library';
+        let folder;
+
+        if (destination === 'vault') {
+            console.log('🥷 Creating vault folder in vault_folders...');
+            folder = await vaultClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
+            const displayURL = folder.custom_url || folder.slug;
+            showAlert('success', `✅ Vault folder created: ${displayURL} → vault_folders`);
+        } else {
+            folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
+            const folderTypeLabel = folderType === 'sub_root' ? 'Sub-root folder' : 'Root folder';
+            const displayURL = folder.custom_url || folder.slug;
+            showAlert('success', `✅ ${folderTypeLabel} created: ${displayURL} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}`);
+        }
         
         // Reset form
         document.getElementById('folderTitle').value = '';
@@ -611,7 +640,13 @@ async function deleteFolder(folderId) {
     }
     
     try {
-        await supabaseClient.deleteFolder(folderId);
+        // Detect if vault folder
+        const isVault = vaultFolders.some(f => f.id === folderId);
+        if (isVault) {
+            await vaultClient.deleteFolder(folderId);
+        } else {
+            await supabaseClient.deleteFolder(folderId);
+        }
         showAlert('success', '✅ Folder deleted');
         await loadAllData();
     } catch (error) {
@@ -839,15 +874,28 @@ async function saveContent(event) {
         };
         
         if (editMode) {
-            // Update existing content
-            debugLog('✏️ Updating content: ' + contentId);
-            await supabaseClient.updateContent(contentId, contentData, folderId);
+            // Detect if this is a vault content item by checking folder ownership
+            const isVault = vaultFolders.some(f => f.id === folderId);
+            if (isVault) {
+                debugLog('✏️ Updating vault content: ' + contentId);
+                await vaultClient.updateContent(contentId, contentData);
+            } else {
+                debugLog('✏️ Updating library content: ' + contentId);
+                await supabaseClient.updateContent(contentId, contentData, folderId);
+            }
             const displayURL = customURL || 'auto-generated';
             showAlert('success', `✅ Content updated (URL: ${displayURL})`);
         } else {
-            // Create new content
-            debugLog('➕ Creating new content: ' + title);
-            const result = await supabaseClient.createContent(contentData);
+            // ── Route by destination ──
+            const destination = document.getElementById('contentDestination')?.value || 'library';
+            let result;
+            if (destination === 'vault') {
+                debugLog('🥷 Creating vault content: ' + title);
+                result = await vaultClient.createContent(contentData);
+            } else {
+                debugLog('➕ Creating library content: ' + title);
+                result = await supabaseClient.createContent(contentData);
+            }
             const displayURL = result.custom_url || result.slug;
             showAlert('success', `✅ Content saved (URL: ${displayURL})`);
         }
@@ -910,7 +958,13 @@ async function deleteContent(contentId) {
     }
     
     try {
-        await supabaseClient.deleteContent(contentId, content.folder_id);
+        // Detect if vault content by checking folder ownership
+        const isVault = vaultFolders.some(f => f.id === content.folder_id);
+        if (isVault) {
+            await vaultClient.deleteContent(contentId);
+        } else {
+            await supabaseClient.deleteContent(contentId, content.folder_id);
+        }
         showAlert('success', '✅ Content deleted');
         await loadAllData();
     } catch (error) {
@@ -956,6 +1010,10 @@ function resetContentForm() {
 function updateFolderSelects() {
     const selects = ['contentFolder', 'filterFolder', 'parentFolder'];
     
+    // Determine which folder list to use for content/filter dropdowns
+    const destination = document.getElementById('contentDestination')?.value || 'library';
+    const activeFolders = destination === 'vault' ? vaultFolders : folders;
+
     selects.forEach(selectId => {
         const select = document.getElementById(selectId);
         if (!select) return;
@@ -963,26 +1021,27 @@ function updateFolderSelects() {
         const currentValue = select.value;
         const isParentSelect = selectId === 'parentFolder';
         
+        // For parentFolder always use library folders (vault folders managed in vault admin)
+        const folderList = isParentSelect ? folders : activeFolders;
+
         // Keep first option
         const firstOption = select.options[0];
         select.innerHTML = '';
         select.appendChild(firstOption);
         
-        if (folders.length === 0) return;
+        if (folderList.length === 0) return;
         
         // For parent folder dropdown, show all folders hierarchically (root and sub-folders)
         if (isParentSelect) {
-            const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
+            const rootFolders = folderList.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
             
-            // Helper function to recursively add subfolders
             const addFolderWithChildren = (folder, indent = '') => {
                 const option = document.createElement('option');
                 option.value = folder.id;
                 option.textContent = `${indent}${folder.folder_type === 'root' ? '📁' : '📂'} ${folder.title}`;
                 select.appendChild(option);
                 
-                // Add subfolders recursively
-                const subfolders = folders.filter(f => f.parent_id === folder.id).sort((a, b) => a.title.localeCompare(b.title));
+                const subfolders = folderList.filter(f => f.parent_id === folder.id).sort((a, b) => a.title.localeCompare(b.title));
                 subfolders.forEach(subfolder => {
                     addFolderWithChildren(subfolder, indent + '  └─ ');
                 });
@@ -992,20 +1051,18 @@ function updateFolderSelects() {
                 addFolderWithChildren(folder);
             });
         } else {
-            // For content folder dropdown - show folders hierarchically grouped by root folder
-            // Get root folders sorted alphabetically
-            const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
+            // Content/filter folder dropdown — grouped by root
+            const rootFolders = folderList.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
             
-            // Helper function to recursively add subfolders with content count
             const addFolderWithChildrenAndCount = (folder, indent = '') => {
                 const option = document.createElement('option');
                 option.value = folder.id;
-                const contentCount = folder.item_count || 0;
-                option.textContent = `${indent}${folder.folder_type === 'root' ? '📁' : '📂'} ${folder.title} (${contentCount} items)`;
+                const contentCount = folder.actual_item_count || folder.item_count || 0;
+                const prefix = destination === 'vault' ? '🥷' : (folder.folder_type === 'root' ? '📁' : '📂');
+                option.textContent = `${indent}${prefix} ${folder.title} (${contentCount} items)`;
                 select.appendChild(option);
                 
-                // Add subfolders recursively
-                const subfolders = folders.filter(f => f.parent_id === folder.id).sort((a, b) => a.title.localeCompare(b.title));
+                const subfolders = folderList.filter(f => f.parent_id === folder.id).sort((a, b) => a.title.localeCompare(b.title));
                 subfolders.forEach(subfolder => {
                     addFolderWithChildrenAndCount(subfolder, indent + '  └─ ');
                 });
