@@ -626,9 +626,16 @@
                 <h1>🥷 Aurion's Vault</h1>
             </div>
             <div class="header-right">
-                <!-- Back to Library -->
-                <a href="../library.html"
-                   style="background: linear-gradient(135deg, #4a2c8f, #6d28d9); color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(109,40,217,0.35); transition: all 0.2s; white-space: nowrap;"
+                <!-- Vault Library button — shown only inside subfolders -->
+                <a id="vaultNavBtn" href="vault.html"
+                   style="display: none; background: linear-gradient(135deg, #1a0d35, #3b1f7a); color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(88,28,135,0.4); transition: all 0.2s; white-space: nowrap; border: 1px solid rgba(192,132,252,0.3);"
+                   onmouseover="this.style.transform='translateY(-2px)'"
+                   onmouseout="this.style.transform=''">
+                    🥷 Vault Library
+                </a>
+                <!-- Public Library button — shown only on vault root -->
+                <a id="publicLibBtn" href="../library.html"
+                   style="display: flex; background: linear-gradient(135deg, #4a2c8f, #6d28d9); color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(109,40,217,0.35); transition: all 0.2s; white-space: nowrap;"
                    onmouseover="this.style.transform='translateY(-2px)'"
                    onmouseout="this.style.transform=''">
                     📚 Public Library
