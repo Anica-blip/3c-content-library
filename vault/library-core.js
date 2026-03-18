@@ -24,7 +24,7 @@ let currentUser = null;
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🦅 Aurion\'s Vault initializing...');
+    console.log('🥷 Aurion\'s Vault initializing...');
 
     // Load dark mode preference
     darkMode = localStorage.getItem('darkMode') === 'true';
@@ -36,6 +36,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const folderId  = urlParams.get('folder');
     const contentId = urlParams.get('content');
+
+    // Update toolbar navigation based on current URL context
+    updateVaultNav(folderId || contentId);
 
     // Initialize vault Supabase client
     await initVaultSupabase();
@@ -223,7 +226,7 @@ function displayFolders() {
 
         return `
             <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')">
-                <div class="folder-icon">🦅</div>
+                <div class="folder-icon">🥷</div>
                 <div class="folder-title">${escapeHtml(folder.title)}</div>
                 <div class="folder-details">${countLabel}</div>
                 <div class="folder-slug">${displayURL}</div>
@@ -446,6 +449,29 @@ function toggleDarkMode() {
     darkMode = !darkMode;
     document.body.classList.toggle('dark-mode', darkMode);
     localStorage.setItem('darkMode', darkMode);
+}
+
+// ==================== VAULT NAVIGATION ====================
+/**
+ * Updates toolbar buttons based on where the user is in the vault.
+ * Root (no params):     show Public Library, hide Vault Library
+ * Inside subfolder:     show Vault Library,  hide Public Library
+ */
+function updateVaultNav(isInsideFolder) {
+    const vaultBtn  = document.getElementById('vaultNavBtn');
+    const publicBtn = document.getElementById('publicLibBtn');
+
+    if (!vaultBtn || !publicBtn) return;
+
+    if (isInsideFolder) {
+        // Inside a subfolder — show Vault Library, hide Public Library
+        vaultBtn.style.display  = 'flex';
+        publicBtn.style.display = 'none';
+    } else {
+        // Vault root — show Public Library, hide Vault Library
+        vaultBtn.style.display  = 'none';
+        publicBtn.style.display = 'flex';
+    }
 }
 
 // ==================== LAZY LOADING ====================
