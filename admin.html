@@ -170,21 +170,18 @@
                 <div class="form-group">
                     <label>Content Type *</label>
                     <select id="contentType" required>
-                        <optgroup label="📚 Library">
-                            <option value="pdf">PDF Document</option>
-                            <option value="flipbook">Flipbook Document</option>
-                            <option value="presentation">Presentation Slides</option>
-                            <option value="video">Video</option>
-                            <option value="image">Image</option>
-                            <option value="audio">Audio</option>
-                            <option value="link">External Link</option>
-                        </optgroup>
-                        <optgroup label="🥷 Aurion Vault">
-                            <option value="quiz">Quiz</option>
-                            <option value="card-game">Card Game</option>
-                            <option value="spin-wheel">Spin the Wheel</option>
-                            <option value="landing-page">Landing Page</option>
-                        </optgroup>
+                        <option value="pdf">PDF Document</option>
+                        <option value="flipbook">Flipbook Document</option>
+                        <option value="presentation">Presentation Slides</option>
+                        <option value="video">Video</option>
+                        <option value="image">Image</option>
+                        <option value="audio">Audio</option>
+                        <option value="gif">GIF / Animated Image</option>
+                        <option value="link">External Link</option>
+                        <option value="quiz">Quiz</option>
+                        <option value="card-game">Card Game</option>
+                        <option value="spin-wheel">Spin the Wheel</option>
+                        <option value="landing-page">Landing Page</option>
                     </select>
                 </div>
                 
@@ -390,22 +387,21 @@
         }
 
         function updateContentDestinationUI() {
-            const dest    = document.getElementById('contentDestination').value;
-            const typeEl  = document.getElementById('contentType');
-            const hint    = document.querySelector('#contentDestination + small');
+            const dest = document.getElementById('contentDestination').value;
+            const hint = document.querySelector('#contentDestination + small');
 
             if (dest === 'vault') {
                 if (hint) hint.textContent = 'Saving to vault_content table — appears in Aurion\'s Vault.';
-                // Auto-select first vault type for convenience
-                typeEl.value = 'quiz';
             } else {
                 if (hint) hint.textContent = 'Choose where this content is saved. Folder list below updates automatically.';
-                // Revert to first library type
-                typeEl.value = 'pdf';
             }
+            // Refresh folder dropdown to show correct folders for destination
+            if (typeof updateFolderSelects === 'function') updateFolderSelects();
         }
     </script>
     <script src="password-utils.js"></script>
-    <script src="admin-core.js?v=3.6"></script>
+    <!-- Vault Supabase client — must load before admin-core.js -->
+    <script src="vault/vault-supabase-client.js"></script>
+    <script src="admin-core.js?v=3.7"></script>
 </body>
 </html>
