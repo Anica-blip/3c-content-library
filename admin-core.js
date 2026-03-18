@@ -303,6 +303,7 @@ async function loadAllData() {
             try {
                 vaultFolders = await vaultClient.getFolders();
                 console.log('🥷 Vault folders loaded:', vaultFolders.length);
+                displayVaultFoldersGrid();
             } catch (e) {
                 console.warn('⚠️ Could not load vault folders:', e.message);
                 vaultFolders = [];
@@ -1194,7 +1195,123 @@ function displayFoldersGrid() {
     }
 }
 
-// Folder sidebar management
+// ==================== VAULT FOLDERS DISPLAY ====================
+function displayVaultFoldersGrid() {
+    const container = document.getElementById('vaultFolderContentList');
+    if (!container) return;
+
+    if (vaultFolders.length === 0) {
+        container.innerHTML = '<p style="color: #999;">No vault folders created yet. Select 🥷 Aurion Vault as destination and create a folder above.</p>';
+        return;
+    }
+
+    // Root vault folders only
+    const rootFolders = vaultFolders.filter(f =>
+        !f.parent_id && f.folder_type === 'root'
+    ).sort((a, b) => a.title.localeCompare(b.title));
+
+    if (rootFolders.length === 0) {
+        container.innerHTML = '<p style="color: #999;">No vault root folders yet.</p>';
+        return;
+    }
+
+    let html = '<div class="folders-grid">';
+    rootFolders.forEach(folder => {
+        const subfolders = vaultFolders.filter(f => f.parent_id === folder.id);
+        const subfoldersCount = subfolders.length;
+        const itemCount = folder.actual_item_count || 0;
+        const displayURL = folder.table_name || folder.slug;
+
+        const countLabel = subfoldersCount > 0
+            ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${itemCount} item${itemCount !== 1 ? 's' : ''}`
+            : `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
+
+        html += `
+            <div class="folder-grid-card" onclick="openVaultFolderSidebar('${folder.id}')"
+                 style="border-color: rgba(109, 40, 217, 0.5);">
+                <div class="folder-icon">🥷</div>
+                <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
+                <div class="folder-grid-meta">${countLabel}</div>
+                <div class="folder-grid-url">${displayURL}</div>
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(109,40,217,0.2); display:flex; gap:6px;">
+                    <button onclick="event.stopPropagation(); deleteVaultFolder('${folder.id}')"
+                        style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function openVaultFolderSidebar(folderId) {
+    const folder = vaultFolders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    const subfolders = vaultFolders.filter(f => f.parent_id === folderId)
+        .sort((a, b) => a.title.localeCompare(b.title));
+
+    const sidebar = document.getElementById('folderSidebar');
+    const sidebarTitle = document.getElementById('sidebarFolderTitle');
+    const sidebarContent = document.getElementById('sidebarContent');
+
+    sidebarTitle.innerHTML = `
+        <div style="flex: 1;">
+            <h3 style="margin: 0; color: #c084fc; font-size: 18px;">🥷 ${escapeHtml(folder.title)}</h3>
+            <div style="font-size: 12px; color: #808080; margin-top: 4px;">Table: <strong style="color: #8b5cf6;">${folder.table_name || folder.slug}</strong></div>
+            ${folder.description ? `<div style="font-size: 12px; color: #999; margin-top: 2px;">${escapeHtml(folder.description)}</div>` : ''}
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button onclick="deleteVaultFolder('${folder.id}')" style="padding: 6px 12px; font-size: 12px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">🗑️ Delete</button>
+            <button onclick="closeFolderSidebar();" style="padding: 6px 12px; font-size: 16px;">×</button>
+        </div>
+    `;
+
+    let contentHtml = '';
+
+    // Subfolders
+    if (subfolders.length > 0) {
+        contentHtml += '<h4 style="color:#c084fc; margin-bottom:10px;">📂 Sub-folders</h4>';
+        subfolders.forEach(sf => {
+            const sfItems = sf.actual_item_count || 0;
+            contentHtml += `
+                <div class="content-card" style="margin-bottom:10px; border-color: rgba(109,40,217,0.4);">
+                    <div class="content-info">
+                        <div class="content-title">🥷 ${escapeHtml(sf.title)}</div>
+                        <div class="content-meta">${sfItems} items · ${sf.table_name || sf.slug}</div>
+                    </div>
+                    <div class="content-actions">
+                        <button class="delete" onclick="deleteVaultFolder('${sf.id}')">Delete</button>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    if (contentHtml === '') {
+        contentHtml = '<p style="color:#999; text-align:center; padding:30px;">No sub-folders yet.</p>';
+    }
+
+    sidebarContent.innerHTML = contentHtml;
+    sidebar.classList.add('active');
+}
+
+async function deleteVaultFolder(folderId) {
+    const folder = vaultFolders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    if (!confirm(`Delete vault folder "${folder.title}" and all its content?`)) return;
+
+    try {
+        await vaultClient.deleteFolder(folderId);
+        showAlert('success', '✅ Vault folder deleted');
+        await loadAllData();
+    } catch (error) {
+        showAlert('error', 'Error deleting vault folder: ' + error.message);
+    }
+}
 function openFolderSidebar(folderId) {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return;
