@@ -498,6 +498,11 @@ async function createFolder() {
         let folder;
 
         if (destination === 'vault') {
+            // Guard — vault client must be loaded and connected
+            if (typeof vaultClient === 'undefined' || !vaultClient.isConnected) {
+                showAlert('error', '❌ Vault client not connected. Make sure vault/vault-supabase-client.js is deployed and refresh the page.');
+                return;
+            }
             console.log('🥷 Creating vault folder in vault_folders...');
             folder = await vaultClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
             const displayURL = folder.custom_url || folder.slug;
@@ -890,6 +895,11 @@ async function saveContent(event) {
             const destination = document.getElementById('contentDestination')?.value || 'library';
             let result;
             if (destination === 'vault') {
+                // Guard — vault client must be loaded and connected
+                if (typeof vaultClient === 'undefined' || !vaultClient.isConnected) {
+                    showAlert('error', '❌ Vault client not connected. Make sure vault/vault-supabase-client.js is deployed and refresh the page.');
+                    return;
+                }
                 debugLog('🥷 Creating vault content: ' + title);
                 result = await vaultClient.createContent(contentData);
             } else {
@@ -1011,8 +1021,9 @@ function updateFolderSelects() {
     const selects = ['contentFolder', 'filterFolder', 'parentFolder'];
     
     // Determine which folder list to use for content/filter dropdowns
-    const destination = document.getElementById('contentDestination')?.value || 'library';
-    const activeFolders = destination === 'vault' ? vaultFolders : folders;
+    const contentDest = document.getElementById('contentDestination')?.value || 'library';
+    const folderDest  = document.getElementById('folderDestination')?.value || 'library';
+    const activeFolders = contentDest === 'vault' ? vaultFolders : folders;
 
     selects.forEach(selectId => {
         const select = document.getElementById(selectId);
@@ -1021,8 +1032,10 @@ function updateFolderSelects() {
         const currentValue = select.value;
         const isParentSelect = selectId === 'parentFolder';
         
-        // For parentFolder always use library folders (vault folders managed in vault admin)
-        const folderList = isParentSelect ? folders : activeFolders;
+        // parentFolder uses vault folders when folder destination is vault
+        const folderList = isParentSelect
+            ? (folderDest === 'vault' ? vaultFolders : folders)
+            : activeFolders;
 
         // Keep first option
         const firstOption = select.options[0];
