@@ -384,6 +384,8 @@
             } else {
                 if (hint) hint.textContent = 'Saving to folders table — appears in the Public Library.';
             }
+            // Refresh parent folder dropdown to show correct folders for destination
+            if (typeof updateFolderSelects === 'function') updateFolderSelects();
         }
 
         function updateContentDestinationUI() {
