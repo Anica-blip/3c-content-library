@@ -77,6 +77,14 @@
                 </summary>
                 <div style="padding-left: 0;">
             <div class="form-group">
+                <label>Destination *</label>
+                <select id="folderDestination" onchange="updateFolderDestinationUI()">
+                    <option value="library">📚 Public Library (folders + content_public / content_private)</option>
+                    <option value="vault">🥷 Aurion Vault (vault_folders + vault_content)</option>
+                </select>
+                <small>Choose where this folder is saved. Library = public library tables. Aurion Vault = vault tables.</small>
+            </div>
+            <div class="form-group">
                 <label>Folder Type *</label>
                 <select id="folderType" onchange="updateFolderTypeUI()">
                     <option value="root">Root Folder</option>
@@ -151,15 +159,32 @@
                 </div>
                 
                 <div class="form-group">
+                    <label>Destination *</label>
+                    <select id="contentDestination" onchange="updateContentDestinationUI()">
+                        <option value="library">📚 Public Library (content_public / content_private)</option>
+                        <option value="vault">🥷 Aurion Vault (vault_content)</option>
+                    </select>
+                    <small>Choose where this content is saved. Folder list below updates automatically.</small>
+                </div>
+
+                <div class="form-group">
                     <label>Content Type *</label>
                     <select id="contentType" required>
-                        <option value="pdf">PDF Document</option>
-                        <option value="flipbook">Flipbook Document</option>
-                        <option value="presentation">Presentation Slides</option>
-                        <option value="video">Video</option>
-                        <option value="image">Image</option>
-                        <option value="audio">Audio</option>
-                        <option value="link">External Link</option>
+                        <optgroup label="📚 Library">
+                            <option value="pdf">PDF Document</option>
+                            <option value="flipbook">Flipbook Document</option>
+                            <option value="presentation">Presentation Slides</option>
+                            <option value="video">Video</option>
+                            <option value="image">Image</option>
+                            <option value="audio">Audio</option>
+                            <option value="link">External Link</option>
+                        </optgroup>
+                        <optgroup label="🥷 Aurion Vault">
+                            <option value="quiz">Quiz</option>
+                            <option value="card-game">Card Game</option>
+                            <option value="spin-wheel">Spin the Wheel</option>
+                            <option value="landing-page">Landing Page</option>
+                        </optgroup>
                     </select>
                 </div>
                 
@@ -345,6 +370,41 @@
         </div>
     </div>
 
+    <script>
+        /**
+         * Aurion Vault destination handlers
+         * When admin switches destination, updates the small hint text
+         * and auto-selects vault content types if vault is chosen.
+         * The actual table routing is handled in admin-core.js
+         * by reading the value of #folderDestination / #contentDestination.
+         */
+
+        function updateFolderDestinationUI() {
+            const dest = document.getElementById('folderDestination').value;
+            const hint = document.querySelector('#folderDestination + small');
+            if (dest === 'vault') {
+                if (hint) hint.textContent = 'Saving to vault_folders table — appears in Aurion\'s Vault.';
+            } else {
+                if (hint) hint.textContent = 'Saving to folders table — appears in the Public Library.';
+            }
+        }
+
+        function updateContentDestinationUI() {
+            const dest    = document.getElementById('contentDestination').value;
+            const typeEl  = document.getElementById('contentType');
+            const hint    = document.querySelector('#contentDestination + small');
+
+            if (dest === 'vault') {
+                if (hint) hint.textContent = 'Saving to vault_content table — appears in Aurion\'s Vault.';
+                // Auto-select first vault type for convenience
+                typeEl.value = 'quiz';
+            } else {
+                if (hint) hint.textContent = 'Choose where this content is saved. Folder list below updates automatically.';
+                // Revert to first library type
+                typeEl.value = 'pdf';
+            }
+        }
+    </script>
     <script src="password-utils.js"></script>
     <script src="admin-core.js?v=3.6"></script>
 </body>
