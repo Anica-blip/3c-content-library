@@ -1,52 +1,53 @@
 /**
- * Vault Supabase Client — 3C Aurion's Vault
- * Cloned from supabase-client.js and adapted for vault tables:
- *   vault_folders, vault_content, vault_folder_passwords
- *
- * Built by Claude Sonnet 4.6 × Chef Anica — 3C Thread To Success
+ * Enhanced Supabase Client for 3C Public Library
+ * Handles all database operations with proper relational structure
  */
 
-class VaultSupabaseClient {
+class SupabaseClient {
     constructor() {
         this.client = null;
         this.isConnected = false;
     }
 
-    // ==================== INITIALIZATION ====================
-
+    /**
+     * Initialize Supabase client
+     */
     async init(url, anonKey) {
         try {
+            // Check if Supabase library is loaded
             if (typeof supabase === 'undefined') {
-                throw new Error('Supabase library not loaded.');
+                throw new Error('Supabase library not loaded. Please check your internet connection.');
             }
-            this.client = supabase.createClient(url, anonKey, {
-                auth: {
-                    storageKey: 'sb-vault-auth-token',
-                    persistSession: true,
-                    autoRefreshToken: true
-                }
-            });
+            
+            this.client = supabase.createClient(url, anonKey);
             this.isConnected = true;
-            console.log('✅ Vault Supabase client initialized');
+            console.log('✅ Supabase client initialized');
             return true;
         } catch (error) {
-            console.error('❌ Vault Supabase initialization failed:', error);
+            console.error('❌ Supabase initialization failed:', error);
             this.isConnected = false;
             throw error;
         }
     }
 
+    /**
+     * Test connection
+     */
     async testConnection() {
-        if (!this.client) throw new Error('Vault client not initialized');
+        if (!this.client) {
+            throw new Error('Supabase client not initialized');
+        }
+        
         try {
             const { data, error } = await this.client
-                .from('vault_folders')
+                .from('folders')
                 .select('count')
                 .limit(1);
+            
             if (error) throw error;
             return true;
         } catch (error) {
-            console.error('Vault connection test failed:', error);
+            console.error('Connection test failed:', error);
             throw error;
         }
     }
@@ -54,108 +55,122 @@ class VaultSupabaseClient {
     // ==================== FOLDER OPERATIONS ====================
 
     /**
-     * Get all vault folders with stats
-     * Uses vault_folders_with_stats view — mirrors folders_with_stats
+     * Get all folders with stats
      */
     async getFolders() {
         const { data, error } = await this.client
-            .from('vault_folders_with_stats')
+            .from('folders_with_stats')
             .select('*')
             .order('created_at', { ascending: false });
-
+        
         if (error) throw error;
         return data || [];
     }
 
     /**
-     * Get single vault folder by ID or slug
+     * Get single folder by ID or slug
      */
     async getFolder(idOrSlug) {
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
-
+        
         const { data, error } = await this.client
-            .from('vault_folders')
+            .from('folders')
             .select('*')
             .eq(isUUID ? 'id' : 'slug', idOrSlug)
             .single();
-
+        
         if (error) throw error;
         return data;
     }
 
     /**
-     * Create new vault folder
-     * Generates slug locally — no dependency on existing Postgres RPC functions
+     * Create new folder
      */
     async createFolder(title, description = '', tableName = '', isPublic = true, parentId = null, folderType = 'root', customUrl = null) {
         try {
-            console.log('📁 Creating vault folder:', { title, tableName, isPublic, parentId, folderType });
-
-            // Generate slug locally
-            const slug = customUrl
-                ? customUrl.toLowerCase().replace(/[^a-z0-9_]/g, '_')
-                : title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-
-            // Ensure slug is unique by appending timestamp if needed
-            const uniqueSlug = `${slug}_${Date.now()}`.slice(0, 80);
-            const finalSlug = customUrl || uniqueSlug;
-
+            console.log('📁 Creating folder with params:', { title, tableName, isPublic, parentId, folderType, customUrl });
+            
+            // Generate slug from title (or use custom URL)
+            const { data: slugData, error: slugError } = await this.client
+                .rpc('generate_folder_slug', { 
+                    title_text: title,
+                    parent_folder_id: parentId,
+                    custom_slug: customUrl
+                });
+            
+            if (slugError) {
+                console.error('❌ Slug generation error:', slugError);
+                throw new Error(`Slug generation failed: ${slugError.message || JSON.stringify(slugError)}`);
+            }
+            
+            console.log('✅ Generated slug:', slugData);
+            
             const folderData = {
-                title:       title,
-                slug:        finalSlug,
-                custom_url:  customUrl,
-                table_name:  tableName,
+                title: title,
+                slug: slugData,
+                custom_url: customUrl,
+                table_name: tableName,
                 description: description,
-                is_public:   isPublic,
-                parent_id:   parentId,
+                is_public: isPublic,
+                parent_id: parentId,
                 folder_type: folderType
             };
-
-            console.log('📤 Inserting vault folder:', folderData);
-
+            
+            console.log('📤 Inserting folder data:', folderData);
+            
             const { data, error } = await this.client
-                .from('vault_folders')
+                .from('folders')
                 .insert([folderData])
                 .select()
                 .single();
-
+            
             if (error) {
-                console.error('❌ Vault folder insert error:', error);
-                throw new Error(`Vault folder insert failed: ${error.message || JSON.stringify(error)}`);
+                console.error('❌ Insert error:', error);
+                throw new Error(`Folder insert failed: ${error.message || JSON.stringify(error)}`);
             }
-
-            console.log('✅ Vault folder created:', data);
+            
+            console.log('✅ Folder created successfully:', data);
             return data;
         } catch (error) {
-            console.error('❌ createVaultFolder error:', error);
+            console.error('❌ createFolder error:', error);
             throw error;
         }
     }
 
     /**
-     * Update vault folder
+     * Update folder
      */
     async updateFolder(id, updates) {
+        // If title is updated, regenerate slug
+        if (updates.title) {
+            const { data: slugData, error: slugError } = await this.client
+                .rpc('generate_slug', { title_text: updates.title });
+            
+            if (!slugError) {
+                updates.slug = slugData;
+            }
+        }
+
         const { data, error } = await this.client
-            .from('vault_folders')
+            .from('folders')
             .update(updates)
             .eq('id', id)
             .select()
             .single();
-
+        
         if (error) throw error;
         return data;
     }
 
     /**
-     * Delete vault folder
+     * Delete folder
      */
     async deleteFolder(id) {
         const { error } = await this.client
-            .from('vault_folders')
+            .from('folders')
             .delete()
             .eq('id', id);
-
+        
         if (error) throw error;
         return true;
     }
@@ -163,218 +178,502 @@ class VaultSupabaseClient {
     // ==================== CONTENT OPERATIONS ====================
 
     /**
-     * All vault content lives in single vault_content table
-     * No public/private split — visibility controlled by folder
+     * Get content table name based on folder
      */
+    async getContentTable(folderId) {
+        const folder = await this.getFolder(folderId);
+        return folder.is_public ? 'content_public' : 'content_private';
+    }
 
     /**
-     * Get all content for a vault folder
+     * Get all content for a folder
      */
     async getContentByFolder(folderId) {
+        const tableName = await this.getContentTable(folderId);
+        
         const { data, error } = await this.client
-            .from('vault_content')
+            .from(tableName)
             .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, file_size, custom_url, slug, table_name, display_order, view_count, last_viewed_at, created_at, updated_at')
             .eq('folder_id', folderId)
             .order('display_order', { ascending: true });
-
+        
         if (error) throw error;
         return data || [];
     }
 
     /**
-     * Get single vault content item by ID
+     * Get single content by ID (tries both tables)
      */
     async getContent(id) {
-        const { data, error } = await this.client
-            .from('vault_content')
-            .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, file_size, custom_url, slug, table_name, display_order, view_count, last_viewed_at, created_at, updated_at, vault_folders(*)')
+        // Try public first
+        let { data, error } = await this.client
+            .from('content_public')
+            .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, file_size, custom_url, slug, table_name, display_order, view_count, last_viewed_at, created_at, updated_at, folders(*)')
             .eq('id', id)
             .single();
-
+        
+        if (!error && data) return data;
+        
+        // Try private
+        ({ data, error } = await this.client
+            .from('content_private')
+            .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, file_size, custom_url, slug, table_name, display_order, view_count, last_viewed_at, created_at, updated_at, folders(*)')
+            .eq('id', id)
+            .single());
+        
         if (error) throw error;
         return data;
     }
 
     /**
-     * Create new vault content item
-     * Generates slug locally — no dependency on existing Postgres RPC functions
+     * Create new content
      */
     async createContent(contentData) {
-        try {
-            const folder = await this.getFolder(contentData.folder_id);
-
-            // Generate slug locally
-            const baseSlug = contentData.custom_url
-                ? contentData.custom_url.toLowerCase().replace(/[^a-z0-9_]/g, '_')
-                : contentData.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-
-            const slug = contentData.custom_url || `${baseSlug}_${Date.now()}`.slice(0, 80);
-
-            // Get max display_order for this folder
-            const { data: maxOrder } = await this.client
-                .from('vault_content')
-                .select('display_order')
-                .eq('folder_id', contentData.folder_id)
-                .order('display_order', { ascending: false })
-                .limit(1)
-                .single();
-
-            const displayOrder = maxOrder ? maxOrder.display_order + 1 : 0;
-
-            const { data, error } = await this.client
-                .from('vault_content')
-                .insert([{
-                    ...contentData,
-                    slug:          slug,
-                    custom_url:    contentData.custom_url || null,
-                    table_name:    folder.table_name,
-                    display_order: displayOrder
-                }])
-                .select()
-                .single();
-
-            if (error) throw error;
-            return data;
-        } catch (error) {
-            console.error('❌ createVaultContent error:', error);
-            throw error;
+        const tableName = await this.getContentTable(contentData.folder_id);
+        const folder = await this.getFolder(contentData.folder_id);
+        
+        // Generate unique slug for content (or use custom URL)
+        console.log('🔧 Calling generate_content_slug_v2 with:', {
+            content_title: contentData.title,
+            folder_uuid: contentData.folder_id,
+            custom_slug: contentData.custom_url || null
+        });
+        
+        const { data: slugData, error: slugError } = await this.client
+            .rpc('generate_content_slug_v2', { 
+                content_title: contentData.title,
+                folder_uuid: contentData.folder_id,
+                custom_slug: contentData.custom_url || null
+            });
+        
+        if (slugError) {
+            console.error('❌ generate_content_slug_v2 error:', slugError);
+            throw new Error(`Slug generation failed: ${slugError.message || JSON.stringify(slugError)}`);
         }
+        
+        console.log('✅ Generated slug:', slugData);
+        
+        // Get max display_order for this folder
+        const { data: maxOrder } = await this.client
+            .from(tableName)
+            .select('display_order')
+            .eq('folder_id', contentData.folder_id)
+            .order('display_order', { ascending: false })
+            .limit(1)
+            .single();
+        
+        const displayOrder = maxOrder ? maxOrder.display_order + 1 : 0;
+
+        const { data, error } = await this.client
+            .from(tableName)
+            .insert([{
+                ...contentData,
+                slug: slugData,
+                custom_url: contentData.custom_url || null,
+                table_name: folder.table_name,
+                display_order: displayOrder
+            }])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
     }
 
     /**
-     * Update vault content item
+     * Update content
      */
-    async updateContent(id, updates) {
+    async updateContent(id, updates, folderId) {
+        const tableName = await this.getContentTable(folderId || updates.folder_id);
+        
         const { data, error } = await this.client
-            .from('vault_content')
+            .from(tableName)
             .update(updates)
             .eq('id', id)
             .select()
             .single();
-
+        
         if (error) throw error;
         return data;
     }
 
     /**
-     * Delete vault content item
+     * Delete content (tries both tables)
      */
-    async deleteContent(id) {
+    async deleteContent(id, folderId) {
+        const tableName = await this.getContentTable(folderId);
+        
         const { error } = await this.client
-            .from('vault_content')
+            .from(tableName)
             .delete()
             .eq('id', id);
-
+        
         if (error) throw error;
         return true;
     }
 
     /**
-     * Search vault content
+     * Reorder content within folder
+     */
+    async reorderContent(contentId, newOrderIndex, folderId) {
+        const tableName = await this.getContentTable(folderId);
+        
+        const { data, error } = await this.client
+            .from(tableName)
+            .update({ display_order: newOrderIndex })
+            .eq('id', contentId)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    }
+
+    /**
+     * Move content up in order
+     */
+    async moveContentUp(contentId) {
+        const content = await this.getContent(contentId);
+        if (content.display_order === 0) return content;
+        
+        const tableName = await this.getContentTable(content.folder_id);
+        
+        // Get content above
+        const { data: contentAbove } = await this.client
+            .from(tableName)
+            .select('id, folder_id, display_order')
+            .eq('folder_id', content.folder_id)
+            .eq('display_order', content.display_order - 1)
+            .single();
+        
+        if (contentAbove) {
+            // Swap order indexes
+            await this.updateContent(contentId, { display_order: content.display_order - 1 }, content.folder_id);
+            await this.updateContent(contentAbove.id, { display_order: content.display_order }, content.folder_id);
+        }
+        
+        return await this.getContent(contentId);
+    }
+
+    /**
+     * Move content down in order
+     */
+    async moveContentDown(contentId) {
+        const content = await this.getContent(contentId);
+        
+        const tableName = await this.getContentTable(content.folder_id);
+        
+        // Get content below
+        const { data: contentBelow } = await this.client
+            .from(tableName)
+            .select('id, folder_id, display_order')
+            .eq('folder_id', content.folder_id)
+            .eq('display_order', content.display_order + 1)
+            .single();
+        
+        if (contentBelow) {
+            // Swap order indexes
+            await this.updateContent(contentId, { display_order: content.display_order + 1 }, content.folder_id);
+            await this.updateContent(contentBelow.id, { display_order: content.display_order }, content.folder_id);
+        }
+        
+        return await this.getContent(contentId);
+    }
+
+    // ==================== ANALYTICS OPERATIONS ====================
+
+    /**
+     * Increment view count
+     */
+    async incrementViewCount(contentId) {
+        const { error } = await this.client
+            .rpc('increment_view_count', { content_uuid: contentId });
+        
+        if (error) console.error('Failed to increment view count:', error);
+    }
+
+    /**
+     * Update last page for PDF
+     */
+    async updateLastPage(contentId, pageNum) {
+        const { error } = await this.client
+            .rpc('update_last_page', { content_uuid: contentId, page_num: pageNum });
+        
+        if (error) console.error('Failed to update last page:', error);
+    }
+
+    /**
+     * Log user interaction
+     */
+    async logInteraction(contentId, interactionType, metadata = {}) {
+        const { error } = await this.client
+            .from('user_interactions')
+            .insert([{
+                content_id: contentId,
+                interaction_type: interactionType,
+                last_page: metadata.lastPage || null,
+                duration: metadata.duration || null,
+                user_agent: navigator.userAgent,
+                ip_address: null // Will be set by Supabase
+            }]);
+        
+        if (error) console.error('Failed to log interaction:', error);
+    }
+
+    /**
+     * Get popular content
+     */
+    async getPopularContent(limit = 10) {
+        const { data, error } = await this.client
+            .from('popular_content')
+            .select('*')
+            .limit(limit);
+        
+        if (error) throw error;
+        return data || [];
+    }
+
+    /**
+     * Get content stats
+     */
+    async getContentStats(contentId) {
+        const { data: content } = await this.getContent(contentId);
+        
+        const { data: interactions, error } = await this.client
+            .from('user_interactions')
+            .select('*')
+            .eq('content_id', contentId)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        return {
+            content,
+            totalViews: content.view_count,
+            lastViewed: content.last_viewed_at,
+            interactions: interactions || []
+        };
+    }
+
+    // ==================== SEARCH OPERATIONS ====================
+
+    /**
+     * Search content across all folders
      */
     async searchContent(query) {
         const { data, error } = await this.client
-            .from('vault_content')
-            .select('*, vault_folders(*)')
+            .from('content_with_folder')
+            .select('*')
             .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
             .order('view_count', { ascending: false });
-
+        
         if (error) throw error;
         return data || [];
     }
 
     /**
-     * Get vault content by type
+     * Get content by type
      */
     async getContentByType(type) {
         const { data, error } = await this.client
-            .from('vault_content')
-            .select('*, vault_folders(*)')
+            .from('content_with_folder')
+            .select('*')
             .eq('type', type)
             .order('created_at', { ascending: false });
-
+        
         if (error) throw error;
         return data || [];
     }
 
-    /**
-     * Increment view count for vault content
-     */
-    async incrementViewCount(contentId) {
-        // Direct update — no RPC dependency
-        const { data: current } = await this.client
-            .from('vault_content')
-            .select('view_count')
-            .eq('id', contentId)
-            .single();
+    // ==================== BULK OPERATIONS ====================
 
-        if (current) {
-            await this.client
-                .from('vault_content')
-                .update({
-                    view_count:     (current.view_count || 0) + 1,
-                    last_viewed_at: new Date().toISOString()
-                })
-                .eq('id', contentId);
+    /**
+     * Bulk create content
+     */
+    async bulkCreateContent(contentArray, folderId) {
+        const tableName = await this.getContentTable(folderId);
+        
+        const { data, error } = await this.client
+            .from(tableName)
+            .insert(contentArray)
+            .select();
+        
+        if (error) throw error;
+        return data;
+    }
+
+    /**
+     * Export all data (for backup)
+     */
+    async exportAllData() {
+        const folders = await this.getFolders();
+        const allContent = [];
+        
+        for (const folder of folders) {
+            const content = await this.getContentByFolder(folder.id);
+            allContent.push(...content);
         }
-    }
-
-    // ==================== PASSWORD OPERATIONS ====================
-
-    /**
-     * Get passwords for a vault folder
-     */
-    async getFolderPasswords(folderId) {
-        const { data, error } = await this.client
-            .from('vault_folder_passwords')
-            .select('*')
-            .eq('folder_id', folderId)
-            .eq('is_active', true);
-
-        if (error) throw error;
-        return data || [];
+        
+        return {
+            folders,
+            content: allContent,
+            exportedAt: new Date().toISOString()
+        };
     }
 
     /**
-     * Verify vault folder password
-     */
-    async verifyFolderPassword(folderId, passwordAttempt) {
-        const { data, error } = await this.client
-            .from('vault_folder_passwords')
-            .select('password_hash')
-            .eq('folder_id', folderId)
-            .eq('is_active', true);
-
-        if (error) throw error;
-        if (!data || data.length === 0) return false;
-
-        // Check against stored hashes
-        return data.some(row => row.password_hash === passwordAttempt);
-    }
-
-    /**
-     * Get database stats for vault
+     * Get database statistics
      */
     async getStats() {
         const { data: folderCount } = await this.client
-            .from('vault_folders')
+            .from('folders')
             .select('count');
-
-        const { data: contentCount } = await this.client
-            .from('vault_content')
+        
+        const { data: publicCount } = await this.client
+            .from('content_public')
             .select('count');
-
+        
+        const { data: privateCount } = await this.client
+            .from('content_private')
+            .select('count');
+        
+        const { data: publicViews } = await this.client
+            .from('content_public')
+            .select('view_count');
+        
+        const { data: privateViews } = await this.client
+            .from('content_private')
+            .select('view_count');
+        
+        const totalPublicContent = publicCount?.[0]?.count || 0;
+        const totalPrivateContent = privateCount?.[0]?.count || 0;
+        const publicViewsSum = publicViews?.reduce((sum, item) => sum + (item.view_count || 0), 0) || 0;
+        const privateViewsSum = privateViews?.reduce((sum, item) => sum + (item.view_count || 0), 0) || 0;
+        
         return {
             totalFolders: folderCount?.[0]?.count || 0,
-            totalContent: contentCount?.[0]?.count || 0
+            totalContent: totalPublicContent + totalPrivateContent,
+            totalViews: publicViewsSum + privateViewsSum
         };
+    }
+
+    // ==================== COMMENTS OPERATIONS ====================
+    
+    /**
+     * Get comments for a specific content item
+     */
+    async getComments(contentId, contentTable = 'public') {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        const { data, error } = await this.client
+            .from('comments')
+            .select('*')
+            .eq('content_id', contentId)
+            .eq('content_table', contentTable)
+            // Remove is_approved filter to show all comments immediately
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return data || [];
+    }
+    
+    /**
+     * Add a new comment (requires approval)
+     */
+    async addComment(contentId, contentTable, authorName, commentText, authorEmail = null) {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        const { data, error } = await this.client
+            .from('comments')
+            .insert({
+                content_id: contentId,
+                content_table: contentTable,
+                author_name: authorName,
+                author_email: authorEmail,
+                comment_text: commentText,
+                is_approved: true // Auto-approve comments to appear immediately
+            })
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    }
+    
+    /**
+     * Get comment count for content
+     */
+    async getCommentCount(contentId, contentTable = 'public') {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        const { count, error } = await this.client
+            .from('comments')
+            .select('*', { count: 'exact', head: true })
+            .eq('content_id', contentId)
+            .eq('content_table', contentTable)
+            // Remove is_approved filter to count all comments
+        
+        if (error) throw error;
+        return count || 0;
+    }
+    
+    /**
+     * Get all comments (for admin panel)
+     */
+    async getAllComments(includeUnapproved = true) {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        let query = this.client
+            .from('comments')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (!includeUnapproved) {
+            query = query.eq('is_approved', true);
+        }
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+    }
+    
+    /**
+     * Approve a comment (admin only)
+     */
+    async approveComment(commentId) {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        const { data, error } = await this.client
+            .from('comments')
+            .update({ is_approved: true })
+            .eq('id', commentId)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    }
+    
+    /**
+     * Delete a comment (admin only)
+     */
+    async deleteComment(commentId) {
+        if (!this.client) throw new Error('Supabase client not initialized');
+        
+        const { error } = await this.client
+            .from('comments')
+            .delete()
+            .eq('id', commentId);
+        
+        if (error) throw error;
+        return true;
     }
 }
 
 // Create global instance
-const vaultClient = new VaultSupabaseClient();
+const supabaseClient = new SupabaseClient();
 
 // Export for use in other scripts
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { VaultSupabaseClient, vaultClient };
+    module.exports = { SupabaseClient, supabaseClient };
 }
