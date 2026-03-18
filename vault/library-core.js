@@ -336,6 +336,10 @@ async function openContent(contentData) {
             openMediaPlayer(content, 'image');
             break;
 
+        case 'gif':
+            openMediaPlayer(content, 'image');
+            break;
+
         default:
             if (content.url) {
                 openLaunchModal(content.url, content.title);
@@ -664,6 +668,7 @@ function getTypeIcon(type) {
         flipbook:       '📖',
         presentation:   '📊',
         video:          '🎥',
+        gif:            '🎞️',
         image:          '🖼️',
         audio:          '🎵',
         link:           '🔗'
