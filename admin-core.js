@@ -305,8 +305,10 @@ async function loadAllData() {
                 console.log('🥷 Vault folders loaded:', vaultFolders.length);
                 displayVaultFoldersGrid();
             } catch (e) {
-                console.warn('⚠️ Could not load vault folders:', e.message);
+                console.error('❌ Could not load vault folders:', e.message);
+                showAlert('error', '❌ Vault folders failed to load: ' + e.message + ' — Run the GRANT SQL in Supabase.');
                 vaultFolders = [];
+                displayVaultFoldersGrid();
             }
         }
 
