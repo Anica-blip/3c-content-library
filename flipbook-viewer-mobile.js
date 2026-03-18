@@ -629,13 +629,33 @@ function getVideoEmbedUrl(url) {
 
 /**
  * Show link in popup iframe — modal is chief.
- * Option 1: iframe loads inside modal.
- * Option 2: if blocked by X-Frame-Options, a message appears INSIDE the modal
- *           with a button the user must tap to open in browser. Nothing opens automatically.
+ *
+ * Telegram WebView: iframe embedding is blocked by most sites.
+ * Fix: detect Telegram WebView and navigate directly via location.href —
+ * Telegram handles it like a normal page, user presses back to return.
+ *
+ * WhatsApp / regular browsers: iframe loads inside modal as normal.
  * Closing the modal (✕) cancels all timers — no ghost tabs ever.
  */
 function showLinkPopup(url) {
     console.log('🔗 Opening link in popup:', url);
+
+    // ── Telegram WebView detection ──
+    // TelegramWebviewProxy exists in Telegram's built-in browser (not Mini App)
+    // UA check as belt-and-suspenders fallback
+    const isTelegramWebView = (typeof window.TelegramWebviewProxy !== 'undefined') ||
+                               /Telegram/i.test(navigator.userAgent);
+
+    if (isTelegramWebView) {
+        // Telegram WebView — navigate directly, no iframe needed
+        // User presses back in Telegram to return to the library
+        console.log('📱 Telegram WebView detected — navigating directly');
+        location.href = url;
+        return;
+    }
+
+    // ── All other browsers (WhatsApp, Safari, Chrome, etc.) ──
+    // Use iframe inside modal — modal is chief
 
     // Cancel any leftover state from a previous popup
     if (linkPopupState) {
@@ -693,25 +713,16 @@ function showLinkPopup(url) {
         " id="_3c-open-external-btn">Tap to open link →</button>
     `;
 
-    // Wire the open button
-    // Order matters: open URL FIRST, then close overlay
-    // Telegram WebApp API checked first — only method Telegram WebView fully respects
+    // Wire the open button — for non-Telegram browsers only
     blockedMsg.querySelector('#_3c-open-external-btn').onclick = () => {
-        // Step 1: Open the URL before touching the DOM
-        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) {
-            // Telegram WebView — use official Telegram API
-            window.Telegram.WebApp.openLink(url);
-        } else {
-            // Regular browser — standard anchor click
-            const a = document.createElement('a');
-            a.href = url;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => document.body.removeChild(a), 100);
-        }
-        // Step 2: Close the overlay AFTER URL is handed off
+        // Open URL first, then close overlay
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => document.body.removeChild(a), 100);
         setTimeout(() => {
             mediaOverlay.classList.remove('active');
             mediaPlayer.innerHTML = '';
@@ -720,7 +731,7 @@ function showLinkPopup(url) {
 
     // Helper: swap iframe for blocked message inside the modal
     function showBlockedMessage() {
-        if (state.cancelled) return; // Modal was closed — do nothing
+        if (state.cancelled) return;
         clearTimeout(state.timer);
         console.log('🔒 Iframe blocked — showing message inside modal');
         iframe.style.display = 'none';
@@ -744,8 +755,7 @@ function showLinkPopup(url) {
         }
     };
 
-    // Belt-and-suspenders timeout — if iframe hasn't confirmed load in 2.5s,
-    // show blocked message inside the modal. Never opens new tab automatically.
+    // Belt-and-suspenders timeout
     state.timer = setTimeout(() => {
         if (state.cancelled || state.iframeLoaded) return;
         try {
