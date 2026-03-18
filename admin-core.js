@@ -375,6 +375,8 @@ function updateFolderTypeUI() {
     
     if (folderType === 'sub_root') {
         parentGroup.style.display = 'block';
+        // Rebuild parent dropdown with correct folder list for current destination
+        updateFolderSelects();
     } else {
         parentGroup.style.display = 'none';
         document.getElementById('parentFolder').value = '';
