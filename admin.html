@@ -138,7 +138,16 @@
             <form id="contentForm" onsubmit="saveContent(event)">
                 <input type="hidden" id="contentId">
                 <input type="hidden" id="editMode" value="false">
-                
+
+                <div class="form-group">
+                    <label>Destination *</label>
+                    <select id="contentDestination" onchange="updateContentDestinationUI()">
+                        <option value="library">📚 Public Library (content_public / content_private)</option>
+                        <option value="vault">🥷 Aurion Vault (vault_content)</option>
+                    </select>
+                    <small>Choose where this content is saved. Folder list below updates automatically.</small>
+                </div>
+
                 <div class="form-group">
                     <label>Select Folder *</label>
                     <select id="contentFolder" required>
@@ -156,15 +165,6 @@
                     <input type="text" id="contentCustomURL" placeholder="e.g., aurion_goal_sub.01_report.01">
                     <small id="contentUrlPreview" style="color: #007bff; font-weight: 600;">URL: (will be auto-generated)</small>
                     <small>Leave empty for auto-generation. Format: folder_url_content.01</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Destination *</label>
-                    <select id="contentDestination" onchange="updateContentDestinationUI()">
-                        <option value="library">📚 Public Library (content_public / content_private)</option>
-                        <option value="vault">🥷 Aurion Vault (vault_content)</option>
-                    </select>
-                    <small>Choose where this content is saved. Folder list below updates automatically.</small>
                 </div>
 
                 <div class="form-group">
@@ -186,10 +186,10 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>📁 R2 File URL (Recommended) *</label>
-                    <input type="url" id="contentUrl" placeholder="https://files.3c-public-library.org/...">
+                    <label>🔗 Launch / File URL *</label>
+                    <input type="url" id="contentUrl" placeholder="https://... (R2 file, quiz landing page, tool URL, etc.)">
                     <small>
-                        Paste the URL from your R2 bucket. Files stay in R2 for secure and fast access.
+                        Paste any URL here — R2 file URL, quiz landing page, tool launch URL, video link, etc.
                     </small>
                 </div>
                 
