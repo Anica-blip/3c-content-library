@@ -1,14 +1,17 @@
 /**
  * Aurion's Vault — Core JavaScript
- * Cloned from library-core.js and adapted for vault tables:
- *   vault_folders, vault_content, vault_folder_passwords
+ * True clone of root library-core.js — adapted for vault tables only.
  *
- * Key differences from library-core.js:
- *   - Uses vaultClient (vault-supabase-client.js) throughout
- *   - Vault content types: quiz, card-game, spin-wheel, landing-page → open in iframe modal
- *   - Flipbook/presentation → relative path ../viewers/
- *   - Password checks against vault_folder_passwords via vaultClient
- *   - No logInteraction (vault_content has no user_interactions table)
+ * Changes from root library-core.js:
+ *   1. Uses vaultClient (vault-supabase-client.js) instead of supabaseClient
+ *   2. initVaultSupabase() instead of initSupabase()
+ *   3. Password queries → vault_folder_passwords instead of folder_passwords
+ *   4. updateVaultNav() called on init to show/hide toolbar buttons
+ *   5. Flipbook/presentation paths prefixed with ../ (subfolder aware)
+ *   6. getTypeIcon() extended with vault content types
+ *   7. openContent() extended with vault types → window.open (no iframe modal)
+ *   8. No logInteraction() call (vault_content has no user_interactions table)
+ *   9. displayContent/displayViewer shows/hides foldersSection and contentViewer
  *
  * Built by Claude Sonnet 4.6 × Chef Anica — 3C Thread To Success
  */
@@ -28,22 +31,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load dark mode preference
     darkMode = localStorage.getItem('darkMode') === 'true';
-    if (darkMode) {
-        document.body.classList.add('dark-mode');
-    }
+    if (darkMode) document.body.classList.add('dark-mode');
 
     // Check URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const folderId  = urlParams.get('folder');
     const contentId = urlParams.get('content');
 
-    // Update toolbar navigation based on current URL context
+    // Update toolbar navigation based on context
     updateVaultNav(folderId || contentId);
 
     // Initialize vault Supabase client
     await initVaultSupabase();
 
-    // Check if user is logged in (for owner bypass)
+    // Check if user is logged in (owner bypass)
     await checkCurrentUser();
 
     // Load vault folders
@@ -58,13 +59,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// ==================== VAULT NAVIGATION ====================
+/**
+ * Toolbar button logic:
+ *   Root (no params): folderIconBtn hidden, publicLibBtn visible
+ *   Inside folder or content: folderIconBtn visible, publicLibBtn visible
+ */
+function updateVaultNav(isInsideFolder) {
+    const folderBtn = document.getElementById('folderIconBtn');
+    const publicBtn = document.getElementById('publicLibBtn');
+
+    if (folderBtn) {
+        folderBtn.style.display = isInsideFolder ? 'flex' : 'none';
+    }
+    if (publicBtn) {
+        publicBtn.style.display = 'flex'; // Always visible
+    }
+}
+
 // ==================== SUPABASE INITIALIZATION ====================
 async function initVaultSupabase() {
     if (!CONFIG || !CONFIG.supabase || !CONFIG.supabase.url) {
         console.error('Supabase configuration not found');
         return;
     }
-
     try {
         await vaultClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
         console.log('✅ Vault Supabase connected');
@@ -81,7 +99,8 @@ async function loadFolders() {
         console.log('📁 Vault: Loaded', folders.length, 'folders');
     } catch (error) {
         console.error('Error loading vault folders:', error);
-        document.getElementById('folderList').innerHTML = '<p class="loading">Error loading folders</p>';
+        const el = document.getElementById('folderList');
+        if (el) el.innerHTML = '<p class="loading">Error loading folders</p>';
     }
 }
 
@@ -102,12 +121,14 @@ async function loadAllContent() {
         }
 
         currentFolder = null;
-        document.getElementById('contentTitle').textContent = 'All Content';
+        const titleEl = document.getElementById('contentTitle');
+        if (titleEl) titleEl.textContent = 'All Content';
         displayContent(allContent);
         console.log('📄 Vault: Loaded', allContent.length, 'content items');
     } catch (error) {
         console.error('Error loading vault content:', error);
-        document.getElementById('contentGrid').innerHTML = '<p class="loading">Error loading content</p>';
+        const el = document.getElementById('contentGrid');
+        if (el) el.innerHTML = '<p class="loading">Error loading content</p>';
     }
 }
 
@@ -124,9 +145,7 @@ async function loadFolderContent(folderId) {
                 if (!checkPrivateFolderAccess(folder)) {
                     console.warn('🔒 Access denied to private vault folder:', folder.title);
                     window.location.href = window.location.pathname;
-                    setTimeout(() => {
-                        promptForFolderPassword(folder);
-                    }, 100);
+                    setTimeout(() => { promptForFolderPassword(folder); }, 100);
                     return;
                 }
             } else {
@@ -135,33 +154,18 @@ async function loadFolderContent(folderId) {
         }
 
         currentFolder = folder;
-
-        // Show content section, hide folder grid
-        const foldersSection = document.getElementById('foldersSection');
-        const folderNav      = document.getElementById('folderNav');
-        const contentGrid    = document.getElementById('contentGrid');
-        if (foldersSection) foldersSection.style.display = 'none';
-        if (folderNav)      folderNav.style.display      = 'block';
-        if (contentGrid)    contentGrid.style.display    = 'grid';
+        const content = await vaultClient.getContentByFolder(folder.id);
 
         const titleEl = document.getElementById('contentTitle');
         if (titleEl) titleEl.textContent = folder.title;
+        displayContent(content);
 
-        // Check if this folder has sub-folders — show them first
-        const subfolders = folders.filter(f => f.parent_id === folder.id)
-            .sort((a, b) => a.title.localeCompare(b.title));
+        // Highlight folder in nav
+        document.querySelectorAll('.folder-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.folderId === folder.id);
+        });
 
-        const content = await vaultClient.getContentByFolder(folder.id);
-
-        // Build combined display: subfolders + content items
-        const combined = [
-            ...subfolders.map(sf => ({ ...sf, _isSubfolder: true })),
-            ...content
-        ];
-
-        displayContent(combined);
-
-        console.log('📁 Vault: Loaded folder:', folder.title, '(' + content.length + ' items, ' + subfolders.length + ' subfolders)');
+        console.log('📁 Vault: Loaded folder:', folder.title, '(' + content.length + ' items)');
     } catch (error) {
         console.error('Error loading vault folder content:', error);
     }
@@ -171,20 +175,15 @@ async function loadSingleContent(contentId) {
     try {
         const content = await vaultClient.getContent(contentId);
 
-        // Show content section, hide folder grid
-        const foldersSection = document.getElementById('foldersSection');
-        const folderNav      = document.getElementById('folderNav');
-        const contentGrid    = document.getElementById('contentGrid');
-        if (foldersSection) foldersSection.style.display = 'none';
-        if (folderNav)      folderNav.style.display      = 'block';
-        if (contentGrid)    contentGrid.style.display    = 'grid';
+        // Hide folder nav
+        const folderNav = document.getElementById('folderNav');
+        if (folderNav) folderNav.style.display = 'none';
 
         const titleEl = document.getElementById('contentTitle');
         if (titleEl) titleEl.textContent = content.title;
-
         displayContent([content]);
 
-        // Auto-open the content
+        // Auto-open
         setTimeout(() => openContent(content), 500);
 
         console.log('📄 Vault: Loaded single content:', content.title);
@@ -207,7 +206,7 @@ function displayFolders() {
         return;
     }
 
-    // Show all public root folders
+    // Show public root folders only
     const publicRootFolders = folders.filter(f => {
         const isRoot   = !f.parent_id && f.folder_type === 'root';
         const isPublic = f.is_public !== false;
@@ -216,57 +215,57 @@ function displayFolders() {
 
     console.log('📊 Vault public folders:', publicRootFolders.length, publicRootFolders.map(f => f.title));
 
-    // Recursive item count helper
     function getTotalItemCount(folderId) {
         const folder = folders.find(f => f.id === folderId);
         if (!folder) return 0;
         let count = folder.actual_item_count || 0;
         const subfolders = folders.filter(f => f.parent_id === folderId);
-        for (const subfolder of subfolders) {
-            count += getTotalItemCount(subfolder.id);
-        }
+        for (const subfolder of subfolders) { count += getTotalItemCount(subfolder.id); }
         return count;
     }
 
     if (publicRootFolders.length === 0) {
-        container.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No public folders available</p>';
-        return;
+        container.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No public vault collections available</p>';
+    } else {
+        const html = publicRootFolders.map(folder => {
+            const subfolders      = folders.filter(f => f.parent_id === folder.id);
+            const subfoldersCount = subfolders.length;
+            const displayURL      = folder.table_name;
+            const directItemCount = folder.actual_item_count || 0;
+
+            let countLabel = subfoldersCount > 0
+                ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${directItemCount} item${directItemCount !== 1 ? 's' : ''}`
+                : `${directItemCount} item${directItemCount !== 1 ? 's' : ''}`;
+
+            const viewContentButton = directItemCount > 0
+                ? `<button onclick="event.stopPropagation(); window.location.href='?folder=${folder.slug}';" style="margin-top: 8px; padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">📄 View Content</button>`
+                : '';
+
+            return `
+                <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')">
+                    <div class="folder-icon" style="font-size:40px;">📁</div>
+                    <div class="folder-title">${escapeHtml(folder.title)}</div>
+                    <div class="folder-details">${countLabel}</div>
+                    <div class="folder-slug">${displayURL}</div>
+                    ${viewContentButton}
+                </div>
+            `;
+        }).join('');
+        container.innerHTML = html;
     }
-
-    const html = publicRootFolders.map(folder => {
-        const subfolders      = folders.filter(f => f.parent_id === folder.id);
-        const subfoldersCount = subfolders.length;
-        const displayURL      = folder.table_name;
-        const directItemCount = folder.actual_item_count || 0;
-
-        let countLabel = subfoldersCount > 0
-            ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${directItemCount} item${directItemCount !== 1 ? 's' : ''}`
-            : `${directItemCount} item${directItemCount !== 1 ? 's' : ''}`;
-
-        const viewContentButton = directItemCount > 0
-            ? `<button onclick="event.stopPropagation(); window.location.href='?folder=${folder.slug}';" style="margin-top: 8px; padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">📄 View Content</button>`
-            : '';
-
-        return `
-            <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')">
-                <div class="folder-icon">📁</div>
-                <div class="folder-title">${escapeHtml(folder.title)}</div>
-                <div class="folder-details">${countLabel}</div>
-                <div class="folder-slug">${displayURL}</div>
-                ${viewContentButton}
-            </div>
-        `;
-    }).join('');
-
-    container.innerHTML = html;
 }
 
 function displayContent(content) {
+    // Show content viewer, hide folders section
+    const foldersSection = document.getElementById('foldersSection');
+    const contentViewer  = document.getElementById('contentViewer');
+    if (foldersSection) foldersSection.style.display = 'none';
+    if (contentViewer)  contentViewer.style.display  = 'block';
+
     const container = document.getElementById('contentGrid');
     if (!container) return;
 
     container.className = 'content-grid' + (viewMode === 'list' ? ' list-view' : '');
-    container.style.display = 'grid';
 
     if (content.length === 0) {
         container.innerHTML = '<p class="loading">No content available</p>';
@@ -274,21 +273,6 @@ function displayContent(content) {
     }
 
     const html = content.map(item => {
-        // Subfolder card
-        if (item._isSubfolder) {
-            const sfItems = item.actual_item_count || 0;
-            return `
-                <div class="folder-card-item" onclick="handleFolderClick('${item.slug}')"
-                     style="cursor:pointer;">
-                    <div class="folder-icon">📁</div>
-                    <div class="folder-title">${escapeHtml(item.title)}</div>
-                    <div class="folder-details">${sfItems} item${sfItems !== 1 ? 's' : ''}</div>
-                    <div class="folder-slug">${item.table_name || item.slug}</div>
-                </div>
-            `;
-        }
-
-        // Content card
         const thumbnailHtml = item.thumbnail_url
             ? `<img data-src="${item.thumbnail_url}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="content-thumbnail lazy-thumbnail" alt="${escapeHtml(item.title)}" loading="lazy">`
             : `<div class="content-thumbnail">${getTypeIcon(item.type)}</div>`;
@@ -327,15 +311,24 @@ async function openContent(contentData) {
     // Increment view count
     await vaultClient.incrementViewCount(content.id);
 
-    // Open based on type — same pattern as public library
-    // All types open in new window/tab, no iframe modal
+    // Show right viewer panel on mobile
+    const rightViewer = document.getElementById('rightViewer');
+    if (rightViewer) rightViewer.classList.add('active');
+
+    // Open based on type
     switch (content.type) {
+
+        case 'pdf':
+            openPdfViewer(content);
+            break;
 
         case 'flipbook':
             if (content.url) {
                 window.open(`../flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}`, '_blank', 'width=1200,height=800');
             } else if (content.id) {
                 window.open(`../flipbook-viewer.html?content=${content.id}`, '_blank', 'width=1200,height=800');
+            } else {
+                alert('Flipbook data not available');
             }
             break;
 
@@ -344,11 +337,9 @@ async function openContent(contentData) {
                 window.open(`../presentation-viewer.html?manifest=${encodeURIComponent(content.url)}`, '_blank', 'width=1200,height=800');
             } else if (content.id) {
                 window.open(`../presentation-viewer.html?content=${content.id}`, '_blank', 'width=1200,height=800');
+            } else {
+                alert('Presentation data not available');
             }
-            break;
-
-        case 'pdf':
-            openPdfViewer(content);
             break;
 
         case 'video':
@@ -364,74 +355,63 @@ async function openContent(contentData) {
             openMediaPlayer(content, 'image');
             break;
 
-        // All vault tools + links — open in new tab
+        // Vault interactive tools — open in new tab
         case 'quiz':
         case 'card-game':
         case 'spin-wheel':
         case 'landing-page':
         case 'link':
-        default:
             if (content.url) {
                 window.open(content.url, '_blank');
             } else if (content.external_url) {
                 window.open(content.external_url, '_blank');
             }
             break;
-    }
-}
 
-// ==================== LAUNCH MODAL (iframe) ====================
-/**
- * Opens vault tools (quizzes, games, etc.) in an iframe modal
- * Modal is chief — content loads inside, user stays in the vault
- */
-function openLaunchModal(url, title = '') {
-    const modal   = document.getElementById('launchModal');
-    const frame   = document.getElementById('launchFrame');
-    const titleEl = document.getElementById('launchModalTitle');
-
-    if (!modal || !frame) {
-        console.error('Launch modal elements not found');
-        window.open(url, '_blank');
-        return;
+        default:
+            if (content.url) {
+                window.open(content.url, '_blank');
+            }
     }
 
-    titleEl.textContent = title || 'Aurion\'s Vault';
-    frame.src = url;
-    modal.classList.add('active');
-    console.log('🚀 Vault launch modal opened:', url);
-}
-
-function closeLaunchModal() {
-    const modal = document.getElementById('launchModal');
-    const frame = document.getElementById('launchFrame');
-
-    if (modal) modal.classList.remove('active');
-    if (frame) {
-        frame.src = 'about:blank';
-        setTimeout(() => { frame.src = ''; }, 100);
+    // If has external_url, offer to open it
+    if (content.external_url && content.type !== 'link') {
+        setTimeout(() => {
+            if (confirm('This content has an external reference link. Open it?')) {
+                openLinkInModal(content.external_url, 'Reference: ' + content.title);
+            }
+        }, 1000);
     }
 }
 
 // ==================== PDF VIEWER ====================
-function openPdfViewer(content) {
-    const modal     = document.getElementById('mediaModal');
-    const container = document.getElementById('mediaContainer');
-    const title     = document.getElementById('mediaTitle');
+async function openPdfViewer(content) {
+    const modal    = document.getElementById('pdfModal');
+    const titleEl  = document.getElementById('pdfTitle');
+    const viewer   = document.getElementById('viewer');
 
-    title.textContent = content.title;
-    container.innerHTML = `<iframe src="${content.url}" style="width:100%; height:75vh; border:none; border-radius:8px;"></iframe>`;
+    currentPdfUrl = content.url;
+    titleEl.textContent = content.title;
+
     modal.classList.add('active');
+
+    try {
+        pdfDoc = await pdfjsLib.getDocument(content.url).promise;
+        await renderPage(1);
+    } catch (error) {
+        console.error('Error loading PDF:', error);
+        document.getElementById('pdfViewerContainer').innerHTML =
+            '<p style="color: #e74c3c; padding: 20px;">Error loading PDF. Please try again.</p>';
+    }
 }
 
 // ==================== MEDIA PLAYER ====================
 function openMediaPlayer(content, type) {
     const modal     = document.getElementById('mediaModal');
     const container = document.getElementById('mediaContainer');
-    const title     = document.getElementById('mediaTitle');
+    const titleEl   = document.getElementById('mediaTitle');
 
-    title.textContent = content.title;
-
+    titleEl.textContent = content.title;
     const url = content.url;
     let html = '';
 
@@ -465,20 +445,83 @@ function openMediaPlayer(content, type) {
 function closeMediaPlayer() {
     const modal     = document.getElementById('mediaModal');
     const container = document.getElementById('mediaContainer');
-
     modal.classList.remove('active');
     container.innerHTML = '';
 }
+
+// ==================== LINK MODAL (DRAGGABLE) ====================
+function openLinkInModal(url, title = 'External Link') {
+    const modal   = document.getElementById('linkModal');
+    const frame   = document.getElementById('linkFrame');
+    const titleEl = document.getElementById('linkModalTitle');
+
+    titleEl.textContent = title;
+    frame.src = url;
+
+    modal.style.left      = '50%';
+    modal.style.top       = '50%';
+    modal.style.transform = 'translate(-50%, -50%)';
+    modal.style.width     = '800px';
+    modal.style.height    = '600px';
+    modal.style.display   = 'flex';
+
+    makeDraggable(modal);
+}
+
+function closeLinkModal() {
+    const modal = document.getElementById('linkModal');
+    const frame = document.getElementById('linkFrame');
+    modal.style.display = 'none';
+    frame.src = '';
+}
+
+function makeDraggable(element) {
+    const header = element.querySelector('.link-modal-header');
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+
+    header.onmousedown = dragMouseDown;
+
+    function dragMouseDown(e) {
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+    }
+
+    function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        element.style.top       = (element.offsetTop - pos2) + 'px';
+        element.style.left      = (element.offsetLeft - pos1) + 'px';
+        element.style.transform = 'none';
+    }
+
+    function closeDragElement() {
+        document.onmouseup   = null;
+        document.onmousemove = null;
+    }
+}
+
+document.addEventListener('click', (e) => {
+    const linkModal = document.getElementById('linkModal');
+    if (e.target === linkModal) closeLinkModal();
+});
 
 // ==================== VIEW TOGGLE ====================
 function setView(mode) {
     viewMode = mode;
 
-    document.getElementById('gridBtn').classList.toggle('active', mode === 'grid');
-    document.getElementById('listBtn').classList.toggle('active', mode === 'list');
+    const gridBtn = document.getElementById('gridBtn');
+    const listBtn = document.getElementById('listBtn');
+    if (gridBtn) gridBtn.classList.toggle('active', mode === 'grid');
+    if (listBtn) listBtn.classList.toggle('active', mode === 'list');
 
     const container = document.getElementById('contentGrid');
-    container.className = 'content-grid' + (mode === 'list' ? ' list-view' : '');
+    if (container) container.className = 'content-grid' + (mode === 'list' ? ' list-view' : '');
 }
 
 // ==================== DARK MODE ====================
@@ -488,27 +531,45 @@ function toggleDarkMode() {
     localStorage.setItem('darkMode', darkMode);
 }
 
-// ==================== VAULT NAVIGATION ====================
-/**
- * Updates toolbar buttons based on where the user is in the vault.
- * Root (no params):     show Public Library, hide Vault Library
- * Inside subfolder:     show Vault Library,  hide Public Library
- */
-function updateVaultNav(isInsideFolder) {
-    const vaultBtn  = document.getElementById('vaultNavBtn');
-    const publicBtn = document.getElementById('publicLibBtn');
+// ==================== UTILITY FUNCTIONS ====================
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
-    if (!vaultBtn || !publicBtn) return;
+function getTypeIcon(type) {
+    const icons = {
+        pdf:            '📄',
+        flipbook:       '📖',
+        presentation:   '📊',
+        video:          '🎥',
+        image:          '🖼️',
+        audio:          '🎵',
+        gif:            '🎞️',
+        link:           '🔗',
+        quiz:           '🧠',
+        'card-game':    '🃏',
+        'spin-wheel':   '🎡',
+        'landing-page': '🚀'
+    };
+    return icons[type] || '📎';
+}
 
-    if (isInsideFolder) {
-        // Inside a subfolder — show Vault Library, hide Public Library
-        vaultBtn.style.display  = 'flex';
-        publicBtn.style.display = 'none';
-    } else {
-        // Vault root — show Public Library, hide Vault Library
-        vaultBtn.style.display  = 'none';
-        publicBtn.style.display = 'flex';
-    }
+function extractYouTubeId(url) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match  = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+}
+
+// ==================== PLAYBACK MEMORY ====================
+function savePlaybackPosition(contentId, position) {
+    localStorage.setItem(`playback_${contentId}`, JSON.stringify({ position, timestamp: Date.now() }));
+}
+
+function getPlaybackPosition(contentId) {
+    const data = localStorage.getItem(`playback_${contentId}`);
+    return data ? JSON.parse(data) : null;
 }
 
 // ==================== LAZY LOADING ====================
@@ -521,7 +582,7 @@ function initLazyLoading() {
                 if (entry.isIntersecting) {
                     const img = entry.target;
                     if (img.dataset.src) {
-                        img.style.opacity = '0';
+                        img.style.opacity    = '0';
                         img.style.transition = 'opacity 0.3s ease-in';
                         img.src = img.dataset.src;
                         img.onload = () => {
@@ -579,38 +640,36 @@ function isFolderPrivate(folder) {
 function promptForFolderPassword(folder) {
     pendingPrivateFolder = folder;
 
-    const modal      = document.getElementById('passwordPromptModal');
-    const folderName = document.getElementById('passwordPromptFolderName');
-    const inputEl    = document.getElementById('passwordPromptInput');
-    const errorEl    = document.getElementById('passwordError');
+    const modal       = document.getElementById('passwordPromptModal');
+    const folderNameEl = document.getElementById('passwordPromptFolderName');
+    const inputEl     = document.getElementById('passwordPromptInput');
+    const errorEl     = document.getElementById('passwordError');
 
-    folderName.textContent = `Enter password to access: ${folder.title}`;
+    folderNameEl.textContent = `Enter password to access: ${folder.title}`;
     inputEl.value = '';
     errorEl.style.display = 'none';
 
     modal.style.display = 'flex';
     inputEl.focus();
 
-    inputEl.onkeypress = (e) => {
-        if (e.key === 'Enter') submitFolderPassword();
-    };
+    inputEl.onkeypress = (e) => { if (e.key === 'Enter') submitFolderPassword(); };
 }
 
 async function submitFolderPassword() {
     if (!pendingPrivateFolder) return;
 
-    const inputEl = document.getElementById('passwordPromptInput');
-    const errorEl = document.getElementById('passwordError');
+    const inputEl  = document.getElementById('passwordPromptInput');
+    const errorEl  = document.getElementById('passwordError');
     const password = inputEl.value.trim();
 
     if (!password) {
-        errorEl.textContent = 'Please enter a password';
+        errorEl.textContent  = 'Please enter a password';
         errorEl.style.display = 'block';
         return;
     }
 
     try {
-        // Query vault_folder_passwords via vaultClient
+        // Query vault_folder_passwords — not folder_passwords
         const { data: passwords, error } = await vaultClient.client
             .from('vault_folder_passwords')
             .select('*')
@@ -620,7 +679,7 @@ async function submitFolderPassword() {
         if (error) throw error;
 
         if (!passwords || passwords.length === 0) {
-            errorEl.textContent = 'No active passwords for this folder';
+            errorEl.textContent  = 'No active passwords for this collection';
             errorEl.style.display = 'block';
             return;
         }
@@ -629,10 +688,7 @@ async function submitFolderPassword() {
         for (const pwd of passwords) {
             if (pwd.expires_at && new Date(pwd.expires_at) < new Date()) continue;
             const isValid = await PasswordUtils.verifyPassword(password, pwd.password_hash);
-            if (isValid) {
-                passwordValid = true;
-                break;
-            }
+            if (isValid) { passwordValid = true; break; }
         }
 
         if (passwordValid) {
@@ -640,7 +696,7 @@ async function submitFolderPassword() {
             closePasswordPrompt();
             window.location.href = `?folder=${pendingPrivateFolder.slug}`;
         } else {
-            errorEl.textContent = '❌ Invalid password';
+            errorEl.textContent  = '❌ Invalid password';
             errorEl.style.display = 'block';
             inputEl.value = '';
             inputEl.focus();
@@ -648,7 +704,7 @@ async function submitFolderPassword() {
 
     } catch (error) {
         console.error('Error validating vault password:', error);
-        errorEl.textContent = 'Error validating password';
+        errorEl.textContent  = 'Error validating password';
         errorEl.style.display = 'block';
     }
 }
@@ -681,103 +737,5 @@ function handleFolderClick(folderSlug) {
         promptForFolderPassword(folder);
     } else {
         window.location.href = `?folder=${folderSlug}`;
-    }
-}
-
-// ==================== UTILITY FUNCTIONS ====================
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function getTypeIcon(type) {
-    const icons = {
-        quiz:           '🧠',
-        'card-game':    '🃏',
-        'spin-wheel':   '🎡',
-        'landing-page': '🚀',
-        pdf:            '📄',
-        flipbook:       '📖',
-        presentation:   '📊',
-        video:          '🎥',
-        gif:            '🎞️',
-        image:          '🖼️',
-        audio:          '🎵',
-        link:           '🔗'
-    };
-    return icons[type] || '📎';
-}
-
-function extractYouTubeId(url) {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match  = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-}
-
-// Close launch modal when clicking outside
-document.addEventListener('click', (e) => {
-    const launchModal = document.getElementById('launchModal');
-    if (e.target === launchModal) closeLaunchModal();
-
-    const linkModal = document.getElementById('linkModal');
-    if (e.target === linkModal) closeLinkModal();
-});
-
-// ==================== LINK MODAL (DRAGGABLE) ====================
-function openLinkInModal(url, title = 'External Link') {
-    const modal   = document.getElementById('linkModal');
-    const frame   = document.getElementById('linkFrame');
-    const titleEl = document.getElementById('linkModalTitle');
-
-    titleEl.textContent = title;
-    frame.src = url;
-
-    modal.style.left      = '50%';
-    modal.style.top       = '50%';
-    modal.style.transform = 'translate(-50%, -50%)';
-    modal.style.width     = '800px';
-    modal.style.height    = '600px';
-    modal.style.display   = 'flex';
-
-    makeDraggable(modal);
-}
-
-function closeLinkModal() {
-    const modal = document.getElementById('linkModal');
-    const frame = document.getElementById('linkFrame');
-
-    modal.style.display = 'none';
-    frame.src = '';
-}
-
-function makeDraggable(element) {
-    const header = element.querySelector('.link-modal-header');
-    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-
-    header.onmousedown = dragMouseDown;
-
-    function dragMouseDown(e) {
-        e.preventDefault();
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        document.onmouseup   = closeDragElement;
-        document.onmousemove = elementDrag;
-    }
-
-    function elementDrag(e) {
-        e.preventDefault();
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        element.style.top       = (element.offsetTop  - pos2) + 'px';
-        element.style.left      = (element.offsetLeft - pos1) + 'px';
-        element.style.transform = 'none';
-    }
-
-    function closeDragElement() {
-        document.onmouseup   = null;
-        document.onmousemove = null;
     }
 }
