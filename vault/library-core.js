@@ -135,17 +135,33 @@ async function loadFolderContent(folderId) {
         }
 
         currentFolder = folder;
+
+        // Show content section, hide folder grid
+        const foldersSection = document.getElementById('foldersSection');
+        const folderNav      = document.getElementById('folderNav');
+        const contentGrid    = document.getElementById('contentGrid');
+        if (foldersSection) foldersSection.style.display = 'none';
+        if (folderNav)      folderNav.style.display      = 'block';
+        if (contentGrid)    contentGrid.style.display    = 'grid';
+
+        const titleEl = document.getElementById('contentTitle');
+        if (titleEl) titleEl.textContent = folder.title;
+
+        // Check if this folder has sub-folders — show them first
+        const subfolders = folders.filter(f => f.parent_id === folder.id)
+            .sort((a, b) => a.title.localeCompare(b.title));
+
         const content = await vaultClient.getContentByFolder(folder.id);
 
-        document.getElementById('contentTitle').textContent = folder.title;
-        displayContent(content);
+        // Build combined display: subfolders + content items
+        const combined = [
+            ...subfolders.map(sf => ({ ...sf, _isSubfolder: true })),
+            ...content
+        ];
 
-        // Highlight folder in nav
-        document.querySelectorAll('.folder-item').forEach(item => {
-            item.classList.toggle('active', item.dataset.folderId === folder.id);
-        });
+        displayContent(combined);
 
-        console.log('📁 Vault: Loaded folder:', folder.title, '(' + content.length + ' items)');
+        console.log('📁 Vault: Loaded folder:', folder.title, '(' + content.length + ' items, ' + subfolders.length + ' subfolders)');
     } catch (error) {
         console.error('Error loading vault folder content:', error);
     }
@@ -155,10 +171,17 @@ async function loadSingleContent(contentId) {
     try {
         const content = await vaultClient.getContent(contentId);
 
-        // Hide folder navigation
-        document.getElementById('folderNav').style.display = 'none';
+        // Show content section, hide folder grid
+        const foldersSection = document.getElementById('foldersSection');
+        const folderNav      = document.getElementById('folderNav');
+        const contentGrid    = document.getElementById('contentGrid');
+        if (foldersSection) foldersSection.style.display = 'none';
+        if (folderNav)      folderNav.style.display      = 'block';
+        if (contentGrid)    contentGrid.style.display    = 'grid';
 
-        document.getElementById('contentTitle').textContent = content.title;
+        const titleEl = document.getElementById('contentTitle');
+        if (titleEl) titleEl.textContent = content.title;
+
         displayContent([content]);
 
         // Auto-open the content
@@ -226,7 +249,7 @@ function displayFolders() {
 
         return `
             <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')">
-                <div class="folder-icon">🥷</div>
+                <div class="folder-icon">📁</div>
                 <div class="folder-title">${escapeHtml(folder.title)}</div>
                 <div class="folder-details">${countLabel}</div>
                 <div class="folder-slug">${displayURL}</div>
@@ -240,7 +263,10 @@ function displayFolders() {
 
 function displayContent(content) {
     const container = document.getElementById('contentGrid');
+    if (!container) return;
+
     container.className = 'content-grid' + (viewMode === 'list' ? ' list-view' : '');
+    container.style.display = 'grid';
 
     if (content.length === 0) {
         container.innerHTML = '<p class="loading">No content available</p>';
@@ -248,6 +274,21 @@ function displayContent(content) {
     }
 
     const html = content.map(item => {
+        // Subfolder card
+        if (item._isSubfolder) {
+            const sfItems = item.actual_item_count || 0;
+            return `
+                <div class="folder-card-item" onclick="handleFolderClick('${item.slug}')"
+                     style="cursor:pointer;">
+                    <div class="folder-icon">📁</div>
+                    <div class="folder-title">${escapeHtml(item.title)}</div>
+                    <div class="folder-details">${sfItems} item${sfItems !== 1 ? 's' : ''}</div>
+                    <div class="folder-slug">${item.table_name || item.slug}</div>
+                </div>
+            `;
+        }
+
+        // Content card
         const thumbnailHtml = item.thumbnail_url
             ? `<img data-src="${item.thumbnail_url}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="content-thumbnail lazy-thumbnail" alt="${escapeHtml(item.title)}" loading="lazy">`
             : `<div class="content-thumbnail">${getTypeIcon(item.type)}</div>`;
@@ -286,23 +327,10 @@ async function openContent(contentData) {
     // Increment view count
     await vaultClient.incrementViewCount(content.id);
 
-    // Open based on type
+    // Open based on type — same pattern as public library
+    // All types open in new window/tab, no iframe modal
     switch (content.type) {
 
-        // ── Vault interactive tools — open in iframe modal ──
-        case 'quiz':
-        case 'card-game':
-        case 'spin-wheel':
-        case 'landing-page':
-        case 'link':
-            if (content.url) {
-                openLaunchModal(content.url, content.title);
-            } else if (content.external_url) {
-                openLaunchModal(content.external_url, content.title);
-            }
-            break;
-
-        // ── Viewers — relative path from vault/ subfolder ──
         case 'flipbook':
             if (content.url) {
                 window.open(`../flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}`, '_blank', 'width=1200,height=800');
@@ -319,7 +347,6 @@ async function openContent(contentData) {
             }
             break;
 
-        // ── Standard media ──
         case 'pdf':
             openPdfViewer(content);
             break;
@@ -333,17 +360,23 @@ async function openContent(contentData) {
             break;
 
         case 'image':
-            openMediaPlayer(content, 'image');
-            break;
-
         case 'gif':
             openMediaPlayer(content, 'image');
             break;
 
+        // All vault tools + links — open in new tab
+        case 'quiz':
+        case 'card-game':
+        case 'spin-wheel':
+        case 'landing-page':
+        case 'link':
         default:
             if (content.url) {
-                openLaunchModal(content.url, content.title);
+                window.open(content.url, '_blank');
+            } else if (content.external_url) {
+                window.open(content.external_url, '_blank');
             }
+            break;
     }
 }
 
