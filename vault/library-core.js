@@ -384,27 +384,6 @@ async function openContent(contentData) {
     }
 }
 
-// ==================== PDF VIEWER ====================
-async function openPdfViewer(content) {
-    const modal    = document.getElementById('pdfModal');
-    const titleEl  = document.getElementById('pdfTitle');
-    const viewer   = document.getElementById('viewer');
-
-    currentPdfUrl = content.url;
-    titleEl.textContent = content.title;
-
-    modal.classList.add('active');
-
-    try {
-        pdfDoc = await pdfjsLib.getDocument(content.url).promise;
-        await renderPage(1);
-    } catch (error) {
-        console.error('Error loading PDF:', error);
-        document.getElementById('pdfViewerContainer').innerHTML =
-            '<p style="color: #e74c3c; padding: 20px;">Error loading PDF. Please try again.</p>';
-    }
-}
-
 // ==================== MEDIA PLAYER ====================
 function openMediaPlayer(content, type) {
     const modal     = document.getElementById('mediaModal');
@@ -447,6 +426,39 @@ function closeMediaPlayer() {
     const container = document.getElementById('mediaContainer');
     modal.classList.remove('active');
     container.innerHTML = '';
+}
+
+// ==================== FLIPBOOK VIEWER ====================
+function openFlipbookViewer(content) {
+    // Priority 1: Use Cloudflare R2 manifest URL if available (fast, public)
+    if (content.url) {
+        const flipbookUrl = `flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}`;
+        window.open(flipbookUrl, '_blank', 'width=1200,height=800');
+    }
+    // Priority 2: Fallback to content ID (loads from Supabase)
+    else if (content.id) {
+        const flipbookUrl = `flipbook-viewer.html?content=${content.id}`;
+        window.open(flipbookUrl, '_blank', 'width=1200,height=800');
+    }
+    else {
+        alert('Flipbook data not available');
+}
+
+// ==================== PRESENTATION VIEWER ====================
+function openPresentationViewer(content) {
+    // Priority 1: Use Cloudflare R2 manifest URL if available (fast, public)
+    if (content.url) {
+        const presentationUrl = `presentation-viewer.html?manifest=${encodeURIComponent(content.url)}`;
+        window.open(presentationUrl, '_blank', 'width=1200,height=800');
+    }
+    // Priority 2: Fallback to content ID (loads from Supabase)
+    else if (content.id) {
+        const presentationUrl = `presentation-viewer.html?content=${content.id}`;
+        window.open(presentationUrl, '_blank', 'width=1200,height=800');
+    }
+    else {
+        alert('Presentation data not available');
+    }        
 }
 
 // ==================== LINK MODAL (DRAGGABLE) ====================
