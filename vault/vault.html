@@ -623,7 +623,7 @@
         <div class="container">
             <div class="header-left">
                 <img src="../3C Thread To Success logo.png" alt="3C Logo" class="logo-img">
-                <h1>Aurion's Vault</h1>
+                <h1>Aurion 3C Mascot</h1>
             </div>
             <div class="header-right">
                 <!-- Vault Library button — shown only inside subfolders -->
@@ -631,7 +631,7 @@
                    style="display: none; background: linear-gradient(135deg, #1a0d35, #3b1f7a); color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(88,28,135,0.4); transition: all 0.2s; white-space: nowrap; border: 1px solid rgba(192,132,252,0.3);"
                    onmouseover="this.style.transform='translateY(-2px)'"
                    onmouseout="this.style.transform=''">
-                    🥷 Vault Library
+                    🥷 Aurion Vault
                 </a>
                 <!-- Public Library button — shown only on vault root -->
                 <a id="publicLibBtn" href="../library.html"
@@ -646,15 +646,38 @@
 
     <div class="container">
 
-        <!-- Folders Section -->
-        <div class="folders-section">
+        <!-- Folders Section — shown on root -->
+        <div class="folders-section" id="foldersSection">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-                <h2 style="color: #ffffff; font-size: 20px; margin: 0; display: flex; align-items: center; gap: 10px;">
-                    Vault Collections
-                </h2>
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <img src="https://files.3c-public-library.org/content/2026/Aurion%20Vault/19.png"
+                         alt="Aurion"
+                         style="width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(192,132,252,0.5); box-shadow: 0 0 12px rgba(192,132,252,0.3);">
+                    <div>
+                        <h2 style="color: #ffffff; font-size: 20px; margin: 0;">Welcome, to my universe</h2>
+                        <p style="color: #9b59b6; font-size: 12px; margin: 2px 0 0 0;">Aurion · Ambassador &amp; Guide · 3C Thread To Success</p>
+                    </div>
+                </div>
             </div>
             <div id="foldersGrid" class="folders-grid"></div>
         </div>
+
+        <!-- Content Section — shown when inside a folder -->
+        <div id="folderNav" style="display: none; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <button onclick="window.location.href='vault.html'"
+                    style="background: linear-gradient(135deg, #1a0d35, #3b1f7a); color: white; border: 1px solid rgba(192,132,252,0.3); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                    ← Vault Collections
+                </button>
+                <h2 id="contentTitle" style="color: #c084fc; font-size: 20px; margin: 0;"></h2>
+            </div>
+        </div>
+
+        <!-- Hidden folder list for error handler reference -->
+        <div id="folderList" style="display: none;"></div>
+
+        <!-- Content Grid -->
+        <div id="contentGrid" class="content-grid" style="display: none;"></div>
 
         <!-- Folder Sidebar (subfolders) -->
         <div id="folderSidebar" class="folder-sidebar" style="display: none;">
