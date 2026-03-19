@@ -1302,24 +1302,69 @@ async function openVaultFolderSidebar(folderId) {
     try {
         const items = await vaultClient.getContentByFolder(folderId);
         if (items.length > 0) {
-            contentHtml += `<h4 style="color:#c084fc; margin:16px 0 10px;">📄 Content (${items.length})</h4>`;
-            items.forEach(item => {
-                const icon = getTypeIcon(item.type);
-                const urlDisplay = item.url ? truncateURL(item.url) : 'No URL';
+            contentHtml += `<div><h4 style="color:#c084fc; font-size:14px; margin-bottom:12px; border-bottom:1px solid rgba(192,132,252,0.2); padding-bottom:8px;">📄 Content Items</h4>`;
+
+            items.forEach((item, index) => {
+                // Thumbnail
+                const iconMap = {
+                    quiz: '🧠', 'card-game': '🃏', 'spin-wheel': '🎡',
+                    'landing-page': '🚀', flipbook: '📖', presentation: '📊',
+                    pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵',
+                    gif: '🎞️', link: '🔗'
+                };
+                const icon = iconMap[item.type] || '📄';
+                const thumbnailHtml = item.thumbnail_url
+                    ? `<img src="${item.thumbnail_url}" style="width:100%; max-width:150px; height:auto; border-radius:8px; object-fit:cover;" alt="Thumbnail">`
+                    : `<div style="width:100%; max-width:150px; height:120px; background:#1a0d35; display:flex; align-items:center; justify-content:center; font-size:48px; border-radius:8px;">${icon}</div>`;
+
+                // View link — covers all vault content types
+                let viewLink = '';
+                if (item.url) {
+                    const linkLabels = {
+                        quiz: '🧠 Click to launch quiz',
+                        'card-game': '🃏 Click to launch card game',
+                        'spin-wheel': '🎡 Click to launch wheel',
+                        'landing-page': '🚀 Click to open',
+                        flipbook: '📖 Click to view flipbook',
+                        presentation: '📊 Click to view presentation',
+                        pdf: '📄 Click to view PDF',
+                        video: '🎥 Click to view video',
+                        image: '🖼️ Click to view image',
+                        audio: '🎵 Click to view audio',
+                        gif: '🎞️ Click to view GIF',
+                        link: '🔗 Click to open link'
+                    };
+                    const label = linkLabels[item.type] || '🔗 Click to open';
+                    viewLink = `<div class="content-meta" style="margin-top:8px;">
+                        <a href="${item.url}" target="_blank" style="color:#8b5cf6; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                            ${label}
+                        </a>
+                    </div>`;
+                }
+
+                const canMoveUp   = index > 0;
+                const canMoveDown = index < items.length - 1;
+
                 contentHtml += `
                     <div class="content-card" style="margin-bottom:10px;">
+                        ${thumbnailHtml}
                         <div class="content-info">
-                            <div class="content-title">${icon} ${escapeHtml(item.title)}</div>
+                            <div class="content-title">${escapeHtml(item.title)}</div>
                             <div class="content-meta">Type: ${item.type.toUpperCase()} | Views: ${item.view_count || 0}</div>
-                            ${item.url ? `<div class="content-meta">🔗 <a href="${item.url}" target="_blank" style="color:#8b5cf6;">${urlDisplay}</a></div>` : ''}
+                            <div class="content-meta">🔗 URL: <strong style="color:#007bff;">${item.custom_url || item.slug || 'auto-generated'}</strong></div>
+                            ${item.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(item.url)}" target="_blank" style="color:#007bff;">${truncateURL(item.url)}</a></div>` : '<div class="content-meta" style="color:#dc3545;">⚠️ No URL</div>'}
                             ${item.description ? `<div class="content-meta">${escapeHtml(item.description)}</div>` : ''}
+                            ${viewLink}
                         </div>
                         <div class="content-actions">
-                            <button class="delete" onclick="deleteVaultContent('${item.id}')">Delete</button>
+                            ${canMoveUp   ? `<button onclick="moveVaultContentUp('${item.id}', '${folderId}')">↑</button>` : ''}
+                            ${canMoveDown ? `<button onclick="moveVaultContentDown('${item.id}', '${folderId}')">↓</button>` : ''}
+                            <button onclick="deleteVaultContent('${item.id}', '${folderId}')">Delete</button>
                         </div>
                     </div>
                 `;
             });
+            contentHtml += '</div>';
         }
     } catch (e) {
         console.error('Error loading vault content:', e);
@@ -1348,15 +1393,42 @@ async function deleteVaultFolder(folderId) {
     }
 }
 
-async function deleteVaultContent(contentId) {
+async function deleteVaultContent(contentId, folderId) {
     if (!confirm('Delete this vault content item?')) return;
 
     try {
         await vaultClient.deleteContent(contentId);
         showAlert('success', '✅ Vault content deleted');
         await loadAllData();
+        if (folderId) openVaultFolderSidebar(folderId);
     } catch (error) {
         showAlert('error', 'Error deleting vault content: ' + error.message);
+    }
+}
+
+async function moveVaultContentUp(contentId, folderId) {
+    try {
+        const items = await vaultClient.getContentByFolder(folderId);
+        const idx = items.findIndex(i => i.id === contentId);
+        if (idx <= 0) return;
+        await vaultClient.updateContent(contentId,         { display_order: items[idx - 1].display_order });
+        await vaultClient.updateContent(items[idx - 1].id, { display_order: items[idx].display_order });
+        openVaultFolderSidebar(folderId);
+    } catch (e) {
+        showAlert('error', 'Error reordering: ' + e.message);
+    }
+}
+
+async function moveVaultContentDown(contentId, folderId) {
+    try {
+        const items = await vaultClient.getContentByFolder(folderId);
+        const idx = items.findIndex(i => i.id === contentId);
+        if (idx < 0 || idx >= items.length - 1) return;
+        await vaultClient.updateContent(contentId,         { display_order: items[idx + 1].display_order });
+        await vaultClient.updateContent(items[idx + 1].id, { display_order: items[idx].display_order });
+        openVaultFolderSidebar(folderId);
+    } catch (e) {
+        showAlert('error', 'Error reordering: ' + e.message);
     }
 }
 function openFolderSidebar(folderId) {
