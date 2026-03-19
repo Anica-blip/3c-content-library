@@ -373,20 +373,20 @@
         <div class="container">
             <div class="header-left">
                 <img src="../3C Thread To Success logo.png" alt="3C Logo" class="logo-img">
-                <h1>Aurion's Vault</h1>
+                <h1>Aurion 3C Mascot</h1>
             </div>
             <div class="header-right">
-                <!-- Back to Vault Folders icon — shown on mobile or folder/content pages -->
+                <!-- Back to Vault button — shown on mobile or folder/content pages -->
                 <a id="folderIconBtn" href="vault.html"
                    style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; padding: 8px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 20px; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(155, 89, 182, 0.3); transition: all 0.2s; width: 40px; height: 40px;"
                    title="Back to Vault Folders">
                     🥷
                 </a>
-                <!-- Public Library — always visible -->
+                <!-- Public Library button — shown only on vault root -->
                 <a id="publicLibBtn" href="../library.html"
-                   style="background: linear-gradient(135deg, #4a2c8f, #6d28d9); color: white; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 13px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(109,40,217,0.35); transition: all 0.2s; white-space: nowrap;"
-                   onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 10px rgba(109,40,217,0.5)'"
-                   onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 6px rgba(109,40,217,0.35)'">
+                   style="display: flex; background: linear-gradient(135deg, #4a2c8f, #6d28d9); color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(109,40,217,0.35); transition: all 0.2s; white-space: nowrap;"
+                   onmouseover="this.style.transform='translateY(-2px)'"
+                   onmouseout="this.style.transform=''">
                     📚 Public Library
                 </a>
             </div>
@@ -397,10 +397,14 @@
 
         <!-- Landing Page 1 — Vault Folders Grid -->
         <div class="folders-section" id="foldersSection">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-                <h2 style="color: #ffffff; font-size: 20px; margin: 0; display: flex; align-items: center; gap: 10px;">
-                    Vault Collections
-                </h2>
+                    <img src="https://files.3c-public-library.org/content/2026/Aurion%20Vault/19.png"
+                         alt="Aurion"
+                         style="width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(192,132,252,0.5); box-shadow: 0 0 12px rgba(192,132,252,0.3);">
+                    <div>
+                        <h2 style="color: #ffffff; font-size: 20px; margin: 0;">Welcome, to my universe</h2>
+                        <p style="color: #9b59b6; font-size: 12px; margin: 2px 0 0 0;">Aurion · Ambassador &amp; Guide · 3C Thread To Success</p>
+                    </div
+                </div>
             </div>
             <div id="foldersGrid" class="folders-grid"></div>
         </div>
