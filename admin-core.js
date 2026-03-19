@@ -295,6 +295,13 @@ function updateConnectionStatus(connected) {
 // ==================== DATA LOADING ====================
 async function loadAllData() {
     try {
+        // Always reset destination dropdowns to library on data reload
+        // prevents browser remembering vault selection from previous session
+        const contentDest = document.getElementById('contentDestination');
+        const folderDest  = document.getElementById('folderDestination');
+        if (contentDest) contentDest.value = 'library';
+        if (folderDest)  folderDest.value  = 'library';
+
         // Load library folders
         folders = await supabaseClient.getFolders();
 
@@ -1076,7 +1083,7 @@ function updateFolderSelects() {
                 const option = document.createElement('option');
                 option.value = folder.id;
                 const contentCount = folder.actual_item_count || folder.item_count || 0;
-                const prefix = destination === 'vault' ? '🥷' : (folder.folder_type === 'root' ? '📁' : '📂');
+                const prefix = contentDest === 'vault' ? '🥷' : (folder.folder_type === 'root' ? '📁' : '📂');
                 option.textContent = `${indent}${prefix} ${folder.title} (${contentCount} items)`;
                 select.appendChild(option);
                 
