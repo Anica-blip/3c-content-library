@@ -1083,7 +1083,7 @@ function updateFolderSelects() {
                 const option = document.createElement('option');
                 option.value = folder.id;
                 const contentCount = folder.actual_item_count || folder.item_count || 0;
-                const prefix = contentDest === 'vault' ? '🥷' : (folder.folder_type === 'root' ? '📁' : '📂');
+                const prefix = folder.folder_type === 'root' ? '📁' : '📂';
                 option.textContent = `${indent}${prefix} ${folder.title} (${contentCount} items)`;
                 select.appendChild(option);
                 
@@ -1240,7 +1240,7 @@ function displayVaultFoldersGrid() {
         html += `
             <div class="folder-grid-card" onclick="openVaultFolderSidebar('${folder.id}')"
                  style="border-color: rgba(109, 40, 217, 0.5);">
-                <div class="folder-icon">🥷</div>
+                <div class="folder-icon">📁</div>
                 <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
                 <div class="folder-grid-meta">${countLabel}</div>
                 <div class="folder-grid-url">${displayURL}</div>
@@ -1264,7 +1264,7 @@ async function openVaultFolderSidebar(folderId) {
 
     sidebarTitle.innerHTML = `
         <div style="flex: 1;">
-            <h3 style="margin: 0; color: #c084fc; font-size: 18px;">🥷 ${escapeHtml(folder.title)}</h3>
+            <h3 style="margin: 0; color: #c084fc; font-size: 18px;">${escapeHtml(folder.title)}</h3>
             <div style="font-size: 12px; color: #808080; margin-top: 4px;">Table: <strong style="color: #8b5cf6;">${folder.table_name || folder.slug}</strong></div>
             ${folder.description ? `<div style="font-size: 12px; color: #999; margin-top: 2px;">${escapeHtml(folder.description)}</div>` : ''}
         </div>
@@ -1279,23 +1279,26 @@ async function openVaultFolderSidebar(folderId) {
 
     let contentHtml = '';
 
-    // Sub-folders
+    // Sub-folders — clickable same as library
     if (subfolders.length > 0) {
-        contentHtml += '<h4 style="color:#c084fc; margin-bottom:10px;">📂 Sub-folders</h4>';
+        contentHtml += `<div style="margin-bottom: 20px;"><h4 style="color:#c084fc; font-size:14px; margin-bottom:12px; border-bottom:1px solid rgba(192,132,252,0.2); padding-bottom:8px;">📂 Sub-folders</h4>`;
         subfolders.forEach(sf => {
             const sfItems = sf.actual_item_count || 0;
             contentHtml += `
-                <div class="content-card" style="margin-bottom:10px; border-color: rgba(109,40,217,0.4);">
-                    <div class="content-info">
-                        <div class="content-title">🥷 ${escapeHtml(sf.title)}</div>
-                        <div class="content-meta">${sfItems} items · ${sf.table_name || sf.slug}</div>
-                    </div>
-                    <div class="content-actions">
-                        <button class="delete" onclick="deleteVaultFolder('${sf.id}')">Delete</button>
+                <div class="subfolder-card" onclick="openVaultFolderSidebar('${sf.id}')"
+                     style="background:rgba(40,40,40,0.5); border:1px solid rgba(192,132,252,0.3); border-radius:8px; padding:12px; margin-bottom:8px; cursor:pointer; transition:all 0.2s;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="font-size:24px;">📂</div>
+                        <div style="flex:1;">
+                            <div style="font-weight:600; color:#ffffff; font-size:14px;">${escapeHtml(sf.title)}</div>
+                            <div style="font-size:11px; color:#808080;">${sfItems} item${sfItems !== 1 ? 's' : ''} · ${sf.table_name || sf.slug}</div>
+                        </div>
+                        <div style="color:#8b5cf6; font-size:18px;">→</div>
                     </div>
                 </div>
             `;
         });
+        contentHtml += '</div>';
     }
 
     // Content items — load from vault_content
@@ -1315,7 +1318,7 @@ async function openVaultFolderSidebar(folderId) {
                 const icon = iconMap[item.type] || '📄';
                 const thumbnailHtml = item.thumbnail_url
                     ? `<img src="${item.thumbnail_url}" style="width:100%; max-width:150px; height:auto; border-radius:8px; object-fit:cover;" alt="Thumbnail">`
-                    : `<div style="width:100%; max-width:150px; height:120px; background:#1a0d35; display:flex; align-items:center; justify-content:center; font-size:48px; border-radius:8px;">${icon}</div>`;
+                    : `<div style="width:100%; max-width:150px; height:200px; background:#1a0d35; display:flex; align-items:center; justify-content:center; color:#999; font-size:48px; border-radius:8px;">${icon}</div>`;
 
                 // View link — covers all vault content types
                 let viewLink = '';
@@ -1344,12 +1347,13 @@ async function openVaultFolderSidebar(folderId) {
 
                 const canMoveUp   = index > 0;
                 const canMoveDown = index < items.length - 1;
+                const isInteractive = (item.type === 'flipbook' || item.type === 'presentation') && item.url ? ' 📖 Interactive' : '';
 
                 contentHtml += `
                     <div class="content-card" style="margin-bottom:10px;">
                         ${thumbnailHtml}
                         <div class="content-info">
-                            <div class="content-title">${escapeHtml(item.title)}</div>
+                            <div class="content-title">${escapeHtml(item.title)}${isInteractive}</div>
                             <div class="content-meta">Type: ${item.type.toUpperCase()} | Views: ${item.view_count || 0}</div>
                             <div class="content-meta">🔗 URL: <strong style="color:#007bff;">${item.custom_url || item.slug || 'auto-generated'}</strong></div>
                             ${item.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(item.url)}" target="_blank" style="color:#007bff;">${truncateURL(item.url)}</a></div>` : '<div class="content-meta" style="color:#dc3545;">⚠️ No URL</div>'}
@@ -1359,7 +1363,8 @@ async function openVaultFolderSidebar(folderId) {
                         <div class="content-actions">
                             ${canMoveUp   ? `<button onclick="moveVaultContentUp('${item.id}', '${folderId}')">↑</button>` : ''}
                             ${canMoveDown ? `<button onclick="moveVaultContentDown('${item.id}', '${folderId}')">↓</button>` : ''}
-                            <button onclick="deleteVaultContent('${item.id}', '${folderId}')">Delete</button>
+                            <button onclick="editVaultContent('${item.id}')">Edit</button>
+                            <button class="delete" onclick="deleteVaultContent('${item.id}', '${folderId}')">Delete</button>
                         </div>
                     </div>
                 `;
@@ -1430,6 +1435,59 @@ async function moveVaultContentDown(contentId, folderId) {
     } catch (e) {
         showAlert('error', 'Error reordering: ' + e.message);
     }
+}
+
+function editVaultContent(contentId) {
+    // Find item across all vault folders
+    const findItem = async () => {
+        for (const folder of vaultFolders) {
+            try {
+                const items = await vaultClient.getContentByFolder(folder.id);
+                const item = items.find(i => i.id === contentId);
+                if (item) return item;
+            } catch (e) {}
+        }
+        return null;
+    };
+
+    findItem().then(item => {
+        if (!item) {
+            showAlert('error', 'Vault content item not found');
+            return;
+        }
+
+        // Switch to vault destination first
+        const contentDest = document.getElementById('contentDestination');
+        if (contentDest) {
+            contentDest.value = 'vault';
+            updateContentDestinationUI();
+        }
+
+        // Populate content form — same pattern as library editContent
+        document.getElementById('editMode').value = 'true';
+        document.getElementById('contentId').value = item.id;
+        document.getElementById('contentFormTitle').textContent = '✏️ Edit Vault Content';
+        document.getElementById('saveButton').textContent = '💾 Update Content';
+
+        document.getElementById('contentFolder').value = item.folder_id;
+        document.getElementById('contentTitle').value = item.title;
+        document.getElementById('contentType').value = item.type;
+        document.getElementById('contentUrl').value = item.url || '';
+        document.getElementById('externalUrl').value = item.external_url || '';
+        document.getElementById('contentDescription').value = item.description || '';
+        document.getElementById('contentCustomURL').value = item.custom_url || '';
+
+        currentFile = null;
+        currentThumbnail = null;
+
+        if (item.thumbnail_url) {
+            const preview = document.getElementById('thumbnailPreview');
+            preview.src = item.thumbnail_url;
+            preview.style.display = 'block';
+        }
+
+        document.getElementById('contentForm').scrollIntoView({ behavior: 'smooth' });
+    });
 }
 function openFolderSidebar(folderId) {
     const folder = folders.find(f => f.id === folderId);
