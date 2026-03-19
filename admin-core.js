@@ -1244,12 +1244,6 @@ function displayVaultFoldersGrid() {
                 <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
                 <div class="folder-grid-meta">${countLabel}</div>
                 <div class="folder-grid-url">${displayURL}</div>
-                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(109,40,217,0.2); display:flex; gap:6px;">
-                    <button onclick="event.stopPropagation(); deleteVaultFolder('${folder.id}')"
-                        style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">
-                        🗑️ Delete
-                    </button>
-                </div>
             </div>
         `;
     });
@@ -1280,9 +1274,12 @@ async function openVaultFolderSidebar(folderId) {
         </div>
     `;
 
+    sidebarContent.innerHTML = '<p style="color:#999; text-align:center; padding:20px;">Loading...</p>';
+    sidebar.classList.add('active');
+
     let contentHtml = '';
 
-    // Subfolders
+    // Sub-folders
     if (subfolders.length > 0) {
         contentHtml += '<h4 style="color:#c084fc; margin-bottom:10px;">📂 Sub-folders</h4>';
         subfolders.forEach(sf => {
@@ -1301,12 +1298,39 @@ async function openVaultFolderSidebar(folderId) {
         });
     }
 
+    // Content items — load from vault_content
+    try {
+        const items = await vaultClient.getContentByFolder(folderId);
+        if (items.length > 0) {
+            contentHtml += `<h4 style="color:#c084fc; margin:16px 0 10px;">📄 Content (${items.length})</h4>`;
+            items.forEach(item => {
+                const icon = getTypeIcon(item.type);
+                const urlDisplay = item.url ? truncateURL(item.url) : 'No URL';
+                contentHtml += `
+                    <div class="content-card" style="margin-bottom:10px;">
+                        <div class="content-info">
+                            <div class="content-title">${icon} ${escapeHtml(item.title)}</div>
+                            <div class="content-meta">Type: ${item.type.toUpperCase()} | Views: ${item.view_count || 0}</div>
+                            ${item.url ? `<div class="content-meta">🔗 <a href="${item.url}" target="_blank" style="color:#8b5cf6;">${urlDisplay}</a></div>` : ''}
+                            ${item.description ? `<div class="content-meta">${escapeHtml(item.description)}</div>` : ''}
+                        </div>
+                        <div class="content-actions">
+                            <button class="delete" onclick="deleteVaultContent('${item.id}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    } catch (e) {
+        console.error('Error loading vault content:', e);
+        contentHtml += '<p style="color:#e74c3c; font-size:12px;">Error loading content items.</p>';
+    }
+
     if (contentHtml === '') {
-        contentHtml = '<p style="color:#999; text-align:center; padding:30px;">No sub-folders yet.</p>';
+        contentHtml = '<p style="color:#999; text-align:center; padding:30px;">No content yet. Add content above using 🥷 Aurion Vault destination.</p>';
     }
 
     sidebarContent.innerHTML = contentHtml;
-    sidebar.classList.add('active');
 }
 
 async function deleteVaultFolder(folderId) {
@@ -1321,6 +1345,18 @@ async function deleteVaultFolder(folderId) {
         await loadAllData();
     } catch (error) {
         showAlert('error', 'Error deleting vault folder: ' + error.message);
+    }
+}
+
+async function deleteVaultContent(contentId) {
+    if (!confirm('Delete this vault content item?')) return;
+
+    try {
+        await vaultClient.deleteContent(contentId);
+        showAlert('success', '✅ Vault content deleted');
+        await loadAllData();
+    } catch (error) {
+        showAlert('error', 'Error deleting vault content: ' + error.message);
     }
 }
 function openFolderSidebar(folderId) {
