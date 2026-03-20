@@ -19,6 +19,8 @@
 let library        = { folders: [], content: [] };
 let currentFolder  = null;
 let currentContent = null;
+let currentUser    = null;
+let pendingPrivateFolder = null;
 let contentCache   = {};
 let libraryCache   = null;
 let cacheTimestamp = null;
