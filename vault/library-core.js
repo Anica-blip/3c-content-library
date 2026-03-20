@@ -311,9 +311,9 @@ async function openContent(contentData) {
     // Increment view count
     await vaultClient.incrementViewCount(content.id);
 
-    // Show right viewer panel on mobile
-    const rightViewer = document.getElementById('rightViewer');
-    if (rightViewer) rightViewer.classList.add('active');
+    // Show right viewer on mobile + display content info
+    showMobileViewer();
+    displayInViewer(content);
 
     // Open based on type
     switch (content.type) {
@@ -747,4 +747,171 @@ function handleFolderClick(folderSlug) {
     } else {
         window.location.href = `?folder=${folderSlug}`;
     }
+}
+
+// ==================== MOBILE VIEWER ====================
+/**
+ * Show right viewer panel on mobile and display mobile back button
+ */
+function showMobileViewer() {
+    const rightViewer   = document.getElementById('rightViewer');
+    const mobileBackBtn = document.getElementById('mobileBackBtn');
+    if (rightViewer)   rightViewer.classList.add('active');
+    if (mobileBackBtn) mobileBackBtn.style.display = 'block';
+}
+
+// ==================== CONTENT VIEWER DISPLAY ====================
+/**
+ * Display selected content in the right viewer panel
+ * Shows title, description, type badge and triggers comments load
+ */
+function displayInViewer(content) {
+    const viewer = document.getElementById('viewer');
+    if (!viewer) return;
+
+    const icon = getTypeIcon(content.type);
+
+    viewer.innerHTML = `
+        <h2 style="color:#ffffff; font-weight:600; text-shadow:0 0 8px rgba(255,255,255,0.5); margin-bottom:10px;">
+            ${icon} ${escapeHtml(content.title)}
+        </h2>
+        ${content.description ? `<p class="viewer-desc">${escapeHtml(content.description)}</p>` : ''}
+        <div style="margin-bottom:16px;">
+            <span class="content-type-badge">${content.type.toUpperCase()}</span>
+            <span style="font-size:11px; color:var(--text-tertiary); margin-left:8px;">👁️ ${content.view_count || 0} views</span>
+        </div>
+        <div id="viewerActions"></div>
+    `;
+
+    // Load comments below viewer
+    loadComments(content.id);
+
+    // Show comments section
+    const commentsSection = document.getElementById('commentsSection');
+    if (commentsSection) commentsSection.style.display = 'block';
+}
+
+// ==================== COMMENTS ====================
+/**
+ * Load comments for a vault content item from vault_comments table
+ */
+async function loadComments(contentId) {
+    const commentsList = document.getElementById('commentsList');
+    const commentCount = document.getElementById('commentCount');
+    if (!commentsList) return;
+
+    commentsList.innerHTML = '<div class="no-comments">Loading comments...</div>';
+
+    try {
+        const { data: comments, error } = await vaultClient.client
+            .from('vault_comments')
+            .select('*')
+            .eq('content_id', contentId)
+            .eq('is_approved', true)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        const count = comments ? comments.length : 0;
+        if (commentCount) commentCount.textContent = count;
+
+        if (count === 0) {
+            commentsList.innerHTML = '<div class="no-comments">No comments yet. Be the first to comment!</div>';
+            return;
+        }
+
+        commentsList.innerHTML = comments.map(comment => `
+            <div class="comment-item">
+                <div class="comment-header">
+                    <span class="comment-author">${escapeHtml(comment.author_name)}</span>
+                    <span class="comment-date">${formatDate(comment.created_at)}</span>
+                </div>
+                <div class="comment-text">${escapeHtml(comment.comment_text)}</div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('❌ Error loading vault comments:', error);
+        commentsList.innerHTML = '<div class="no-comments">Error loading comments.</div>';
+    }
+}
+
+/**
+ * Submit a new comment to vault_comments table
+ */
+async function submitComment() {
+    const authorName  = document.getElementById('commentAuthorName').value.trim();
+    const authorEmail = document.getElementById('commentAuthorEmail').value.trim();
+    const commentText = document.getElementById('commentText').value.trim();
+    const submitBtn   = document.getElementById('submitCommentBtn');
+
+    if (!authorName || !commentText) {
+        alert('Please fill in your name and comment.');
+        return;
+    }
+
+    if (!currentContentId) {
+        alert('No content selected for commenting.');
+        return;
+    }
+
+    try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Posting...';
+
+        const { error } = await vaultClient.client
+            .from('vault_comments')
+            .insert([{
+                content_id:   currentContentId,
+                author_name:  authorName,
+                author_email: authorEmail || null,
+                comment_text: commentText,
+                is_approved:  true
+            }]);
+
+        if (error) throw error;
+
+        // Show success
+        const successMsg = document.getElementById('commentSuccessMsg');
+        if (successMsg) {
+            successMsg.style.display = 'block';
+            setTimeout(() => { successMsg.style.display = 'none'; }, 5000);
+        }
+
+        // Clear form
+        document.getElementById('commentAuthorName').value = '';
+        document.getElementById('commentAuthorEmail').value = '';
+        document.getElementById('commentText').value = '';
+
+        // Reload comments
+        await loadComments(currentContentId);
+
+        console.log('✅ Vault comment submitted');
+
+    } catch (error) {
+        console.error('❌ Error submitting vault comment:', error);
+        alert('Error submitting comment: ' + (error.message || error.toString()));
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Post Comment';
+    }
+}
+
+/**
+ * Format date for comment display
+ */
+function formatDate(dateString) {
+    const date    = new Date(dateString);
+    const now     = new Date();
+    const diffMs  = now - date;
+    const diffMins  = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays  = Math.floor(diffMs / 86400000);
+
+    if (diffMins  < 1)  return 'Just now';
+    if (diffMins  < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays  < 7)  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
