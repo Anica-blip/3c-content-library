@@ -1005,6 +1005,12 @@
 
                 <!-- Right Viewer -->
                 <div class="right-viewer" id="rightViewer">
+                    <!-- Mobile back button — only visible on mobile -->
+                    <div id="mobileBackBtn" style="display:none; padding: 10px 15px; background: var(--bg-secondary); border-bottom: 1px solid rgba(155,89,182,0.3); position: sticky; top: 0; z-index: 10;">
+                        <button onclick="closeMobileViewer()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                            ← Back to Content
+                        </button>
+                    </div>
                     <div class="viewer" id="viewer">
                         <div class="no-content">
                             <h2>Welcome to Aurion's Universe</h2>
@@ -1124,6 +1130,13 @@
 
         function closeFolderSidebar() {
             document.getElementById('folderSidebar').style.display = 'none';
+        }
+
+        function closeMobileViewer() {
+            const rightViewer = document.getElementById('rightViewer');
+            const mobileBackBtn = document.getElementById('mobileBackBtn');
+            if (rightViewer) rightViewer.classList.remove('active');
+            if (mobileBackBtn) mobileBackBtn.style.display = 'none';
         }
 
         // Loading overlay
