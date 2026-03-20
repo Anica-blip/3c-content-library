@@ -1320,7 +1320,7 @@ async function openVaultFolderSidebar(folderId) {
                     ? `<img src="${item.thumbnail_url}" style="width:100%; max-width:150px; height:auto; border-radius:8px; object-fit:cover;" alt="Thumbnail">`
                     : `<div style="width:100%; max-width:150px; height:200px; background:#1a0d35; display:flex; align-items:center; justify-content:center; color:#999; font-size:48px; border-radius:8px;">${icon}</div>`;
 
-                // View link — covers all vault content types
+                // View link — routes to appropriate viewer based on content type
                 let viewLink = '';
                 if (item.url) {
                     const linkLabels = {
@@ -1338,8 +1338,33 @@ async function openVaultFolderSidebar(folderId) {
                         link: '🔗 Click to open link'
                     };
                     const label = linkLabels[item.type] || '🔗 Click to open';
+                    
+                    // Construct proper viewer URL based on content type
+                    let viewerUrl = '';
+                    let targetAttr = 'target="_blank"';
+                    
+                    if (item.type === 'flipbook') {
+                        // Route to flipbook viewer in root
+                        viewerUrl = `../flipbook-viewer.html?manifest=${encodeURIComponent(item.url)}`;
+                    } else if (item.type === 'presentation') {
+                        // Route to presentation viewer in root
+                        viewerUrl = `../presentation-viewer.html?manifest=${encodeURIComponent(item.url)}`;
+                    } else if (item.type === 'pdf') {
+                        // Route to interactive PDF viewer in root
+                        viewerUrl = `../interactive-pdf-viewer.html?url=${encodeURIComponent(item.url)}`;
+                    } else if (item.type === 'landing-page') {
+                        // Landing pages open directly in new tab
+                        viewerUrl = item.url;
+                    } else if (item.type === 'video' || item.type === 'image' || item.type === 'audio' || item.type === 'gif') {
+                        // Media files open directly in new tab
+                        viewerUrl = item.url;
+                    } else {
+                        // Default: open URL directly (quiz, card-game, spin-wheel, link, etc.)
+                        viewerUrl = item.url;
+                    }
+                    
                     viewLink = `<div class="content-meta" style="margin-top:8px;">
-                        <a href="${item.url}" target="_blank" style="color:#8b5cf6; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                        <a href="${viewerUrl}" ${targetAttr} style="color:#8b5cf6; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
                             ${label}
                         </a>
                     </div>`;
