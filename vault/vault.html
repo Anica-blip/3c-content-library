@@ -979,69 +979,39 @@
 
     </div><!-- /container -->
 
-    <!-- Landing Page 2 — Content Viewer (left sidebar + right viewer, hidden by default) -->
+    <!-- Content Viewer (hidden by default, shown when viewing content) -->
     <div id="contentViewer" style="display: none;">
-        <div class="layout" id="layoutGrid">
+        <div class="viewer" id="viewer">
+            <div class="no-content">
+                <h2>Welcome to Aurion's Universe</h2>
+                <p>Select content to view</p>
+            </div>
 
-                <!-- Left Sidebar -->
-                <div id="leftSidebar">
-                    <div class="sidebar">
-                        <h2 id="folderNav" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-                            <span id="contentTitle">Vault Content</span>
-                            <div style="display: flex; gap: 6px;">
-                                <button id="gridBtn" onclick="setView('grid')"
-                                    style="background: var(--purple-medium); color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;" class="active">
-                                    Grid
-                                </button>
-                                <button id="listBtn" onclick="setView('list')"
-                                    style="background: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                                    List
-                                </button>
-                            </div>
-                        </h2>
-                        <div id="contentGrid" class="content-grid"></div>
-                    </div>
+            <!-- Comments Section (appears below content) -->
+            <div class="comments-section" id="commentsSection" style="display: none;">
+                <div class="comments-header">
+                    <h3>💬 Comments</h3>
+                    <span class="comment-count" id="commentCount">0</span>
                 </div>
 
-                <!-- Right Viewer -->
-                <div class="right-viewer" id="rightViewer">
-                    <!-- Mobile back button — only visible on mobile -->
-                    <div id="mobileBackBtn" style="display:none; padding: 10px 15px; background: var(--bg-secondary); border-bottom: 1px solid rgba(155,89,182,0.3); position: sticky; top: 0; z-index: 10;">
-                        <button onclick="closeMobileViewer()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                            ← Back to Content
-                        </button>
+                <!-- Comment Form -->
+                <div class="comment-form">
+                    <div id="commentSuccessMsg" class="comment-success" style="display: none;">
+                        ✅ Thank you! Your comment has been posted successfully.
                     </div>
-                    <div class="viewer" id="viewer">
-                        <div class="no-content">
-                            <h2>Welcome to Aurion's Universe</h2>
-                            <p>Select content to view</p>
-                        </div>
-
-                        <!-- Comments Section (appears below content) -->
-                        <div class="comments-section" id="commentsSection" style="display: none;">
-                            <div class="comments-header">
-                                <h3>💬 Comments</h3>
-                                <span class="comment-count" id="commentCount">0</span>
-                            </div>
-                            <div class="comment-form">
-                                <div id="commentSuccessMsg" class="comment-success" style="display: none;">
-                                    ✅ Thank you! Your comment has been posted successfully.
-                                </div>
-                                <input type="text" id="commentAuthorName" placeholder="Your Name *" required>
-                                <input type="email" id="commentAuthorEmail" placeholder="Your Email (optional, for notifications)">
-                                <textarea id="commentText" placeholder="Write your comment here... *" required></textarea>
-                                <button onclick="submitComment()" id="submitCommentBtn">Post Comment</button>
-                            </div>
-                            <div class="comments-list" id="commentsList">
-                                <div class="no-comments">No comments yet. Be the first to comment!</div>
-                            </div>
-                        </div>
-                    </div>
+                    <input type="text" id="commentAuthorName" placeholder="Your Name *" required>
+                    <input type="email" id="commentAuthorEmail" placeholder="Your Email (optional, for notifications)">
+                    <textarea id="commentText" placeholder="Write your comment here... *" required></textarea>
+                    <button onclick="submitComment()" id="submitCommentBtn">Post Comment</button>
                 </div>
 
+                <!-- Comments List -->
+                <div class="comments-list" id="commentsList">
+                    <div class="no-comments">No comments yet. Be the first to comment!</div>
+                </div>
             </div>
         </div>
-    </div><!-- /contentViewer -->
+    </div>
 
     <!-- PDF Modal -->
     <div class="pdf-modal" id="pdfModal" onclick="closePdfViewer()">
@@ -1131,38 +1101,6 @@
         function closeFolderSidebar() {
             document.getElementById('folderSidebar').style.display = 'none';
         }
-
-        function closeMobileViewer() {
-            const rightViewer = document.getElementById('rightViewer');
-            const mobileBackBtn = document.getElementById('mobileBackBtn');
-            if (rightViewer) rightViewer.classList.remove('active');
-            if (mobileBackBtn) mobileBackBtn.style.display = 'none';
-        }
-
-        // Loading overlay
-        (async () => {
-            try {
-                // library-core.js handles all data loading
-            } catch (error) {
-                console.error('Failed to initialise vault:', error);
-                const overlay = document.getElementById('loadingOverlay');
-                if (overlay) overlay.innerHTML = `
-                    <div style="text-align:center; color:var(--text-primary);">
-                        <div style="font-size:48px; margin-bottom:20px;">⚠️</div>
-                        <div style="font-size:18px; font-weight:600; margin-bottom:10px;">Failed to load Aurion's Vault</div>
-                        <div style="font-size:14px; color:var(--text-secondary);">Please refresh the page to try again</div>
-                    </div>`;
-                return;
-            } finally {
-                setTimeout(() => {
-                    const overlay = document.getElementById('loadingOverlay');
-                    if (overlay) {
-                        overlay.classList.add('hidden');
-                        setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 300);
-                    }
-                }, 100);
-            }
-        })();
     </script>
 
     <!-- Enhanced PDF viewer (shared from root) -->
