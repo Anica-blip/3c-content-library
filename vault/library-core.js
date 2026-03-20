@@ -255,7 +255,12 @@ function displayAllFolders() {
     if (library.folders.length === 0) { console.log('No folders to display'); return; }
     console.log('Displaying only root folders');
 
-    const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0).sort((a, b) => a.title.localeCompare(b.title));
+    const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0).sort((a, b) => {
+        // Pin aurion_gems first
+        if (a.tableName === 'aurion_gems') return -1;
+        if (b.tableName === 'aurion_gems') return 1;
+        return a.title.localeCompare(b.title);
+    });
 
     let html = '';
     rootFolders.forEach(folder => {
@@ -263,7 +268,13 @@ function displayAllFolders() {
         const subfoldersCount = subfolders.length;
         const contentCount = folder.actualItemCount || 0;
         let countLabel = subfoldersCount > 0 ? (subfoldersCount + ' subfolder' + (subfoldersCount !== 1 ? 's' : '') + ', ' + contentCount + ' item' + (contentCount !== 1 ? 's' : '')) : (contentCount + ' item' + (contentCount !== 1 ? 's' : ''));
-        html += `<div class="folder-card-item" onclick="openFolderSidebar('${folder.id}')"><div class="folder-icon"><svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 18 L4 11 Q4 9 6 9 L24 9 Q27 9 29 13 L31 18 Z" fill="#7c3aed"/><rect x="2" y="18" width="60" height="32" rx="6" fill="rgba(30, 10, 60, 0.85)"/><rect x="2" y="18" width="60" height="32" rx="6" fill="none" stroke="rgba(124, 58, 237, 0.55)" stroke-width="1.5"/><rect x="2" y="18" width="60" height="8" rx="0" fill="rgba(124, 58, 237, 0.08)"/></svg></div><div class="folder-title">${folder.title}</div><div class="folder-details">${countLabel}</div><div class="folder-slug">${folder.tableName}</div></div>`;
+
+        // Start Here button only on Aurion Gems
+        const startHereBtn = folder.tableName === 'aurion_gems'
+            ? '<button onclick="event.stopPropagation(); openFolderSidebar(\'' + folder.id + '\');" style="margin-top: 8px; padding: 6px 14px; background: linear-gradient(135deg, #7c3aed, #9b59b6); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: 0.3px; box-shadow: 0 2px 8px rgba(124,58,237,0.35); transition: all 0.2s;" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">🚀 Start Here</button>'
+            : '';
+
+        html += '<div class="folder-card-item" onclick="openFolderSidebar(\'' + folder.id + '\')"><div class="folder-icon"><svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 18 L4 11 Q4 9 6 9 L24 9 Q27 9 29 13 L31 18 Z" fill="#7c3aed"/><rect x="2" y="18" width="60" height="32" rx="6" fill="rgba(30, 10, 60, 0.85)"/><rect x="2" y="18" width="60" height="32" rx="6" fill="none" stroke="rgba(124, 58, 237, 0.55)" stroke-width="1.5"/><rect x="2" y="18" width="60" height="8" rx="0" fill="rgba(124, 58, 237, 0.08)"/></svg></div><div class="folder-title">' + folder.title + '</div><div class="folder-details">' + countLabel + '</div><div class="folder-slug">' + folder.tableName + '</div>' + startHereBtn + '</div>';
     });
     document.getElementById('foldersGrid').innerHTML = html;
 }
