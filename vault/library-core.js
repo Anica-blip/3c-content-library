@@ -1,628 +1,496 @@
 /**
- * Aurion's Vault — Core JavaScript
- * True clone of root library-core.js — adapted for vault tables only.
- *
- * Changes from root library-core.js:
- *   1. Uses vaultClient (vault-supabase-client.js) instead of supabaseClient
- *   2. initVaultSupabase() instead of initSupabase()
- *   3. Password queries → vault_folder_passwords instead of folder_passwords
- *   4. updateVaultNav() called on init to show/hide toolbar buttons
- *   5. Flipbook/presentation paths prefixed with ../ (subfolder aware)
- *   6. getTypeIcon() extended with vault content types
- *   7. openContent() extended with vault types → window.open (no iframe modal)
- *   8. No logInteraction() call (vault_content has no user_interactions table)
- *   9. displayContent/displayViewer shows/hides foldersSection and contentViewer
- *
- * Built by Claude Sonnet 4.6 × Chef Anica — 3C Thread To Success
+ * Aurion's Vault - Core JavaScript
+ * CLONE of library.html inline JS.
+ * Vault-only substitutions:
+ *   supabaseClient -> vaultClient
+ *   content_public -> vault_content
+ *   folder_passwords -> vault_folder_passwords
+ *   flipbook-viewer.html -> ../flipbook-viewer.html
+ *   presentation-viewer.html -> ../presentation-viewer.html
+ *   library.html -> vault.html  (hideContentViewer desktop redirect)
+ *   getComments/addComment -> vault_comments direct queries
+ *   getTypeIcon extended with vault types
+ *   displayAllFolders alphabetical (no pinned order)
+ *   init block adds initVaultSupabase + updateVaultNav
+ *   openPDFModal activates vault pdfModal + pdf-viewer-enhanced.js
  */
 
 // ==================== GLOBAL STATE ====================
-let currentFolder = null;
-let currentContentId = null;
-let folders = [];
-let allContent = [];
-let viewMode = 'grid';
-let darkMode = false;
-let currentUser = null;
+let library        = { folders: [], content: [] };
+let currentFolder  = null;
+let currentContent = null;
+let contentCache   = {};
+let libraryCache   = null;
+let cacheTimestamp = null;
+const CACHE_DURATION = 2 * 60 * 1000;
 
-// ==================== INITIALIZATION ====================
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🥷 Aurion\'s Vault initializing...');
-
-    // Load dark mode preference
-    darkMode = localStorage.getItem('darkMode') === 'true';
-    if (darkMode) document.body.classList.add('dark-mode');
-
-    // Check URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const folderId  = urlParams.get('folder');
-    const contentId = urlParams.get('content');
-
-    // Update toolbar navigation based on context
-    updateVaultNav(folderId || contentId);
-
-    // Initialize vault Supabase client
-    await initVaultSupabase();
-
-    // Check if user is logged in (owner bypass)
-    await checkCurrentUser();
-
-    // Load vault folders
-    await loadFolders();
-
-    if (contentId) {
-        await loadSingleContent(contentId);
-    } else if (folderId) {
-        await loadFolderContent(folderId);
-    } else {
-        await loadAllContent();
+// ==================== INIT ====================
+(async () => {
+    try {
+        await initVaultSupabase();
+        await checkCurrentUser();
+        const urlParams = new URLSearchParams(window.location.search);
+        updateVaultNav(!!(urlParams.get('folder') || urlParams.get('content') || urlParams.get('url')));
+        await loadData();
+        await displayContent();
+    } catch (error) {
+        console.error('Failed to load vault:', error);
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.innerHTML = '<div style="text-align:center;color:var(--text-primary);"><div style="font-size:48px;margin-bottom:20px;">&#9888;</div><div style="font-size:18px;font-weight:600;margin-bottom:10px;">Failed to load Aurion\'s Vault</div><div style="font-size:14px;color:var(--text-secondary);">Please refresh the page to try again</div></div>';
+        return;
+    } finally {
+        setTimeout(() => {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) { overlay.classList.add('hidden'); setTimeout(() => overlay.remove(), 300); }
+        }, 100);
     }
-});
+})();
 
-// ==================== VAULT NAVIGATION ====================
-/**
- * Toolbar button logic:
- *   Root (no params): folderIconBtn hidden, publicLibBtn visible
- *   Inside folder or content: folderIconBtn visible, publicLibBtn visible
- */
+// ==================== VAULT NAV ====================
 function updateVaultNav(isInsideFolder) {
     const folderBtn = document.getElementById('folderIconBtn');
     const publicBtn = document.getElementById('publicLibBtn');
-
-    if (folderBtn) {
-        folderBtn.style.display = isInsideFolder ? 'flex' : 'none';
-    }
-    if (publicBtn) {
-        publicBtn.style.display = 'flex'; // Always visible
-    }
+    if (folderBtn) folderBtn.style.display = isInsideFolder ? 'flex' : 'none';
+    if (publicBtn) publicBtn.style.display  = 'flex';
 }
 
-// ==================== SUPABASE INITIALIZATION ====================
+// ==================== VAULT SUPABASE INIT ====================
 async function initVaultSupabase() {
-    if (!CONFIG || !CONFIG.supabase || !CONFIG.supabase.url) {
-        console.error('Supabase configuration not found');
-        return;
-    }
-    try {
-        await vaultClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
-        console.log('✅ Vault Supabase connected');
-    } catch (error) {
-        console.error('❌ Vault Supabase connection failed:', error);
-    }
+    if (!CONFIG || !CONFIG.supabase || !CONFIG.supabase.url) { console.error('Supabase configuration not found'); return; }
+    try { await vaultClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey); console.log('Vault Supabase connected'); }
+    catch (error) { console.error('Vault Supabase connection failed:', error); }
 }
 
-// ==================== DATA LOADING ====================
-async function loadFolders() {
+// ==================== LOAD DATA ====================
+async function loadData() {
+    console.log('Loading vault data from Supabase...');
+    const now = Date.now();
+    if (libraryCache && cacheTimestamp && (now - cacheTimestamp) < CACHE_DURATION) { console.log('Using cached data'); library = libraryCache; return; }
     try {
-        folders = await vaultClient.getFolders();
-        displayFolders();
-        console.log('📁 Vault: Loaded', folders.length, 'folders');
-    } catch (error) {
-        console.error('Error loading vault folders:', error);
-        const el = document.getElementById('folderList');
-        if (el) el.innerHTML = '<p class="loading">Error loading folders</p>';
-    }
+        if (!vaultClient.isConnected) { await vaultClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey); }
+        const folders = await vaultClient.getFolders();
+        library.folders = folders.map(f => ({
+            id: f.id, title: f.title, name: f.title, slug: f.custom_url || f.slug,
+            customUrl: f.custom_url, tableName: f.table_name, description: f.description,
+            folderType: f.folder_type, parentId: f.parent_id, depth: f.depth || 0,
+            path: f.path, actualItemCount: f.actual_item_count || 0, isPublic: f.is_public
+        }));
+        library.content = [];
+        libraryCache = library; cacheTimestamp = now;
+        console.log('Vault loaded and cached:', library);
+        console.log('Folders:', library.folders.length, 'Content:', library.content.length);
+    } catch (error) { console.error('Error loading vault data:', error); library = { folders: [], content: [] }; }
 }
 
-async function loadAllContent() {
-    try {
-        allContent = [];
-        for (const folder of folders) {
-            if (isFolderPrivate(folder)) {
-                if (!isOwner()) {
-                    if (!checkPrivateFolderAccess(folder)) {
-                        console.log('🔒 Skipping private vault folder:', folder.title);
-                        continue;
-                    }
-                }
-            }
-            const content = await vaultClient.getContentByFolder(folder.id);
-            allContent.push(...content);
-        }
-
-        currentFolder = null;
-        const titleEl = document.getElementById('contentTitle');
-        if (titleEl) titleEl.textContent = 'All Content';
-        displayContent(allContent);
-        console.log('📄 Vault: Loaded', allContent.length, 'content items');
-    } catch (error) {
-        console.error('Error loading vault content:', error);
-        const el = document.getElementById('contentGrid');
-        if (el) el.innerHTML = '<p class="loading">Error loading content</p>';
-    }
+// ==================== URL PARAMS ====================
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return { folder: params.get('folder'), content: params.get('content'), url: params.get('url'), view: params.get('view') };
 }
 
-async function loadFolderContent(folderId) {
-    try {
-        const folder = folders.find(f => f.id === folderId || f.slug === folderId);
+// ==================== FIND HELPERS ====================
+function findFolderBySlug(slug) {
+    return library.folders.find(f => f.slug === slug || f.id === slug || f.tableName === slug);
+}
+function findContentBySlug(slug, folderId) {
+    if (folderId) return library.content.find(c => (c.slug === slug || c.id === slug || c.customUrl === slug) && c.folderId === folderId);
+    return library.content.find(c => c.slug === slug || c.id === slug || c.customUrl === slug);
+}
+
+// ==================== TYPE ICON ====================
+function getTypeIcon(type) {
+    const icons = { pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵', flipbook: '📖', presentation: '📊', gif: '🎞️', link: '🔗', quiz: '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', other: '📎' };
+    return icons[type] || icons.other;
+}
+
+// ==================== DISPLAY CONTENT ====================
+async function displayContent() {
+    const params = getUrlParams();
+    const folderSlug = params.folder, contentSlug = params.content, contentUrl = params.url, viewMode = params.view;
+
+    console.log('displayContent called with params:', { folderSlug, contentSlug, contentUrl, viewMode });
+    console.log('Library state:', { folders: library.folders.length, content: library.content.length });
+
+    const folderIconBtn = document.getElementById('folderIconBtn');
+    if (folderIconBtn) {
+        folderIconBtn.style.visibility = (folderSlug || contentSlug || contentUrl) ? 'visible' : 'hidden';
+    }
+
+    // NEW FORMAT: ?folder=X&url=Y&view=pdf-only
+    if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && folderSlug && contentUrl) {
+        document.querySelector('.folders-section').style.display = 'none';
+        document.getElementById('contentViewer').style.display = 'block';
+        console.log('Loading content with new URL format:', { folderSlug, contentUrl });
+        const folder = library.folders.find(f => f.tableName === folderSlug || f.slug === folderSlug);
         if (!folder) {
-            console.error('Vault folder not found:', folderId);
+            console.error('Folder not found:', folderSlug);
+            document.getElementById('viewer').innerHTML = '<div style="padding:40px;text-align:center;"><h2>Folder not found</h2><p>The folder "' + folderSlug + '" does not exist.</p></div>';
             return;
         }
-
-        if (isFolderPrivate(folder)) {
-            if (!isOwner()) {
-                if (!checkPrivateFolderAccess(folder)) {
-                    console.warn('🔒 Access denied to private vault folder:', folder.title);
-                    window.location.href = window.location.pathname;
-                    setTimeout(() => { promptForFolderPassword(folder); }, 100);
-                    return;
-                }
+        try {
+            const { data, error } = await vaultClient.client.from('vault_content')
+                .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, custom_url, slug, display_order, view_count')
+                .eq('folder_id', folder.id).or('custom_url.eq.' + contentUrl + ',slug.eq.' + contentUrl).single();
+            if (error) throw error;
+            if (data) {
+                const content = { id: data.id, folderId: data.folder_id, title: data.title, type: data.type, url: data.url, slug: data.custom_url || data.slug, customUrl: data.custom_url, thumbnail: data.thumbnail_url, description: data.description, externalUrl: data.external_url };
+                currentFolder = folder; showViewer(content, true); return;
             } else {
-                console.log('👑 Owner access — bypassing password for:', folder.title);
+                console.error('Content not found:', contentUrl);
+                document.getElementById('viewer').innerHTML = '<div style="padding:40px;text-align:center;"><h2>Content not found</h2><p>The content "' + contentUrl + '" does not exist in folder "' + folderSlug + '".</p></div>';
+                return;
             }
+        } catch (err) {
+            console.error('Error loading content:', err);
+            document.getElementById('viewer').innerHTML = '<div style="padding:40px;text-align:center;"><h2>Error loading content</h2><p>' + err.message + '</p></div>';
+            return;
         }
-
-        currentFolder = folder;
-        const content = await vaultClient.getContentByFolder(folder.id);
-
-        const titleEl = document.getElementById('contentTitle');
-        if (titleEl) titleEl.textContent = folder.title;
-        displayContent(content);
-
-        // Highlight folder in nav
-        document.querySelectorAll('.folder-item').forEach(item => {
-            item.classList.toggle('active', item.dataset.folderId === folder.id);
-        });
-
-        console.log('📁 Vault: Loaded folder:', folder.title, '(' + content.length + ' items)');
-    } catch (error) {
-        console.error('Error loading vault folder content:', error);
     }
-}
 
-async function loadSingleContent(contentId) {
-    try {
-        const content = await vaultClient.getContent(contentId);
-
-        // Hide folder nav
-        const folderNav = document.getElementById('folderNav');
-        if (folderNav) folderNav.style.display = 'none';
-
-        const titleEl = document.getElementById('contentTitle');
-        if (titleEl) titleEl.textContent = content.title;
-        displayContent([content]);
-
-        // Auto-open
-        setTimeout(() => openContent(content), 500);
-
-        console.log('📄 Vault: Loaded single content:', content.title);
-    } catch (error) {
-        console.error('Error loading vault content:', error);
+    // OLD FORMAT: ?content=X&view=pdf-only
+    if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && contentSlug) {
+        document.querySelector('.folders-section').style.display = 'none';
+        document.getElementById('contentViewer').style.display = 'block';
+        let content = findContentBySlug(contentSlug);
+        if (!content) {
+            const loadContent = async () => {
+                try {
+                    const { data, error } = await vaultClient.client.from('vault_content')
+                        .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, custom_url, slug, display_order, view_count')
+                        .or('id.eq.' + contentSlug + ',slug.eq.' + contentSlug + ',custom_url.eq.' + contentSlug).single();
+                    if (!error && data) {
+                        content = { id: data.id, title: data.title, slug: data.custom_url || data.slug, customUrl: data.custom_url, type: data.type, folderId: data.folder_id, url: data.url, thumbnail: data.thumbnail_url, description: data.description, externalUrl: data.external_url };
+                        showViewer(content, true);
+                    }
+                } catch (err) { console.error('Error loading content:', err); }
+            };
+            loadContent(); return;
+        }
+        if (content) { showViewer(content, true); return; }
     }
-}
 
-// ==================== UI DISPLAY ====================
-function displayFolders() {
-    const container = document.getElementById('foldersGrid');
+    // No folder selected — show all folders
+    if (!folderSlug) { console.log('No folder slug, showing all folders'); displayAllFolders(); return; }
 
-    if (!container) {
-        console.error('Vault folders container not found');
+    // Hide folders section, show content viewer with left/right layout
+    document.querySelector('.folders-section').style.display = 'none';
+    document.getElementById('contentViewer').style.display = 'block';
+    document.getElementById('folderSidebar').style.display = 'none';
+
+    currentFolder = findFolderBySlug(folderSlug);
+    if (!currentFolder) { document.getElementById('viewer').innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>'; return; }
+
+    if (!contentCache[currentFolder.id]) {
+        try {
+            const content = await vaultClient.getContentByFolder(currentFolder.id);
+            const mappedContent = content.map(c => ({ id: c.id, folderId: c.folder_id, title: c.title, type: c.type, url: c.url, slug: c.custom_url || c.slug, customUrl: c.custom_url, thumbnail: c.thumbnail_url, description: c.description, externalUrl: c.external_url, order: c.display_order }));
+            contentCache[currentFolder.id] = mappedContent;
+            library.content = [...library.content, ...mappedContent];
+        } catch (error) { console.error('Error loading folder content:', error); }
+    }
+
+    let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
+    folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
+    const subfolders = library.folders.filter(f => f.parentId === currentFolder.id).sort((a, b) => a.title.localeCompare(b.title));
+
+    // If contentSlug exists, show ONLY content viewer (no left sidebar)
+    if (contentSlug) {
+        const viewer = document.getElementById('viewer');
+        viewer.innerHTML = '<div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; display: block; width: 100%; max-width: 100%;"><div class="no-content"><h2>Loading content...</h2></div></div>';
+        const content = findContentBySlug(contentSlug, currentFolder.id);
+        if (content) { showViewer(content, false); } else { document.getElementById('viewerContent').innerHTML = '<div class="no-content"><h2>Error loading content</h2><p>JSON object requested, multiple (or no) rows returned</p></div>'; }
         return;
     }
 
-    if (folders.length === 0) {
-        container.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No folders available</p>';
-        return;
-    }
-
-    // Show public root folders only
-    const publicRootFolders = folders.filter(f => {
-        const isRoot   = !f.parent_id && f.folder_type === 'root';
-        const isPublic = f.is_public !== false;
-        return isRoot && isPublic;
-    }).sort((a, b) => a.title.localeCompare(b.title));
-
-    console.log('📊 Vault public folders:', publicRootFolders.length, publicRootFolders.map(f => f.title));
-
-    function getTotalItemCount(folderId) {
-        const folder = folders.find(f => f.id === folderId);
-        if (!folder) return 0;
-        let count = folder.actual_item_count || 0;
-        const subfolders = folders.filter(f => f.parent_id === folderId);
-        for (const subfolder of subfolders) { count += getTotalItemCount(subfolder.id); }
-        return count;
-    }
-
-    if (publicRootFolders.length === 0) {
-        container.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No public vault collections available</p>';
-    } else {
-        const html = publicRootFolders.map(folder => {
-            const subfolders      = folders.filter(f => f.parent_id === folder.id);
-            const subfoldersCount = subfolders.length;
-            const displayURL      = folder.table_name;
-            const directItemCount = folder.actual_item_count || 0;
-
-            let countLabel = subfoldersCount > 0
-                ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${directItemCount} item${directItemCount !== 1 ? 's' : ''}`
-                : `${directItemCount} item${directItemCount !== 1 ? 's' : ''}`;
-
-            const viewContentButton = directItemCount > 0
-                ? `<button onclick="event.stopPropagation(); window.location.href='?folder=${folder.slug}';" style="margin-top: 8px; padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">📄 View Content</button>`
-                : '';
-
-            return `
-                <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')">
-                    <div class="folder-icon" style="font-size:40px;">📁</div>
-                    <div class="folder-title">${escapeHtml(folder.title)}</div>
-                    <div class="folder-details">${countLabel}</div>
-                    <div class="folder-slug">${displayURL}</div>
-                    ${viewContentButton}
-                </div>
-            `;
-        }).join('');
-        container.innerHTML = html;
-    }
-}
-
-function displayContent(content) {
-    // Show content viewer, hide folders section
-    const foldersSection = document.getElementById('foldersSection');
-    const contentViewer  = document.getElementById('contentViewer');
-    if (foldersSection) foldersSection.style.display = 'none';
-    if (contentViewer)  contentViewer.style.display  = 'block';
-
-    const container = document.getElementById('contentGrid');
-    if (!container) return;
-
-    container.className = 'content-grid' + (viewMode === 'list' ? ' list-view' : '');
-
-    if (content.length === 0) {
-        container.innerHTML = '<p class="loading">No content available</p>';
-        return;
-    }
-
-    const html = content.map(item => {
-        const thumbnailHtml = item.thumbnail_url
-            ? `<img data-src="${item.thumbnail_url}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="content-thumbnail lazy-thumbnail" alt="${escapeHtml(item.title)}" loading="lazy">`
-            : `<div class="content-thumbnail">${getTypeIcon(item.type)}</div>`;
-
-        return `
-            <div class="content-card" onclick="openContent(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                ${thumbnailHtml}
-                <div class="content-info">
-                    <span class="content-type-badge badge-${item.type}">${item.type}</span>
-                    <div class="content-title">${escapeHtml(item.title)}</div>
-                    ${item.description ? `<div class="content-description">${escapeHtml(item.description)}</div>` : ''}
-                    <div class="content-meta">
-                        <span>👁️ ${item.view_count || 0} views</span>
-                        ${item.external_url ? '<span>🔗 Has link</span>' : ''}
-                    </div>
-                </div>
+    // Create left/right layout
+    const viewer = document.getElementById('viewer');
+    viewer.innerHTML = `
+        <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
+            <div class="sidebar" id="leftSidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; width: 100%; max-width: 100%;">
+                <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 15px;">${currentFolder.title}</h2>
+                <div id="subfoldersContainer"></div>
+                <div class="content-grid" id="contentList"></div>
             </div>
-        `;
-    }).join('');
+            <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; display: none; width: 100%; max-width: 100%;">
+                <div class="no-content"><h2>Welcome to Aurion's Universe</h2><p>Select content from the sidebar to view</p></div>
+            </div>
+        </div>
+        <div class="comments-section" id="commentsSection" style="display: none;"></div>
+    `;
 
-    container.innerHTML = html;
-    setTimeout(() => observeLazyThumbnails(), 0);
-}
+    if (folderContent.length === 0 && subfolders.length === 0) { document.getElementById('contentList').innerHTML = '<p style="color: #999;">No subfolders or content</p>'; return; }
 
-// ==================== FOLDER SELECTION ====================
-async function selectFolder(folderId) {
-    await loadFolderContent(folderId);
-}
-
-// ==================== CONTENT OPENING ====================
-async function openContent(contentData) {
-    const content = typeof contentData === 'string' ? JSON.parse(contentData) : contentData;
-
-    currentContentId = content.id;
-
-    // Increment view count
-    await vaultClient.incrementViewCount(content.id);
-
-    // Show right viewer on mobile + display content info
-    showMobileViewer();
-    displayInViewer(content);
-
-    // Open based on type
-    switch (content.type) {
-
-        case 'pdf':
-            openPdfViewer(content);
-            break;
-
-        case 'flipbook':
-            if (content.url) {
-                window.open(`../flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}`, '_blank', 'width=1200,height=800');
-            } else if (content.id) {
-                window.open(`../flipbook-viewer.html?content=${content.id}`, '_blank', 'width=1200,height=800');
-            } else {
-                alert('Flipbook data not available');
-            }
-            break;
-
-        case 'presentation':
-            if (content.url) {
-                window.open(`../presentation-viewer.html?manifest=${encodeURIComponent(content.url)}`, '_blank', 'width=1200,height=800');
-            } else if (content.id) {
-                window.open(`../presentation-viewer.html?content=${content.id}`, '_blank', 'width=1200,height=800');
-            } else {
-                alert('Presentation data not available');
-            }
-            break;
-
-        case 'video':
-            openMediaPlayer(content, 'video');
-            break;
-
-        case 'audio':
-            openMediaPlayer(content, 'audio');
-            break;
-
-        case 'image':
-        case 'gif':
-            openMediaPlayer(content, 'image');
-            break;
-
-        // Vault interactive tools — navigate same page so back button returns to vault
-        case 'quiz':
-        case 'card-game':
-        case 'spin-wheel':
-        case 'landing-page':
-        case 'link':
-            if (content.url) {
-                window.location.href = content.url;
-            } else if (content.external_url) {
-                window.location.href = content.external_url;
-            }
-            break;
-
-        default:
-            if (content.url) {
-                window.open(content.url, '_blank');
-            }
+    let subfoldersHtml = '';
+    if (subfolders.length > 0) {
+        subfoldersHtml += '<div style="margin-bottom: 20px;">';
+        subfolders.forEach(subfolder => {
+            const itemCount = subfolder.actualItemCount || 0;
+            subfoldersHtml += `<div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'" style="background: rgba(155, 89, 182, 0.1); border: 1px solid rgba(155, 89, 182, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(155, 89, 182, 0.2)'; this.style.borderColor='rgba(155, 89, 182, 0.5)'" onmouseout="this.style.background='rgba(155, 89, 182, 0.1)'; this.style.borderColor='rgba(155, 89, 182, 0.3)'"><div style="display: flex; align-items: center; gap: 10px;"><div style="font-size: 24px;">📂</div><div style="flex: 1;"><div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div><div style="font-size: 11px; color: #808080;">${itemCount} item${itemCount !== 1 ? 's' : ''}</div></div><div style="color: #9b59b6; font-size: 18px;">→</div></div></div>`;
+        });
+        subfoldersHtml += '</div>';
     }
+    document.getElementById('subfoldersContainer').innerHTML = subfoldersHtml;
 
-    // If has external_url, offer to open it
-    if (content.external_url && content.type !== 'link') {
-        setTimeout(() => {
-            if (confirm('This content has an external reference link. Open it?')) {
-                openLinkInModal(content.external_url, 'Reference: ' + content.title);
-            }
-        }, 1000);
+    let contentHtml = '';
+    if (folderContent.length > 0) {
+        contentHtml = folderContent.map(item => {
+            let thumbnailAttr = '', thumbnailContent = '';
+            if (item.thumbnail) { thumbnailAttr = `data-bg="${item.thumbnail}"`; } else { thumbnailContent = `<div class="type-icon">${getTypeIcon(item.type)}</div>`; }
+            return `<div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.id}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 25px;"><div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0; margin-bottom: 0;">${thumbnailContent}</div><div class="content-info" style="padding: 12px 10px; text-align: left; min-height: 60px; margin-top: 0;"><div class="content-title" style="font-size: 12px; color: #ffffff; line-height: 1.4; font-weight: 500; word-wrap: break-word; margin: 0;">${item.title}</div></div></div>`;
+        }).join('');
     }
+    document.getElementById('contentList').innerHTML = contentHtml;
+    observeThumbnails();
 }
 
-// ==================== MEDIA PLAYER ====================
-function openMediaPlayer(content, type) {
-    const modal     = document.getElementById('mediaModal');
-    const container = document.getElementById('mediaContainer');
-    const titleEl   = document.getElementById('mediaTitle');
+// ==================== DISPLAY ALL FOLDERS ====================
+function displayAllFolders() {
+    console.log('displayAllFolders called, folders:', library.folders);
+    document.getElementById('contentViewer').style.display = 'none';
+    document.querySelector('.folders-section').style.display = 'block';
+    const commentsSection = document.getElementById('commentsSection');
+    if (commentsSection) commentsSection.style.display = 'none';
+    if (library.folders.length === 0) { console.log('No folders to display'); return; }
+    console.log('Displaying only root folders');
 
-    titleEl.textContent = content.title;
-    const url = content.url;
+    const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0).sort((a, b) => a.title.localeCompare(b.title));
+
     let html = '';
-
-    switch (type) {
-        case 'video':
-            if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                const videoId = extractYouTubeId(url);
-                html = `<iframe width="800" height="450" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
-            } else {
-                html = `<video controls style="max-width: 100%; max-height: 70vh;">
-                    <source src="${url}" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>`;
-            }
-            break;
-        case 'audio':
-            html = `<audio controls style="width: 100%;">
-                <source src="${url}" type="audio/mpeg">
-                Your browser does not support the audio tag.
-            </audio>`;
-            break;
-        case 'image':
-            html = `<img src="${url}" style="max-width: 100%; max-height: 70vh;" alt="${escapeHtml(content.title)}">`;
-            break;
-    }
-
-    container.innerHTML = html;
-    modal.classList.add('active');
+    rootFolders.forEach(folder => {
+        const subfolders = library.folders.filter(f => f.parentId === folder.id);
+        const subfoldersCount = subfolders.length;
+        const contentCount = folder.actualItemCount || 0;
+        let countLabel = subfoldersCount > 0 ? (subfoldersCount + ' subfolder' + (subfoldersCount !== 1 ? 's' : '') + ', ' + contentCount + ' item' + (contentCount !== 1 ? 's' : '')) : (contentCount + ' item' + (contentCount !== 1 ? 's' : ''));
+        html += `<div class="folder-card-item" onclick="openFolderSidebar('${folder.id}')"><div class="folder-icon"><svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 18 L4 11 Q4 9 6 9 L24 9 Q27 9 29 13 L31 18 Z" fill="#7c3aed"/><rect x="2" y="18" width="60" height="32" rx="6" fill="rgba(30, 10, 60, 0.85)"/><rect x="2" y="18" width="60" height="32" rx="6" fill="none" stroke="rgba(124, 58, 237, 0.55)" stroke-width="1.5"/><rect x="2" y="18" width="60" height="8" rx="0" fill="rgba(124, 58, 237, 0.08)"/></svg></div><div class="folder-title">${folder.title}</div><div class="folder-details">${countLabel}</div><div class="folder-slug">${folder.tableName}</div></div>`;
+    });
+    document.getElementById('foldersGrid').innerHTML = html;
 }
 
-function closeMediaPlayer() {
-    const modal     = document.getElementById('mediaModal');
-    const container = document.getElementById('mediaContainer');
-    modal.classList.remove('active');
-    container.innerHTML = '';
+// ==================== OPEN FOLDER SIDEBAR ====================
+async function openFolderSidebar(folderId) {
+    const folder = library.folders.find(f => f.id === folderId);
+    if (!folder) return;
+    if (folder.isPublic === false) { console.warn('Attempted to access private folder via sidebar:', folder.title); window.location.href = '?folder=' + folder.slug; return; }
+    console.log('Opening folder sidebar for:', folder.title, 'ID:', folderId);
+    const subfolders = library.folders.filter(f => f.parentId === folderId).sort((a, b) => a.title.localeCompare(b.title));
+
+    let folderContent = [];
+    try {
+        const { data, error } = await vaultClient.client.from('vault_content')
+            .select('id, folder_id, title, type, url, thumbnail_url, description, slug, display_order')
+            .eq('folder_id', folderId).order('display_order', { ascending: true });
+        console.log('Vault sidebar query result:', { data, error, count: data ? data.length : 0 });
+        if (!error && data) {
+            folderContent = data.map(item => ({ id: item.id, title: item.title, slug: item.slug, type: item.type, folderId: item.folder_id, url: item.url, thumbnail: item.thumbnail_url, description: item.description, order: item.display_order }));
+            console.log('Loaded vault folder content:', folderContent.length, 'items');
+        } else if (error) { console.error('Vault sidebar Supabase error:', error); }
+    } catch (err) { console.error('Error loading vault folder content:', err); }
+
+    document.getElementById('sidebarFolderTitle').innerHTML = `<div><h3 style="margin: 0; color: #9b59b6; font-size: 18px;">${folder.title}</h3><div style="font-size: 12px; color: #808080; margin-top: 4px;">${folder.tableName || folder.slug}</div></div>`;
+
+    let contentHtml = '';
+    if (subfolders.length > 0) {
+        subfolders.forEach(subfolder => {
+            const itemCount = subfolder.actualItemCount || 0;
+            contentHtml += `<div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'"><div style="display: flex; align-items: center; gap: 10px;"><div style="font-size: 24px;">📂</div><div style="flex: 1;"><div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div><div style="font-size: 11px; color: #808080;">${itemCount} items</div></div><div style="color: #9b59b6; font-size: 18px;">→</div></div></div>`;
+        });
+    }
+    if (folderContent.length > 0) {
+        const itemCount = folderContent.length;
+        if (subfolders.length > 0) contentHtml += '<hr style="border: none; border-top: 1px solid rgba(155, 89, 182, 0.3); margin: 20px 0;">';
+        contentHtml += '<p style="color: #9b59b6; margin-top: 15px; font-size: 14px;">📄 This folder has ' + itemCount + ' content item' + (itemCount !== 1 ? 's' : '') + '. Click to view:</p>';
+        contentHtml += '<button onclick="window.location.href=\'?folder=' + (folder.tableName || folder.slug) + '\'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 12px rgba(155, 89, 182, 0.4)\'" onmouseout="this.style.transform=\'\'; this.style.boxShadow=\'0 2px 8px rgba(155, 89, 182, 0.3)\'">📂 View Content (' + itemCount + ')</button>';
+    }
+    if (folderContent.length === 0 && subfolders.length === 0) contentHtml = '<p style="color: #999; text-align: center; padding: 40px;">No sub-folders or content yet.</p>';
+    document.getElementById('sidebarContent').innerHTML = contentHtml;
+    document.getElementById('folderSidebar').style.display = 'block';
 }
 
-// ==================== FLIPBOOK VIEWER ====================
-function openFlipbookViewer(content) {
-    // Priority 1: Use Cloudflare R2 manifest URL (fast, public)
-    if (content.url) {
-        window.open(`../flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}`, '_blank', 'width=1200,height=800');
-    }
-    // Priority 2: Fallback to content ID
-    else if (content.id) {
-        window.open(`../flipbook-viewer.html?content=${content.id}`, '_blank', 'width=1200,height=800');
-    }
-    else {
-        alert('Flipbook data not available');
-    }
+function closeFolderSidebar() { document.getElementById('folderSidebar').style.display = 'none'; }
+
+// ==================== VIEW CONTENT ====================
+function viewContent(contentSlug) {
+    const content = findContentBySlug(contentSlug, currentFolder.id);
+    if (content) showViewer(content);
 }
 
-// ==================== PRESENTATION VIEWER ====================
-function openPresentationViewer(content) {
-    // Priority 1: Use Cloudflare R2 manifest URL (fast, public)
-    if (content.url) {
-        window.open(`../presentation-viewer.html?manifest=${encodeURIComponent(content.url)}`, '_blank', 'width=1200,height=800');
+// ==================== SHARE PDF LINK ====================
+function sharePDFLink(contentId) {
+    const baseUrl = window.location.origin + window.location.pathname;
+    if (currentContent && currentFolder) {
+        const folderTableName  = currentFolder.tableName;
+        const contentCustomUrl = currentContent.customUrl || currentContent.slug;
+        const viewType = (currentContent.type === 'flipbook' || currentContent.type === 'presentation') ? 'flipbook-only' : 'pdf-only';
+        return baseUrl + '?folder=' + folderTableName + '&url=' + contentCustomUrl + '&view=' + viewType;
     }
-    // Priority 2: Fallback to content ID
-    else if (content.id) {
-        window.open(`../presentation-viewer.html?content=${content.id}`, '_blank', 'width=1200,height=800');
-    }
-    else {
-        alert('Presentation data not available');
-    }
+    const viewType = currentContent && (currentContent.type === 'flipbook' || currentContent.type === 'presentation') ? 'flipbook-only' : 'pdf-only';
+    return baseUrl + '?content=' + contentId + '&view=' + viewType;
 }
 
-// ==================== LINK MODAL (DRAGGABLE) ====================
-function openLinkInModal(url, title = 'External Link') {
-    const modal   = document.getElementById('linkModal');
-    const frame   = document.getElementById('linkFrame');
-    const titleEl = document.getElementById('linkModalTitle');
+// ==================== SHOW VIEWER ====================
+function showViewer(content, pdfOnlyMode) {
+    if (pdfOnlyMode === undefined) pdfOnlyMode = false;
+    currentContent = content;
+    let viewerHtml = '';
 
+    const shareButton = pdfOnlyMode ? '' : '<button onclick="copyShareLink()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);" title="Copy Link">&#8853;</button>';
+
+    if (content.type === 'pdf') {
+        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%84%3C/text%3E%3C/svg%3E';
+        const safeUrl = content.url.replace(/`/g, '\\`'), safeTitle = content.title.replace(/`/g, '\\`');
+        viewerHtml = `<div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${safeUrl}\`, \`${safeTitle}\`, \`${content.id}\`)"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><div style="font-size: 18px; color: #9b59b6; font-weight: 600; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">📄 Click to view PDF</div></div>`;
+    } else if (content.type === 'flipbook') {
+        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%96%3C/text%3E%3C/svg%3E';
+        const isMobile = window.innerWidth <= 768;
+        const flipbookViewerPage = isMobile ? '../flipbook-viewer-mobile.html' : '../flipbook-viewer.html';
+        const flipbookUrl = content.url ? flipbookViewerPage + '?manifest=' + encodeURIComponent(content.url) : flipbookViewerPage + '?content=' + content.id;
+        viewerHtml = `<div style="text-align: center;"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="${flipbookUrl}" onclick="event.stopPropagation(); window.location.href='${flipbookUrl}'; return false;" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📖</span>Click to View Flipbook</a></div>`;
+    } else if (content.type === 'presentation') {
+        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%8A%3C/text%3E%3C/svg%3E';
+        const presentationUrl = content.url ? '../presentation-viewer.html?manifest=' + encodeURIComponent(content.url) : '../presentation-viewer.html?content=' + content.id;
+        viewerHtml = `<div style="text-align: center;"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="${presentationUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📊</span>Click to View Presentation</a></div>`;
+    } else if (content.type === 'video') {
+        viewerHtml = content.url.startsWith('data:') ? '<video controls style="width: 100%; height: auto; max-height: 90vh; display: block; object-fit: contain;"><source src="' + content.url + '"></video>' : '<iframe src="' + content.url + '" style="width: 100%; height: 90vh; border: none; display: block;" allowfullscreen></iframe>';
+    } else if (content.type === 'image' || content.type === 'gif') {
+        viewerHtml = '<div style="display: flex; justify-content: center; padding: 20px;"><img src="' + content.url + '" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>';
+    } else if (content.type === 'audio') {
+        viewerHtml = '<div style="display: flex; justify-content: center; padding: 40px;"><audio controls style="width: 100%; max-width: 600px; height: 54px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"><source src="' + content.url + '"></audio></div>';
+    } else {
+        viewerHtml = '<div style="display: flex; justify-content: center; padding: 20px;"><iframe src="' + content.url + '" style="width: 100%; max-width: 600px; height: 800px; border: none; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></iframe></div>';
+    }
+
+    const backButton = !pdfOnlyMode ? '<button onclick="hideContentViewer()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>' : '';
+
+    const viewer = document.getElementById('viewer');
+    if (pdfOnlyMode) viewer.innerHTML = '<div id="viewerContent" style="max-width: 800px; margin: 0 auto; padding: 20px;"></div>';
+    let contentArea = document.getElementById('viewerContent');
+
+    if (contentArea) {
+        contentArea.style.display = 'block';
+        contentArea.classList.add('active');
+        const leftSidebar = document.getElementById('leftSidebar');
+        if (leftSidebar && window.innerWidth <= 768) leftSidebar.classList.add('hidden');
+    }
+
+    const descHtml = content.description ? '<div class="viewer-desc">' + content.description + '</div>' : '';
+
+    contentArea.innerHTML = backButton + '<h2 style="font-size: 18px;">' + content.title + shareButton + '</h2>' + descHtml + viewerHtml + `
+        <div class="comments-section" style="margin-top: 40px;">
+            <div class="comments-header"><h3>💬 Comments</h3><span class="comment-count" id="commentCount">0</span></div>
+            <div class="comment-form">
+                <div id="commentSuccessMsg" class="comment-success" style="display: none;">✅ Thank you! Your comment has been posted successfully.</div>
+                <input type="text" id="commentAuthorName" placeholder="Your Name *" required>
+                <input type="email" id="commentAuthorEmail" placeholder="Your Email (optional, for notifications)">
+                <textarea id="commentText" placeholder="Write your comment here... *" required></textarea>
+                <button onclick="submitComment()" id="submitCommentBtn">Post Comment</button>
+            </div>
+            <div class="comments-list" id="commentsList"><div class="no-comments">No comments yet. Be the first to comment!</div></div>
+        </div>
+    `;
+    loadComments(content.id);
+}
+
+// ==================== COPY SHARE LINK ====================
+function copyShareLink() {
+    if (!currentContent) return;
+    const shareLink = sharePDFLink(currentContent.id);
+    navigator.clipboard.writeText(shareLink).then(() => { alert('✅ Link copied to clipboard!\n\n' + shareLink); }).catch(err => { prompt('Copy this link:', shareLink); });
+}
+
+// ==================== PDF MODAL ====================
+function openPDFModal(pdfUrl, title, contentId) {
+    const modal = document.getElementById('pdfModal'), titleEl = document.getElementById('pdfTitle');
+    if (!modal || !titleEl) return;
     titleEl.textContent = title;
-    frame.src = url;
-
-    modal.style.left      = '50%';
-    modal.style.top       = '50%';
-    modal.style.transform = 'translate(-50%, -50%)';
-    modal.style.width     = '800px';
-    modal.style.height    = '600px';
-    modal.style.display   = 'flex';
-
-    makeDraggable(modal);
+    modal.classList.add('active');
+    if (typeof window.loadPdfInViewer === 'function') window.loadPdfInViewer(pdfUrl);
+    else if (typeof window.openEnhancedPDF === 'function') window.openEnhancedPDF(pdfUrl, title);
 }
 
-function closeLinkModal() {
-    const modal = document.getElementById('linkModal');
-    const frame = document.getElementById('linkFrame');
-    modal.style.display = 'none';
-    frame.src = '';
-}
+function closePDFModal() { const modal = document.getElementById('pdfModal'); if (modal) modal.classList.remove('active'); }
 
-function makeDraggable(element) {
-    const header = element.querySelector('.link-modal-header');
-    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-
-    header.onmousedown = dragMouseDown;
-
-    function dragMouseDown(e) {
-        e.preventDefault();
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        document.onmouseup = closeDragElement;
-        document.onmousemove = elementDrag;
-    }
-
-    function elementDrag(e) {
-        e.preventDefault();
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        element.style.top       = (element.offsetTop - pos2) + 'px';
-        element.style.left      = (element.offsetLeft - pos1) + 'px';
-        element.style.transform = 'none';
-    }
-
-    function closeDragElement() {
-        document.onmouseup   = null;
-        document.onmousemove = null;
-    }
-}
-
-document.addEventListener('click', (e) => {
-    const linkModal = document.getElementById('linkModal');
-    if (e.target === linkModal) closeLinkModal();
-});
-
-// ==================== VIEW TOGGLE ====================
-function setView(mode) {
-    viewMode = mode;
-
-    const gridBtn = document.getElementById('gridBtn');
-    const listBtn = document.getElementById('listBtn');
-    if (gridBtn) gridBtn.classList.toggle('active', mode === 'grid');
-    if (listBtn) listBtn.classList.toggle('active', mode === 'list');
-
-    const container = document.getElementById('contentGrid');
-    if (container) container.className = 'content-grid' + (mode === 'list' ? ' list-view' : '');
-}
-
-// ==================== DARK MODE ====================
-function toggleDarkMode() {
-    darkMode = !darkMode;
-    document.body.classList.toggle('dark-mode', darkMode);
-    localStorage.setItem('darkMode', darkMode);
-}
-
-// ==================== UTILITY FUNCTIONS ====================
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function getTypeIcon(type) {
-    const icons = {
-        pdf:            '📄',
-        flipbook:       '📖',
-        presentation:   '📊',
-        video:          '🎥',
-        image:          '🖼️',
-        audio:          '🎵',
-        gif:            '🎞️',
-        link:           '🔗',
-        quiz:           '🧠',
-        'card-game':    '🃏',
-        'spin-wheel':   '🎡',
-        'landing-page': '🚀'
-    };
-    return icons[type] || '📎';
-}
-
-function extractYouTubeId(url) {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match  = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-}
-
-// ==================== PLAYBACK MEMORY ====================
-function savePlaybackPosition(contentId, position) {
-    localStorage.setItem(`playback_${contentId}`, JSON.stringify({ position, timestamp: Date.now() }));
-}
-
-function getPlaybackPosition(contentId) {
-    const data = localStorage.getItem(`playback_${contentId}`);
-    return data ? JSON.parse(data) : null;
+// ==================== HIDE CONTENT VIEWER ====================
+function hideContentViewer() {
+    const viewer = document.querySelector('.right-viewer'), leftSidebar = document.getElementById('leftSidebar');
+    if (viewer) viewer.classList.remove('active');
+    if (leftSidebar) leftSidebar.classList.remove('hidden');
+    if (window.innerWidth > 768) window.location.href = 'vault.html';
 }
 
 // ==================== LAZY LOADING ====================
-let imageObserver = null;
-
+let thumbnailObserver;
 function initLazyLoading() {
     if ('IntersectionObserver' in window) {
-        imageObserver = new IntersectionObserver((entries, observer) => {
+        thumbnailObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    const img = entry.target;
-                    if (img.dataset.src) {
-                        img.style.opacity    = '0';
-                        img.style.transition = 'opacity 0.3s ease-in';
-                        img.src = img.dataset.src;
-                        img.onload = () => {
-                            img.style.opacity = '1';
-                            img.classList.remove('lazy-thumbnail');
-                        };
-                        img.removeAttribute('data-src');
-                        observer.unobserve(img);
+                    const thumbnail = entry.target, bgImage = thumbnail.getAttribute('data-bg');
+                    if (bgImage) {
+                        const img = new Image(); img.decoding = 'async';
+                        img.onload = () => { thumbnail.style.backgroundImage = 'url(\'' + bgImage + '\')'; thumbnail.style.backgroundSize = 'cover'; thumbnail.style.backgroundPosition = 'center'; };
+                        img.src = bgImage; thumbnail.removeAttribute('data-bg'); thumbnailObserver.unobserve(thumbnail);
                     }
                 }
             });
-        }, { rootMargin: '50px' });
+        }, { rootMargin: '200px', threshold: 0.01 });
     }
 }
-
-function observeLazyThumbnails() {
-    if (imageObserver) {
-        document.querySelectorAll('img.lazy-thumbnail[data-src]').forEach(img => {
-            imageObserver.observe(img);
-        });
-    }
-}
-
+function observeThumbnails() { if (thumbnailObserver) document.querySelectorAll('.content-thumbnail[data-bg]').forEach(t => thumbnailObserver.observe(t)); }
 initLazyLoading();
 
-// ==================== PRIVATE FOLDER PASSWORD MANAGEMENT ====================
-let pendingPrivateFolder = null;
+// ==================== COMMENTS ====================
+async function loadComments(contentId) {
+    try {
+        console.log('Loading vault comments for content:', contentId);
+        const { data: comments, error } = await vaultClient.client.from('vault_comments').select('*').eq('content_id', contentId).eq('is_approved', true).order('created_at', { ascending: true });
+        if (error) throw error;
+        const count = comments ? comments.length : 0;
+        const commentCountEl = document.getElementById('commentCount');
+        if (commentCountEl) commentCountEl.textContent = count;
+        const commentsList = document.getElementById('commentsList');
+        if (!commentsList) return;
+        if (count === 0) { commentsList.innerHTML = '<div class="no-comments">No comments yet. Be the first to comment!</div>'; return; }
+        commentsList.innerHTML = comments.map(comment => '<div class="comment-item"><div class="comment-header"><span class="comment-author">' + escapeHtml(comment.author_name) + '</span><span class="comment-date">' + formatDate(comment.created_at) + '</span></div><div class="comment-text">' + escapeHtml(comment.comment_text) + '</div></div>').join('');
+    } catch (error) { console.error('Error loading vault comments:', error); const cl = document.getElementById('commentsList'); if (cl) cl.innerHTML = '<div class="no-comments">Error loading comments.</div>'; }
+}
+
+async function submitComment() {
+    const authorName = document.getElementById('commentAuthorName').value.trim();
+    const authorEmail = document.getElementById('commentAuthorEmail').value.trim();
+    const commentText = document.getElementById('commentText').value.trim();
+    const submitBtn = document.getElementById('submitCommentBtn');
+    if (!authorName || !commentText) { alert('Please fill in your name and comment.'); return; }
+    if (!currentContent || !currentContent.id) { alert('No content selected for commenting.'); return; }
+    try {
+        submitBtn.disabled = true; submitBtn.textContent = 'Posting...';
+        const { error } = await vaultClient.client.from('vault_comments').insert([{ content_id: currentContent.id, author_name: authorName, author_email: authorEmail || null, comment_text: commentText, is_approved: true }]);
+        if (error) throw error;
+        const successMsg = document.getElementById('commentSuccessMsg');
+        if (successMsg) { successMsg.style.display = 'block'; setTimeout(() => { successMsg.style.display = 'none'; }, 5000); }
+        document.getElementById('commentAuthorName').value = ''; document.getElementById('commentAuthorEmail').value = ''; document.getElementById('commentText').value = '';
+        await loadComments(currentContent.id); console.log('Vault comment submitted');
+    } catch (error) { console.error('Error submitting vault comment:', error); alert('Error submitting comment: ' + (error.message || error.toString()) + '\n\nPlease try again or contact support.'); }
+    finally { submitBtn.disabled = false; submitBtn.textContent = 'Post Comment'; }
+}
+
+function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+
+function formatDate(dateString) {
+    const date = new Date(dateString), now = new Date(), diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000), diffHours = Math.floor(diffMs / 3600000), diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return diffMins + ' minute' + (diffMins > 1 ? 's' : '') + ' ago';
+    if (diffHours < 24) return diffHours + ' hour' + (diffHours > 1 ? 's' : '') + ' ago';
+    if (diffDays < 7) return diffDays + ' day' + (diffDays > 1 ? 's' : '') + ' ago';
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// ==================== PRIVATE FOLDER PASSWORD ====================
+let pendingPrivateFolder = null, currentUser = null;
 
 function isOwner() {
     if (!currentUser || !currentUser.email) return false;
-    const ownerEmail = CONFIG?.app?.ownerEmail;
+    const ownerEmail = CONFIG && CONFIG.app ? CONFIG.app.ownerEmail : null;
     if (!ownerEmail) return false;
     return currentUser.email.toLowerCase() === ownerEmail.toLowerCase();
 }
@@ -630,288 +498,40 @@ function isOwner() {
 async function checkCurrentUser() {
     try {
         if (!vaultClient || !vaultClient.client) return;
-        const { data: { user } } = await vaultClient.client.auth.getUser();
-        currentUser = user;
-        if (user) {
-            console.log('👤 Vault: Logged in as:', user.email);
-            if (isOwner()) console.log('👑 Owner access granted');
-        }
-    } catch (error) {
-        console.error('Error checking vault user:', error);
-        currentUser = null;
-    }
+        const result = await vaultClient.client.auth.getUser();
+        currentUser = result.data.user;
+        if (currentUser) { console.log('Vault: Logged in as:', currentUser.email); if (isOwner()) console.log('Owner access granted'); }
+    } catch (error) { console.error('Error checking vault user:', error); currentUser = null; }
 }
 
-function isFolderPrivate(folder) {
-    return folder && folder.is_public === false;
-}
+function isFolderPrivate(folder) { return folder && folder.is_public === false; }
 
 function promptForFolderPassword(folder) {
     pendingPrivateFolder = folder;
-
-    const modal       = document.getElementById('passwordPromptModal');
-    const folderNameEl = document.getElementById('passwordPromptFolderName');
-    const inputEl     = document.getElementById('passwordPromptInput');
-    const errorEl     = document.getElementById('passwordError');
-
-    folderNameEl.textContent = `Enter password to access: ${folder.title}`;
-    inputEl.value = '';
-    errorEl.style.display = 'none';
-
-    modal.style.display = 'flex';
-    inputEl.focus();
-
+    const modal = document.getElementById('passwordPromptModal'), folderNameEl = document.getElementById('passwordPromptFolderName'), inputEl = document.getElementById('passwordPromptInput'), errorEl = document.getElementById('passwordError');
+    folderNameEl.textContent = 'Enter password to access: ' + folder.title;
+    inputEl.value = ''; errorEl.style.display = 'none'; modal.style.display = 'flex'; inputEl.focus();
     inputEl.onkeypress = (e) => { if (e.key === 'Enter') submitFolderPassword(); };
 }
 
 async function submitFolderPassword() {
     if (!pendingPrivateFolder) return;
-
-    const inputEl  = document.getElementById('passwordPromptInput');
-    const errorEl  = document.getElementById('passwordError');
-    const password = inputEl.value.trim();
-
-    if (!password) {
-        errorEl.textContent  = 'Please enter a password';
-        errorEl.style.display = 'block';
-        return;
-    }
-
+    const inputEl = document.getElementById('passwordPromptInput'), errorEl = document.getElementById('passwordError'), password = inputEl.value.trim();
+    if (!password) { errorEl.textContent = 'Please enter a password'; errorEl.style.display = 'block'; return; }
     try {
-        // Query vault_folder_passwords — not folder_passwords
-        const { data: passwords, error } = await vaultClient.client
-            .from('vault_folder_passwords')
-            .select('*')
-            .eq('folder_id', pendingPrivateFolder.id)
-            .eq('is_active', true);
-
+        const { data: passwords, error } = await vaultClient.client.from('vault_folder_passwords').select('*').eq('folder_id', pendingPrivateFolder.id).eq('is_active', true);
         if (error) throw error;
-
-        if (!passwords || passwords.length === 0) {
-            errorEl.textContent  = 'No active passwords for this collection';
-            errorEl.style.display = 'block';
-            return;
-        }
-
+        if (!passwords || passwords.length === 0) { errorEl.textContent = 'No active passwords for this folder'; errorEl.style.display = 'block'; return; }
         let passwordValid = false;
         for (const pwd of passwords) {
             if (pwd.expires_at && new Date(pwd.expires_at) < new Date()) continue;
             const isValid = await PasswordUtils.verifyPassword(password, pwd.password_hash);
             if (isValid) { passwordValid = true; break; }
         }
-
-        if (passwordValid) {
-            PasswordUtils.grantAccess(pendingPrivateFolder.id);
-            closePasswordPrompt();
-            window.location.href = `?folder=${pendingPrivateFolder.slug}`;
-        } else {
-            errorEl.textContent  = '❌ Invalid password';
-            errorEl.style.display = 'block';
-            inputEl.value = '';
-            inputEl.focus();
-        }
-
-    } catch (error) {
-        console.error('Error validating vault password:', error);
-        errorEl.textContent  = 'Error validating password';
-        errorEl.style.display = 'block';
-    }
+        if (passwordValid) { PasswordUtils.grantAccess(pendingPrivateFolder.id); closePasswordPrompt(); window.location.href = '?folder=' + pendingPrivateFolder.slug; }
+        else { errorEl.textContent = '❌ Invalid password'; errorEl.style.display = 'block'; inputEl.value = ''; inputEl.focus(); }
+    } catch (error) { console.error('Error validating vault password:', error); errorEl.textContent = 'Error validating password'; errorEl.style.display = 'block'; }
 }
 
-function closePasswordPrompt() {
-    const modal = document.getElementById('passwordPromptModal');
-    modal.style.display = 'none';
-    pendingPrivateFolder = null;
-}
-
-function checkPrivateFolderAccess(folder) {
-    if (!isFolderPrivate(folder)) return true;
-    return PasswordUtils.hasAccess(folder.id);
-}
-
-function handleFolderClick(folderSlug) {
-    const folder = folders.find(f => f.slug === folderSlug);
-    if (!folder) {
-        window.location.href = `?folder=${folderSlug}`;
-        return;
-    }
-
-    if (isFolderPrivate(folder) && isOwner()) {
-        console.log('👑 Owner bypassing password for:', folder.title);
-        window.location.href = `?folder=${folderSlug}`;
-        return;
-    }
-
-    if (isFolderPrivate(folder) && !checkPrivateFolderAccess(folder)) {
-        promptForFolderPassword(folder);
-    } else {
-        window.location.href = `?folder=${folderSlug}`;
-    }
-}
-
-// ==================== MOBILE VIEWER ====================
-/**
- * Show right viewer panel on mobile and display mobile back button
- */
-function showMobileViewer() {
-    const rightViewer   = document.getElementById('rightViewer');
-    const mobileBackBtn = document.getElementById('mobileBackBtn');
-    if (rightViewer)   rightViewer.classList.add('active');
-    if (mobileBackBtn) mobileBackBtn.style.display = 'block';
-}
-
-// ==================== CONTENT VIEWER DISPLAY ====================
-/**
- * Display selected content in the right viewer panel
- * Shows title, description, type badge and triggers comments load
- */
-function displayInViewer(content) {
-    const viewer = document.getElementById('viewer');
-    if (!viewer) return;
-
-    const icon = getTypeIcon(content.type);
-
-    viewer.innerHTML = `
-        <h2 style="color:#ffffff; font-weight:600; text-shadow:0 0 8px rgba(255,255,255,0.5); margin-bottom:10px;">
-            ${icon} ${escapeHtml(content.title)}
-        </h2>
-        ${content.description ? `<p class="viewer-desc">${escapeHtml(content.description)}</p>` : ''}
-        <div style="margin-bottom:16px;">
-            <span class="content-type-badge">${content.type.toUpperCase()}</span>
-            <span style="font-size:11px; color:var(--text-tertiary); margin-left:8px;">👁️ ${content.view_count || 0} views</span>
-        </div>
-        <div id="viewerActions"></div>
-    `;
-
-    // Load comments below viewer
-    loadComments(content.id);
-
-    // Show comments section
-    const commentsSection = document.getElementById('commentsSection');
-    if (commentsSection) commentsSection.style.display = 'block';
-}
-
-// ==================== COMMENTS ====================
-/**
- * Load comments for a vault content item from vault_comments table
- */
-async function loadComments(contentId) {
-    const commentsList = document.getElementById('commentsList');
-    const commentCount = document.getElementById('commentCount');
-    if (!commentsList) return;
-
-    commentsList.innerHTML = '<div class="no-comments">Loading comments...</div>';
-
-    try {
-        const { data: comments, error } = await vaultClient.client
-            .from('vault_comments')
-            .select('*')
-            .eq('content_id', contentId)
-            .eq('is_approved', true)
-            .order('created_at', { ascending: true });
-
-        if (error) throw error;
-
-        const count = comments ? comments.length : 0;
-        if (commentCount) commentCount.textContent = count;
-
-        if (count === 0) {
-            commentsList.innerHTML = '<div class="no-comments">No comments yet. Be the first to comment!</div>';
-            return;
-        }
-
-        commentsList.innerHTML = comments.map(comment => `
-            <div class="comment-item">
-                <div class="comment-header">
-                    <span class="comment-author">${escapeHtml(comment.author_name)}</span>
-                    <span class="comment-date">${formatDate(comment.created_at)}</span>
-                </div>
-                <div class="comment-text">${escapeHtml(comment.comment_text)}</div>
-            </div>
-        `).join('');
-
-    } catch (error) {
-        console.error('❌ Error loading vault comments:', error);
-        commentsList.innerHTML = '<div class="no-comments">Error loading comments.</div>';
-    }
-}
-
-/**
- * Submit a new comment to vault_comments table
- */
-async function submitComment() {
-    const authorName  = document.getElementById('commentAuthorName').value.trim();
-    const authorEmail = document.getElementById('commentAuthorEmail').value.trim();
-    const commentText = document.getElementById('commentText').value.trim();
-    const submitBtn   = document.getElementById('submitCommentBtn');
-
-    if (!authorName || !commentText) {
-        alert('Please fill in your name and comment.');
-        return;
-    }
-
-    if (!currentContentId) {
-        alert('No content selected for commenting.');
-        return;
-    }
-
-    try {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Posting...';
-
-        const { error } = await vaultClient.client
-            .from('vault_comments')
-            .insert([{
-                content_id:   currentContentId,
-                author_name:  authorName,
-                author_email: authorEmail || null,
-                comment_text: commentText,
-                is_approved:  true
-            }]);
-
-        if (error) throw error;
-
-        // Show success
-        const successMsg = document.getElementById('commentSuccessMsg');
-        if (successMsg) {
-            successMsg.style.display = 'block';
-            setTimeout(() => { successMsg.style.display = 'none'; }, 5000);
-        }
-
-        // Clear form
-        document.getElementById('commentAuthorName').value = '';
-        document.getElementById('commentAuthorEmail').value = '';
-        document.getElementById('commentText').value = '';
-
-        // Reload comments
-        await loadComments(currentContentId);
-
-        console.log('✅ Vault comment submitted');
-
-    } catch (error) {
-        console.error('❌ Error submitting vault comment:', error);
-        alert('Error submitting comment: ' + (error.message || error.toString()));
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Post Comment';
-    }
-}
-
-/**
- * Format date for comment display
- */
-function formatDate(dateString) {
-    const date    = new Date(dateString);
-    const now     = new Date();
-    const diffMs  = now - date;
-    const diffMins  = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays  = Math.floor(diffMs / 86400000);
-
-    if (diffMins  < 1)  return 'Just now';
-    if (diffMins  < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    if (diffDays  < 7)  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-}
+function closePasswordPrompt() { const modal = document.getElementById('passwordPromptModal'); if (modal) modal.style.display = 'none'; pendingPrivateFolder = null; }
+function checkPrivateFolderAccess(folder) { if (!isFolderPrivate(folder)) return true; return PasswordUtils.hasAccess(folder.id); }
