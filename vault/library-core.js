@@ -430,35 +430,32 @@ function closeMediaPlayer() {
 
 // ==================== FLIPBOOK VIEWER ====================
 function openFlipbookViewer(content) {
-    // Priority 1: Use Cloudflare R2 manifest URL if available (fast, public)
+    // Priority 1: Use Cloudflare R2 manifest URL (fast, public)
     if (content.url) {
-        const flipbookUrl = `flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}`;
-        window.open(flipbookUrl, '_blank', 'width=1200,height=800');
+        window.open(`../flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}`, '_blank', 'width=1200,height=800');
     }
-    // Priority 2: Fallback to content ID (loads from Supabase)
+    // Priority 2: Fallback to content ID
     else if (content.id) {
-        const flipbookUrl = `flipbook-viewer.html?content=${content.id}`;
-        window.open(flipbookUrl, '_blank', 'width=1200,height=800');
+        window.open(`../flipbook-viewer.html?content=${content.id}`, '_blank', 'width=1200,height=800');
     }
     else {
         alert('Flipbook data not available');
+    }
 }
 
 // ==================== PRESENTATION VIEWER ====================
 function openPresentationViewer(content) {
-    // Priority 1: Use Cloudflare R2 manifest URL if available (fast, public)
+    // Priority 1: Use Cloudflare R2 manifest URL (fast, public)
     if (content.url) {
-        const presentationUrl = `presentation-viewer.html?manifest=${encodeURIComponent(content.url)}`;
-        window.open(presentationUrl, '_blank', 'width=1200,height=800');
+        window.open(`../presentation-viewer.html?manifest=${encodeURIComponent(content.url)}`, '_blank', 'width=1200,height=800');
     }
-    // Priority 2: Fallback to content ID (loads from Supabase)
+    // Priority 2: Fallback to content ID
     else if (content.id) {
-        const presentationUrl = `presentation-viewer.html?content=${content.id}`;
-        window.open(presentationUrl, '_blank', 'width=1200,height=800');
+        window.open(`../presentation-viewer.html?content=${content.id}`, '_blank', 'width=1200,height=800');
     }
     else {
         alert('Presentation data not available');
-    }        
+    }
 }
 
 // ==================== LINK MODAL (DRAGGABLE) ====================
