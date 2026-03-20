@@ -901,6 +901,13 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(109, 40, 217, 0.5);
         }
+
+        /* Fix cookie banner stray close button position */
+        #cookie-banner-close,
+        .cookie-close,
+        [id*="cookie-close"] {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -939,7 +946,7 @@
 
         <!-- Landing Page 1 — Vault Folders Grid -->
         <div class="folders-section" id="foldersSection">
-            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap;">
                 <img src="https://files.3c-public-library.org/content/2026/Aurion%20Vault/19.png"
                      alt="Aurion"
                      style="width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(192,132,252,0.5); box-shadow: 0 0 12px rgba(192,132,252,0.3);">
@@ -948,6 +955,29 @@
                     <p style="color: #9b59b6; font-size: 12px; margin: 2px 0 0 0;">Aurion · Ambassador &amp; Guide · 3C Thread To Success</p>
                 </div>
             </div>
+
+            <!-- Aurion message line -->
+            <p id="aurionMessage" style="color: #c4b5d4; font-size: 13px; font-style: italic; margin: 0 0 14px 0; padding-left: 4px;">
+                "I think you'll enjoy this one 👇"
+            </p>
+
+            <!-- Featured content image placeholder -->
+            <!-- Place your featured image (e.g. today-pick.png) in the vault/ folder and update the src below -->
+            <!-- Swap the image in Canva, export as the same filename, push to repo — it updates automatically -->
+            <div id="featuredBanner" style="margin-bottom: 20px; border-radius: 12px; overflow: hidden; max-width: 100%; line-height: 0;">
+                <img src="today-pick.png"
+                     alt="Today's Pick"
+                     onerror="this.parentElement.style.display='none'"
+                     style="width: 100%; max-height: 120px; object-fit: cover; border-radius: 12px; display: block;">
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <span style="color: #808080; font-size: 12px;">Explore collections below</span>
+                <button class="start-here-btn" onclick="openOrientationModal()" style="background: linear-gradient(135deg, #6d28d9, #8b5cf6); font-size: 12px; padding: 7px 14px;">
+                    👀 Curious? Try
+                </button>
+            </div>
+
             <div id="foldersGrid" class="folders-grid"></div>
         </div>
 
@@ -1009,6 +1039,37 @@
                 <div class="comments-list" id="commentsList">
                     <div class="no-comments">No comments yet. Be the first to comment!</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orientation Modal -->
+    <div class="orientation-modal" id="orientationModal" onclick="closeOrientationModal(event)">
+        <div class="orientation-modal-content" onclick="event.stopPropagation()">
+            <div class="orientation-modal-header">
+                <div class="orientation-modal-title">👋 Welcome to My Universe</div>
+                <button class="orientation-close-btn" onclick="closeOrientationModal()">×</button>
+            </div>
+            <div class="orientation-modal-body">
+                <div class="orientation-section">
+                    <p style="font-size: 14px; color: #e2d4f0; margin-bottom: 10px;">This is your space to explore, learn, and challenge yourself.</p>
+                    <p style="font-size: 13px; color: #c4b5d4;">Start simple. Follow your curiosity.</p>
+                </div>
+                <div class="orientation-section">
+                    <div class="orientation-section-title">🚀 Start Here</div>
+                    <p>Click on the <strong style="color: #c084fc;">Aurion Gems</strong> folder to explore comics, community content and more.</p>
+                </div>
+                <div class="orientation-section">
+                    <div class="orientation-section-title">🧠 Take a Quiz</div>
+                    <p>Head to the <strong style="color: #c084fc;">Quizzes</strong> folder — each one reveals something real about how you think.</p>
+                </div>
+                <div class="orientation-section" style="border-color: rgba(192,132,252,0.3); background: rgba(109,40,217,0.08);">
+                    <p style="font-size: 13px; color: #c4b5d4;">More coming soon — this universe is always growing.</p>
+                    <p style="font-size: 14px; color: #ffffff; font-weight: 700; margin-top: 10px;">Keep Levelling Up — Aurion</p>
+                </div>
+                <button class="orientation-cta" onclick="closeOrientationModal()">
+                    Let's explore! →
+                </button>
             </div>
         </div>
     </div>
@@ -1101,6 +1162,27 @@
         function closeFolderSidebar() {
             document.getElementById('folderSidebar').style.display = 'none';
         }
+
+        function openOrientationModal() {
+            document.getElementById('orientationModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeOrientationModal(e) {
+            if (e && e.target !== document.getElementById('orientationModal')) return;
+            document.getElementById('orientationModal').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeOrientationModal(); });
+
+        // Remove stray cookie banner close button that appears on vault page
+        window.addEventListener('load', () => {
+            document.querySelectorAll('[id*="cookie"] button, [class*="cookie"] button, button[onclick*="cookie"]').forEach(btn => {
+                const rect = btn.getBoundingClientRect();
+                if (rect.left < 20) btn.style.display = 'none';
+            });
+        });
     </script>
 
     <!-- Enhanced PDF viewer (shared from root) -->
