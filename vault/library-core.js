@@ -355,16 +355,16 @@ async function openContent(contentData) {
             openMediaPlayer(content, 'image');
             break;
 
-        // Vault interactive tools — open in new tab
+        // Vault interactive tools — navigate same page so back button returns to vault
         case 'quiz':
         case 'card-game':
         case 'spin-wheel':
         case 'landing-page':
         case 'link':
             if (content.url) {
-                window.open(content.url, '_blank');
+                window.location.href = content.url;
             } else if (content.external_url) {
-                window.open(content.external_url, '_blank');
+                window.location.href = content.external_url;
             }
             break;
 
