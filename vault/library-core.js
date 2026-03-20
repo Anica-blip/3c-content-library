@@ -488,7 +488,6 @@ function formatDate(dateString) {
 }
 
 // ==================== PRIVATE FOLDER PASSWORD ====================
-let pendingPrivateFolder = null, currentUser = null;
 
 function isOwner() {
     if (!currentUser || !currentUser.email) return false;
