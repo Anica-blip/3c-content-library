@@ -1060,14 +1060,19 @@
 
         <!-- Landing Page 1 — Vault Folders Grid -->
         <div class="folders-section" id="foldersSection">
-            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap;">
-                <img src="https://files.3c-public-library.org/content/2026/Aurion%20Vault/19.png"
-                     alt="Aurion"
-                     style="width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(192,132,252,0.5); box-shadow: 0 0 12px rgba(192,132,252,0.3);">
-                <div>
-                    <h2 style="color: #ffffff; font-size: 20px; margin: 0;">Welcome, to my universe</h2>
-                    <p style="color: #9b59b6; font-size: 12px; margin: 2px 0 0 0;">Aurion · Ambassador &amp; Guide · 3C Thread To Success</p>
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <img src="https://files.3c-public-library.org/content/2026/Aurion%20Vault/19.png"
+                         alt="Aurion"
+                         style="width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(192,132,252,0.5); box-shadow: 0 0 12px rgba(192,132,252,0.3);">
+                    <div>
+                        <h2 style="color: #ffffff; font-size: 20px; margin: 0;">Welcome, to my universe</h2>
+                        <p style="color: #9b59b6; font-size: 12px; margin: 2px 0 0 0;">Aurion · Ambassador &amp; Guide · 3C Thread To Success</p>
+                    </div>
                 </div>
+                <button class="start-here-btn" onclick="openOrientationModal()" style="background: linear-gradient(135deg, #6d28d9, #8b5cf6); font-size: 12px; padding: 7px 14px; flex-shrink: 0;">
+                    👀 Curious? Try
+                </button>
             </div>
 
             <!-- Aurion message line -->
@@ -1085,12 +1090,7 @@
                      style="width: 100%; max-height: 120px; object-fit: cover; border-radius: 12px; display: block;">
             </div>
 
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-                <span style="color: #808080; font-size: 12px;">Explore collections below</span>
-                <button class="start-here-btn" onclick="openOrientationModal()" style="background: linear-gradient(135deg, #6d28d9, #8b5cf6); font-size: 12px; padding: 7px 14px;">
-                    👀 Curious? Try
-                </button>
-            </div>
+            <p style="color: #808080; font-size: 12px; margin: 0 0 20px 0;">Explore collections below</p>
 
             <div id="foldersGrid" class="folders-grid"></div>
         </div>
