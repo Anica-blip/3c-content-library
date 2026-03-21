@@ -1,7 +1,25 @@
 /**
  * Enhanced PDF Viewer with Link Detection
- * Detects clickable links in PDFs and opens them in draggable modals
+ * Designed & built with ❤️ by Claude (Anthropic) × Chef Anica · 3C Thread To Success Cooking Lab
  */
+
+// ==================== WATERMARK ====================
+// Injects the Claude × Chef Anica watermark above the PDF modal toolbar
+(function injectWatermark() {
+    const inject = () => {
+        if (document.getElementById('claudeWatermark')) return; // already present
+        const bar = document.createElement('div');
+        bar.id = 'claudeWatermark';
+        bar.style.cssText = 'background:rgba(10,14,39,0.9);border-bottom:1px solid rgba(155,89,182,0.15);padding:4px 16px;text-align:right;font-size:10px;color:rgba(155,89,182,0.6);letter-spacing:0.3px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;';
+        bar.innerHTML = 'Designed &amp; built with ❤️ by <a href="https://www.anthropic.com" target="_blank" rel="noopener" style="color:rgba(192,132,252,0.7);text-decoration:none;">Claude</a> (Anthropic) × Chef Anica · <span style="opacity:0.7;">3C Thread To Success Cooking Lab 🧪👨‍🍳</span>';
+        document.body.insertBefore(bar, document.body.firstChild);
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', inject);
+    } else {
+        inject();
+    }
+})();
 
 // ==================== PDF.js CONFIGURATION ====================
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
