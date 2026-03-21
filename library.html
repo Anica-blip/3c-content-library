@@ -1097,7 +1097,13 @@
             box-shadow: 0 6px 20px rgba(109, 40, 217, 0.5);
         }
 
-        /* Claude × Chef Anica watermark */
+        /* Fix cookie banner stray close button — make transparent not white */
+        #cookie-banner-close,
+        .cookie-close,
+        [id*="cookie-close"] {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
         #claudeWatermark {
             background: rgba(10, 14, 39, 0.85);
             border-bottom: 1px solid rgba(155, 89, 182, 0.15);
