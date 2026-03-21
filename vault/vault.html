@@ -906,9 +906,7 @@
         #cookie-banner-close,
         .cookie-close,
         [id*="cookie-close"],
-        [class*="cookie-close"],
-        [id*="cookie"] button,
-        [class*="cookie"] button {
+        [class*="cookie-close"] {
             opacity: 0 !important;
             pointer-events: none !important;
         }
@@ -1432,8 +1430,17 @@
                     showBubble(pickRandom(BUBBLE_SUGGESTIONS));
                     localStorage.setItem(KEY_SUGGESTION, '1');
                 });
+            } else {
+                // All 3 shown today — fire a soft "you're back" after 8s idle
+                scheduleWhenIdle(8000, () => {
+                    const backMessages = [
+                        "You're back — good to see you again 👊",
+                        "Back again? That's what I like to see 😎",
+                        "Welcome back, Champ — keep going 🔥"
+                    ];
+                    showBubble(pickRandom(backMessages));
+                });
             }
-            // All 3 shown — Aurion stays quiet for the rest of this session
         });
 
         // Remove stray cookie banner close button that appears on vault page
