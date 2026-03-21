@@ -369,7 +369,7 @@ function showViewer(content, pdfOnlyMode) {
     } else if (content.type === 'audio') {
         viewerHtml = '<div style="display: flex; justify-content: center; padding: 40px;"><audio controls style="width: 100%; max-width: 600px; height: 54px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"><source src="' + content.url + '"></audio></div>';
     } else if (content.type === 'quiz' || content.type === 'card-game' || content.type === 'spin-wheel' || content.type === 'landing-page' || content.type === 'link') {
-        const linkLabels = { 'quiz': '🧠 Click to Open Quiz', 'card-game': '🃏 Click to Open Card Game', 'spin-wheel': '🎡 Click to Spin the Wheel', 'landing-page': '🚀 Click to Open', 'link': '🔗 Click to Open Link' };
+        const linkLabels = { 'quiz': 'Click to Open Quiz', 'card-game': 'Click to Open Card Game', 'spin-wheel': 'Click to Spin the Wheel', 'landing-page': 'Click to Open', 'link': 'Click to Open Link' };
         const linkIcons  = { 'quiz': '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', 'link': '🔗' };
         const linkLabel  = linkLabels[content.type] || '🔗 Click to Open';
         const linkIcon   = linkIcons[content.type]  || '🔗';
