@@ -980,6 +980,43 @@
         #aurionBubble .bubble-close:hover {
             color: #ffffff;
         }
+
+        @media (max-width: 768px) {
+            #aurionBubble {
+                bottom: 80px;
+                right: 16px;
+                max-width: calc(100vw - 32px);
+            }
+        }
+
+        /* Claude × Chef Anica watermark */
+        #claudeWatermark {
+            background: rgba(10, 14, 39, 0.85);
+            border-bottom: 1px solid rgba(155, 89, 182, 0.15);
+            padding: 4px 16px;
+            text-align: right;
+            font-size: 10px;
+            color: rgba(155, 89, 182, 0.6);
+            letter-spacing: 0.3px;
+            line-height: 1.4;
+        }
+
+        #claudeWatermark a {
+            color: rgba(192, 132, 252, 0.7);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        #claudeWatermark a:hover {
+            color: rgba(192, 132, 252, 1);
+        }
+
+        @media (max-width: 768px) {
+            #claudeWatermark {
+                font-size: 9px;
+                padding: 4px 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -987,6 +1024,11 @@
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
         <div class="loading-text">Loading Aurion's Vault...</div>
+    </div>
+
+    <!-- Claude × Chef Anica watermark -->
+    <div id="claudeWatermark">
+        Designed &amp; built with ❤️ by <a href="https://www.anthropic.com" target="_blank" rel="noopener">Claude</a> (Anthropic) × Chef Anica · <span style="opacity:0.7;">3C Thread To Success Cooking Lab 🧪👨‍🍳</span>
     </div>
 
     <!-- Header -->
