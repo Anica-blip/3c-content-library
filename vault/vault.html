@@ -902,11 +902,15 @@
             box-shadow: 0 6px 20px rgba(109, 40, 217, 0.5);
         }
 
-        /* Fix cookie banner stray close button position */
+        /* Fix cookie banner stray close button — invisible not hidden */
         #cookie-banner-close,
         .cookie-close,
-        [id*="cookie-close"] {
-            display: none !important;
+        [id*="cookie-close"],
+        [class*="cookie-close"],
+        [id*="cookie"] button,
+        [class*="cookie"] button {
+            opacity: 0 !important;
+            pointer-events: none !important;
         }
 
         /* Aurion Bubble */
@@ -1179,9 +1183,8 @@
                 </div>
                 <div class="orientation-section" style="border-color: rgba(192,132,252,0.3); background: rgba(109,40,217,0.08);">
                     <p style="font-size: 13px; color: #c4b5d4;">More coming soon — this universe is always growing.</p>
-                    <p style="font-size: 14px; color: #ffffff; font-weight: 700; margin-top: 12px; text-align: center; letter-spacing: 0.3px;">⚡️💥 "We Rise As One!" 💥⚡️</p>
-                    <p style="font-size: 13px; color: #c4b5d4; margin-top: 8px;">When you're ready for the next level, I'll be here to fuel the fire. 🔥🏆</p>
-                    <p style="font-size: 14px; color: #ffffff; font-weight: 700; margin-top: 6px;"><em>Keep crushing it, Champ! — Aurion</em></p>
+                    <p style="font-size: 14px; color: #ffffff; font-weight: 700; margin-top: 12px; letter-spacing: 0.3px;">⚡️💥 "We Rise As One!" 💥⚡️</p>
+                    <p style="font-size: 13px; color: #c4b5d4; margin-top: 8px;">When you're ready for the next level, I'll be here to fuel the fire. 🔥🏆 <em><strong>Keep crushing it, Champ! — Aurion</strong></em></p>
                     <p style="font-size: 11px; color: #9b7bb0; margin-top: 12px;"><em>All material is the property of 3C Thread To Success. All rights reserved.</em></p>
                 </div>
                 <button class="orientation-cta" onclick="closeOrientationModal()">
@@ -1311,10 +1314,11 @@
             "Small moves count 👊"
         ];
 
-        // Session keys — one flag per slot so no slot repeats this visit
-        const KEY_WELCOME    = 'aurion_welcome_shown';
-        const KEY_NUDGE      = 'aurion_nudge_shown';
-        const KEY_SUGGESTION = 'aurion_suggestion_shown';
+        // Session keys — date-based so they reset each new day
+        const TODAY = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const KEY_WELCOME    = 'aurion_welcome_' + TODAY;
+        const KEY_NUDGE      = 'aurion_nudge_' + TODAY;
+        const KEY_SUGGESTION = 'aurion_suggestion_' + TODAY;
 
         let bubbleTimer      = null;
         let nudgeTimer       = null;
@@ -1386,47 +1390,47 @@
         window.addEventListener('load', () => {
 
             // SLOT 1 — Welcome: fires after 4s idle, once per session
-            if (!sessionStorage.getItem(KEY_WELCOME)) {
+            if (!localStorage.getItem(KEY_WELCOME)) {
                 scheduleWhenIdle(4000, () => {
                     showBubble(BUBBLE_WELCOME);
-                    sessionStorage.setItem(KEY_WELCOME, '1');
+                    localStorage.setItem(KEY_WELCOME, '1');
 
                     // SLOT 2 — Nudge: fires ~20s of idle after welcome, once per session
-                    if (!sessionStorage.getItem(KEY_NUDGE)) {
+                    if (!localStorage.getItem(KEY_NUDGE)) {
                         nudgeTimer = scheduleWhenIdle(20000, () => {
                             showBubble(pickRandom(BUBBLE_NUDGES));
-                            sessionStorage.setItem(KEY_NUDGE, '1');
+                            localStorage.setItem(KEY_NUDGE, '1');
 
                             // SLOT 3 — Suggestion: fires ~45s of idle after nudge, once per session
-                            if (!sessionStorage.getItem(KEY_SUGGESTION)) {
+                            if (!localStorage.getItem(KEY_SUGGESTION)) {
                                 suggestionTimer = scheduleWhenIdle(45000, () => {
                                     showBubble(pickRandom(BUBBLE_SUGGESTIONS));
-                                    sessionStorage.setItem(KEY_SUGGESTION, '1');
+                                    localStorage.setItem(KEY_SUGGESTION, '1');
                                 });
                             }
                         });
                     }
                 });
 
-            } else if (!sessionStorage.getItem(KEY_NUDGE)) {
+            } else if (!localStorage.getItem(KEY_NUDGE)) {
                 // Returning visitor this session — already saw welcome, jump to nudge
                 nudgeTimer = scheduleWhenIdle(10000, () => {
                     showBubble(pickRandom(BUBBLE_NUDGES));
-                    sessionStorage.setItem(KEY_NUDGE, '1');
+                    localStorage.setItem(KEY_NUDGE, '1');
 
-                    if (!sessionStorage.getItem(KEY_SUGGESTION)) {
+                    if (!localStorage.getItem(KEY_SUGGESTION)) {
                         suggestionTimer = scheduleWhenIdle(45000, () => {
                             showBubble(pickRandom(BUBBLE_SUGGESTIONS));
-                            sessionStorage.setItem(KEY_SUGGESTION, '1');
+                            localStorage.setItem(KEY_SUGGESTION, '1');
                         });
                     }
                 });
 
-            } else if (!sessionStorage.getItem(KEY_SUGGESTION)) {
+            } else if (!localStorage.getItem(KEY_SUGGESTION)) {
                 // Already saw welcome + nudge — only suggestion left
                 suggestionTimer = scheduleWhenIdle(15000, () => {
                     showBubble(pickRandom(BUBBLE_SUGGESTIONS));
-                    sessionStorage.setItem(KEY_SUGGESTION, '1');
+                    localStorage.setItem(KEY_SUGGESTION, '1');
                 });
             }
             // All 3 shown — Aurion stays quiet for the rest of this session
