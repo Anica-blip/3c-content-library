@@ -330,13 +330,41 @@ function viewContent(contentSlug) {
 // ==================== SHARE PDF LINK ====================
 function sharePDFLink(contentId) {
     const baseUrl = window.location.origin + window.location.pathname;
+    
+    // Determine view type based on content type
+    let viewType = 'pdf-only'; // default
+    if (currentContent) {
+        const type = currentContent.type;
+        if (type === 'flipbook') {
+            viewType = 'flipbook-only';
+        } else if (type === 'presentation') {
+            viewType = 'presentation-only';
+        } else if (type === 'pdf') {
+            viewType = 'pdf-only';
+        } else if (type === 'video') {
+            viewType = 'video-only';
+        } else if (type === 'image' || type === 'gif') {
+            viewType = 'image-only';
+        } else if (type === 'audio') {
+            viewType = 'audio-only';
+        } else if (type === 'landing-page') {
+            viewType = 'landing-page';
+        } else if (type === 'quiz') {
+            viewType = 'quiz';
+        } else if (type === 'card-game') {
+            viewType = 'card-game';
+        } else if (type === 'spin-wheel') {
+            viewType = 'spin-wheel';
+        } else if (type === 'link') {
+            viewType = 'link';
+        }
+    }
+    
     if (currentContent && currentFolder) {
         const folderTableName  = currentFolder.tableName;
         const contentCustomUrl = currentContent.customUrl || currentContent.slug;
-        const viewType = (currentContent.type === 'flipbook' || currentContent.type === 'presentation') ? 'flipbook-only' : 'pdf-only';
         return baseUrl + '?folder=' + folderTableName + '&url=' + contentCustomUrl + '&view=' + viewType;
     }
-    const viewType = currentContent && (currentContent.type === 'flipbook' || currentContent.type === 'presentation') ? 'flipbook-only' : 'pdf-only';
     return baseUrl + '?content=' + contentId + '&view=' + viewType;
 }
 
