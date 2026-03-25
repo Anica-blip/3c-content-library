@@ -1445,9 +1445,9 @@
 
         // Remove stray cookie banner close button that appears on vault page
         window.addEventListener('load', () => {
-            document.querySelectorAll('[id*="cookie"] button, [class*="cookie"] button, button[onclick*="cookie"]').forEach(btn => {
-                const rect = btn.getBoundingClientRect();
-                if (rect.left < 20) btn.style.display = 'none';
+            document.querySelectorAll('[id*="cookie-banner"] button, [id*="cookie-close"], .cookie-banner button, .cookie-close').forEach(btn => {
+                btn.style.opacity = '0';
+                btn.style.pointerEvents = 'none';
             });
         });
     </script>
