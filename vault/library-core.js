@@ -101,7 +101,7 @@ function findContentBySlug(slug, folderId) {
 
 // ==================== TYPE ICON ====================
 function getTypeIcon(type) {
-    const icons = { pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵', flipbook: '📖', presentation: '📊', gif: '🎞️', link: '🔗', quiz: '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', other: '📎' };
+    const icons = { pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵', flipbook: '📖', presentation: '📊', gif: '🎞️', link: '🔗', quiz: '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', 'virtual-slideshow': '🎞️', other: '📎' };
     return icons[type] || icons.other;
 }
 
@@ -349,6 +349,8 @@ function sharePDFLink(contentId) {
             viewType = 'audio-only';
         } else if (type === 'landing-page') {
             viewType = 'landing-page';
+        } else if (type === 'virtual-slideshow') {
+            viewType = 'virtual-slideshow';
         } else if (type === 'quiz') {
             viewType = 'quiz';
         } else if (type === 'card-game') {
@@ -396,9 +398,9 @@ function showViewer(content, pdfOnlyMode) {
         viewerHtml = '<div style="display: flex; justify-content: center; padding: 20px;"><img src="' + content.url + '" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>';
     } else if (content.type === 'audio') {
         viewerHtml = '<div style="display: flex; justify-content: center; padding: 40px;"><audio controls style="width: 100%; max-width: 600px; height: 54px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"><source src="' + content.url + '"></audio></div>';
-    } else if (content.type === 'quiz' || content.type === 'card-game' || content.type === 'spin-wheel' || content.type === 'landing-page' || content.type === 'link') {
-        const linkLabels = { 'quiz': 'Click to Open Quiz', 'card-game': 'Click to Open Card Game', 'spin-wheel': 'Click to Spin the Wheel', 'landing-page': 'Click to Open', 'link': 'Click to Open Link' };
-        const linkIcons  = { 'quiz': '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', 'link': '🔗' };
+    } else if (content.type === 'quiz' || content.type === 'card-game' || content.type === 'spin-wheel' || content.type === 'landing-page' || content.type === 'virtual-slideshow' || content.type === 'link') {
+        const linkLabels = { 'quiz': 'Click to Open Quiz', 'card-game': 'Click to Open Card Game', 'spin-wheel': 'Click to Spin the Wheel', 'landing-page': 'Click to Open', 'virtual-slideshow': 'Click to Launch Virtual Slideshow', 'link': 'Click to Open Link' };
+        const linkIcons  = { 'quiz': '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', 'virtual-slideshow': '🎞️', 'link': '🔗' };
         const linkLabel  = linkLabels[content.type] || '🔗 Click to Open';
         const linkIcon   = linkIcons[content.type]  || '🔗';
         let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%94%97%3C/text%3E%3C/svg%3E';
