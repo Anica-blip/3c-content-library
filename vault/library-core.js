@@ -118,8 +118,8 @@ async function displayContent() {
         folderIconBtn.style.visibility = (folderSlug || contentSlug || contentUrl) ? 'visible' : 'hidden';
     }
 
-    // NEW FORMAT: ?folder=X&url=Y&view=pdf-only
-    if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && folderSlug && contentUrl) {
+    // NEW FORMAT: ?folder=X&url=Y&view=pdf-only (any *-only viewMode = standalone, no sidebar)
+    if (viewMode && viewMode.endsWith('-only') && folderSlug && contentUrl) {
         document.querySelector('.folders-section').style.display = 'none';
         document.getElementById('contentViewer').style.display = 'block';
         console.log('Loading content with new URL format:', { folderSlug, contentUrl });
@@ -149,8 +149,8 @@ async function displayContent() {
         }
     }
 
-    // OLD FORMAT: ?content=X&view=pdf-only
-    if ((viewMode === 'pdf-only' || viewMode === 'flipbook-only') && contentSlug) {
+    // OLD FORMAT: ?content=X&view=pdf-only (any *-only viewMode = standalone)
+    if (viewMode && viewMode.endsWith('-only') && contentSlug) {
         document.querySelector('.folders-section').style.display = 'none';
         document.getElementById('contentViewer').style.display = 'block';
         let content = findContentBySlug(contentSlug);
@@ -348,17 +348,17 @@ function sharePDFLink(contentId) {
         } else if (type === 'audio') {
             viewType = 'audio-only';
         } else if (type === 'landing-page') {
-            viewType = 'landing-page';
+            viewType = 'landing-page-only';
         } else if (type === 'virtual-slideshow') {
-            viewType = 'virtual-slideshow';
+            viewType = 'virtual-slideshow-only';
         } else if (type === 'quiz') {
-            viewType = 'quiz';
+            viewType = 'quiz-only';
         } else if (type === 'card-game') {
-            viewType = 'card-game';
+            viewType = 'card-game-only';
         } else if (type === 'spin-wheel') {
-            viewType = 'spin-wheel';
+            viewType = 'spin-wheel-only';
         } else if (type === 'link') {
-            viewType = 'link';
+            viewType = 'link-only';
         }
     }
     
