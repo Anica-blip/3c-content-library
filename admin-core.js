@@ -121,7 +121,8 @@ function getTypeIcon(type) {
         video: '🎥',
         image: '🖼️',
         audio: '🎵',
-        link: '🔗'
+        link: '🔗',
+        'virtual-slideshow': '🎞️'
     };
     return icons[type] || '📄';
 }
@@ -1313,7 +1314,7 @@ async function openVaultFolderSidebar(folderId) {
                     quiz: '🧠', 'card-game': '🃏', 'spin-wheel': '🎡',
                     'landing-page': '🚀', flipbook: '📖', presentation: '📊',
                     pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵',
-                    gif: '🎞️', link: '🔗'
+                    gif: '🎞️', link: '🔗', 'virtual-slideshow': '🎞️'
                 };
                 const icon = iconMap[item.type] || '📄';
                 const thumbnailHtml = item.thumbnail_url
@@ -1328,6 +1329,7 @@ async function openVaultFolderSidebar(folderId) {
                         'card-game': '🃏 Click to launch card game',
                         'spin-wheel': '🎡 Click to launch wheel',
                         'landing-page': '🚀 Click to open',
+                        'virtual-slideshow': '🎞️ Click to launch Virtual Slideshow',
                         flipbook: '📖 Click to view flipbook',
                         presentation: '📊 Click to view presentation',
                         pdf: '📄 Click to view PDF',
@@ -1354,6 +1356,9 @@ async function openVaultFolderSidebar(folderId) {
                         viewerUrl = `../interactive-pdf-viewer.html?url=${encodeURIComponent(item.url)}`;
                     } else if (item.type === 'landing-page') {
                         // Landing pages open directly in new tab
+                        viewerUrl = item.url;
+                    } else if (item.type === 'virtual-slideshow') {
+                        // Virtual Slideshow opens landing.html directly in new tab
                         viewerUrl = item.url;
                     } else if (item.type === 'video' || item.type === 'image' || item.type === 'audio' || item.type === 'gif') {
                         // Media files open directly in new tab
@@ -1582,7 +1587,8 @@ function openFolderSidebar(folderId) {
                 'video': '🎥',
                 'image': '🖼️',
                 'audio': '🎵',
-                'link': '🔗'
+                'link': '🔗',
+                'virtual-slideshow': '🎞️'
             };
             const icon = iconMap[content.type] || '📄';
             thumbnailHtml = content.thumbnail_url 
@@ -1609,6 +1615,8 @@ function openFolderSidebar(folderId) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🎵</span> Click to view audio</a></div>`;
             } else if (content.type === 'link' && content.url) {
                 viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🔗</span> Click to view link</a></div>`;
+            } else if (content.type === 'virtual-slideshow' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🎞️</span> Click to launch Virtual Slideshow</a></div>`;
             }
             contentHtml += `
                 <div class="content-card" style="margin-bottom: 10px;">
@@ -1812,7 +1820,8 @@ function getTypeIcon(type) {
         video: '🎥',
         image: '🖼️',
         audio: '🎵',
-        link: '🔗'
+        link: '🔗',
+        'virtual-slideshow': '🎞️'
     };
     return icons[type] || '📎';
 }
