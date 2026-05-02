@@ -1,18 +1,35 @@
 # 3C Content Library
 
-**A modern, production-ready content management system with interactive flipbook viewer, intelligent database architecture, and automated workflows.**
+The 3C Thread To Success brand, including its name, structure, characters (Aurion 3C Mascot), and overall system design, remains the intellectual property of the creator and is not included in this license.
+
+Commercial use of the brand or replication of the ecosystem identity is not permitted without permission.
+
+## 🎭 The 3C Ecosystem
+
+This project is part of a larger system built around three core identities:
+
+Aurion → Engagement & Experience
+Caelum → Structure & Direction
+Anica (Founder) → Authority & Vision
+
+Together, they create a balanced environment for growth, learning, and progression.
+
+**A modern, production-ready content management system with interactive flipbook and presentation viewer, intelligent database architecture, and automated workflows.**
+
+---
 
 ## 🚀 Overview
 
-The 3C Content Library is a comprehensive digital content management platform designed for educators, content creators, and organizations. It features an advanced interactive flipbook viewer with support for videos, buttons, hotspots, GIFs, and more - all working seamlessly across documents of any size.
+The 3C Content Library is a comprehensive digital content management platform designed for educators, content creators, and organizations. It features an advanced interactive flipbook and presentation viewer with support for videos, buttons, hotspots, GIFs, and more - all working seamlessly across documents of any size.
 
 ### 📖 Quick Links:
 - **[SETUP.md](SETUP.md)** - Complete setup guide
 - **[FLIPBOOK-SYSTEM.md](FLIPBOOK-SYSTEM.md)** - Flipbook viewer documentation
+- **[PRESENTATION-SYSTEM.md](PRESENTATION-SYSTEM.md)** - Presentation viewer documentation
 - **[Cloudflare Setup](CLOUDFLARE-GITHUB-SETUP.md)** - Worker deployment guide
 
 ### ✨ Key Features:
-1. **Interactive Flipbook Viewer** - Advanced PDF viewer with interactive elements
+1. **Interactive Flipbook and Presentation Viewer** - Advanced PDF viewer with interactive elements
 2. **Event Delegation** - Interactive elements work on ALL pages (tested up to 32+ pages)
 3. **Multi-Media Support** - Videos, GIFs, audio, buttons, hotspots, links
 4. **Mobile Responsive** - Touch-enabled interface for mobile devices
@@ -29,7 +46,7 @@ The 3C Content Library is a comprehensive digital content management platform de
 
 ## ✨ What Makes This Special
 
-### 🎬 **Interactive Flipbook Viewer**
+### 🎬 **Interactive Flipbook and Presentation Viewer**
 - **Event Delegation System** - Interactive elements work on ALL pages, regardless of document size
 - **Multi-Media Elements** - Videos (9:16 & 16:9), GIFs, audio, buttons, hotspots, links
 - **Smart Video Display** - Automatic aspect ratio detection with object-fit: contain
@@ -500,7 +517,7 @@ For questions or issues:
 
 ---
 
-**Built with ❤️ for content creators, educators, and knowledge sharers.**
+**Built with ❤️ as part of the 3C Thread To Success ecosystem — designed for learning, exploration, and inspiration within a structured environment.**
 
 **Ready to get started?** Open [SETUP-ENHANCED.md](SETUP-ENHANCED.md) and follow the 5-step quick start!
 
@@ -510,9 +527,24 @@ For questions or issues:
 
 **Designed by Claude** - AI Assistant by Anthropic
 - Flipbook Viewer System with Event Delegation
+- Presentation Viewer System with Event Delegation
 - Video Playback Integration & Media Handling
 - Zoom Controls & Interactive Element Rendering
 - Emoji Support & URL Protocol Validation
 - Private Library Authentication System
 
-**Created for 3C Public Library** by Anica
+---
+
+## 👤 Creator
+
+Anica-blip (“Chef”)
+Founder of 3C Thread To Success
+Independent Creator | Community Builder
+
+### 🧠 Philosophy
+
+“Think it. Do it. Own it.”
+
+This project was built from vision, persistence, and a commitment to creating meaningful and structured experiences — even with minimal resources.
+
+**Created for 3C Thread To Success Ecosystem**
