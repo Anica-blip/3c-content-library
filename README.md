@@ -1,6 +1,6 @@
 # 3C Content Library
 
-The 3C Thread To Success brand, including its name, structure, characters (Aurion 3C Mascot), and overall system design, remains the intellectual property of the creator and is not included in this license.
+The 3C Thread To Success™ brand, including its name, structure, characters (Aurion 3C Mascot), and overall system design, remains the intellectual property of the creator and is not included in this license.
 
 Commercial use of the brand or replication of the ecosystem identity is not permitted without permission.
 
@@ -517,7 +517,7 @@ For questions or issues:
 
 ---
 
-**Built with ❤️ as part of the 3C Thread To Success ecosystem — designed for learning, exploration, and inspiration within a structured environment.**
+**Built with ❤️ as part of the 3C Thread To Success™ ecosystem — designed for learning, exploration, and inspiration within a structured environment.**
 
 **Ready to get started?** Open [SETUP-ENHANCED.md](SETUP-ENHANCED.md) and follow the 5-step quick start!
 
@@ -538,7 +538,7 @@ For questions or issues:
 ## 👤 Creator
 
 Anica-blip (“Chef”)
-Founder of 3C Thread To Success
+Founder of 3C Thread To Success™ ("Cooking Lab")
 Independent Creator | Community Builder
 
 ### 🧠 Philosophy
@@ -547,4 +547,4 @@ Independent Creator | Community Builder
 
 This project was built from vision, persistence, and a commitment to creating meaningful and structured experiences — even with minimal resources.
 
-**Created for 3C Thread To Success Ecosystem**
+**Created for 3C Thread To Success™ Ecosystem**
