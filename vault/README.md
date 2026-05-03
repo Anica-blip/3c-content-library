@@ -4,9 +4,9 @@
 
 Welcome to the 3C Public Library, a dynamic and interactive digital environment designed to support personal development through structured learning, reflection, and engagement.
 
-This project is part of the 3C Thread To Success ecosystem — a growing digital platform that combines creativity, structure, and real-world application.
+This project is part of the 3C Thread To Success™ ecosystem — a growing digital platform that combines creativity, structure, and real-world application.
 
-The 3C Thread To Success brand, including its name, structure, characters (Aurion 3C Mascot), and overall system design, remains the intellectual property of the creator and is not included in this license.
+The 3C Thread To Success™ brand, including its name, structure, characters (Aurion 3C Mascot), and overall system design, remains the intellectual property of the creator and is not included in this license.
 
 Commercial use of the brand or replication of the ecosystem identity is not permitted without permission.
 
@@ -136,13 +136,13 @@ Built through a human-AI partnership under the **3C Laws of Instructions** — p
 
 ## 🎨 Credits
 
-*Designed and Built with ❤️ by Claude (Anthropic) × Chef Anica · 3C Thread To Success Cooking Lab*
+*Designed and Built with ❤️ by Claude (Anthropic) × Chef Anica · 3C Thread To Success™ Cooking Lab*
 
 ---
 
 ## 👤 Creator
 
 Anica-blip (“Chef”)
-Founder of 3C Thread To Success ("Cooking Lab")
+Founder of 3C Thread To Success™ ("Cooking Lab")
 Independent Creator | Community Builder
 
