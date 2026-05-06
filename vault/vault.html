@@ -1019,17 +1019,31 @@
             }
         }
 
-        /* Video — rounded corners + transparent container so Aurion blends into black */
-        #mediaContainer {
-            background: transparent !important;
-            border: none !important;
-        }
-        #mediaContainer video {
+        /* ── Video: rounded corners + hidden controls ── */
+        video {
             border-radius: 16px;
-            background: transparent;
-            max-width: 90vw;
-            max-height: 80vh;
             display: block;
+        }
+
+        /* Clip the corners on any container that holds a video */
+        .content-thumbnail video,
+        #mediaContainer video,
+        .viewer video,
+        .right-viewer video {
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        /* Hide native controls — webkit base layer coloured to match vault dark grey */
+        video::-webkit-media-controls {
+            display: none !important;
+        }
+        video::-webkit-media-controls-enclosure {
+            display: none !important;
+        }
+        video::-webkit-media-controls-panel {
+            background: #1a1a1a !important;
+            display: none !important;
         }
     </style>
 </head>
@@ -1261,7 +1275,7 @@
     
 
     <!-- Media Modal (video, audio, image) — identical to library -->
-    <div id="mediaModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.97); z-index:5000; align-items:center; justify-content:center; flex-direction:column; gap:16px;">
+    <div id="mediaModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(10,14,39,0.95); z-index:5000; align-items:center; justify-content:center; flex-direction:column; gap:16px;">
         <button onclick="closeMediaPlayer()"
             style="position:absolute; top:20px; right:20px; background:linear-gradient(135deg,#ff1744,#f50057); border:none; color:white; width:40px; height:40px; border-radius:50%; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
         <div id="mediaTitle" style="color:#c084fc; font-size:18px; font-weight:700;"></div>
@@ -1461,6 +1475,21 @@
                 btn.style.opacity = '0';
                 btn.style.pointerEvents = 'none';
             });
+        });
+
+        // ── Strip video controls permanently ──
+        // Removes controls attribute the moment any video lands on the page,
+        // even if library-core.js sets it programmatically
+        function stripVideoControls() {
+            document.querySelectorAll('video').forEach(v => {
+                v.removeAttribute('controls');
+                v.style.pointerEvents = 'none';
+            });
+        }
+        stripVideoControls();
+        new MutationObserver(stripVideoControls).observe(document.body, {
+            childList: true,
+            subtree: true
         });
     </script>
 
