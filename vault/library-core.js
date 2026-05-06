@@ -393,7 +393,12 @@ function showViewer(content, pdfOnlyMode) {
         const presentationUrl = content.url ? '../presentation-viewer.html?manifest=' + encodeURIComponent(content.url) : '../presentation-viewer.html?content=' + content.id;
         viewerHtml = `<div style="text-align: center;"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="${presentationUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📊</span>Click to View Presentation</a></div>`;
     } else if (content.type === 'video') {
-        viewerHtml = content.url.startsWith('data:') ? '<video controls style="width: 100%; height: auto; max-height: 90vh; display: block; object-fit: contain;"><source src="' + content.url + '"></video>' : '<iframe src="' + content.url + '" style="width: 100%; height: 90vh; border: none; display: block;" allowfullscreen></iframe>';
+        const isDirectFile = content.url.startsWith('data:') || /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(content.url);
+        if (isDirectFile) {
+            viewerHtml = '<div style="background:#1a1a1a;border-radius:16px;overflow:hidden;line-height:0;"><video style="width:100%;height:auto;max-height:90vh;display:block;object-fit:contain;border-radius:16px;background:#1a1a1a;"><source src="' + content.url + '"></video></div>';
+        } else {
+            viewerHtml = '<iframe src="' + content.url + '" style="width:100%;height:90vh;border:none;display:block;border-radius:16px;" allowfullscreen></iframe>';
+        }
     } else if (content.type === 'image' || content.type === 'gif') {
         viewerHtml = '<div style="display: flex; justify-content: center; padding: 20px;"><img src="' + content.url + '" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>';
     } else if (content.type === 'audio') {
