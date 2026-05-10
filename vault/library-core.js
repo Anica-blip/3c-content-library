@@ -449,7 +449,7 @@ function showViewer(content, pdfOnlyMode) {
     `;
     loadComments(content.id);
 
-    // Telegram webview autoplay fallback — show play overlay if video can't autostart
+    // Telegram webview autoplay fallback — show play overlay only if autoplay blocked at start
     const vaultVid = document.getElementById('vaultVideo');
     const vaultOverlay = document.getElementById('vaultPlayOverlay');
     if (vaultVid && vaultOverlay) {
@@ -457,11 +457,6 @@ function showViewer(content, pdfOnlyMode) {
             vaultOverlay.style.display = 'none';
         }).catch(() => {
             vaultOverlay.style.display = 'flex';
-        });
-        vaultVid.addEventListener('ended', () => {
-            vaultOverlay.style.display = 'flex';
-            vaultOverlay.querySelector('div').innerHTML = '↺';
-            vaultOverlay.onclick = () => { vaultVid.currentTime = 0; vaultVid.play(); vaultOverlay.style.display = 'none'; };
         });
     }
 }
