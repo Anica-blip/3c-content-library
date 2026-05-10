@@ -754,7 +754,14 @@
 
             /* Mobile video container background — matches vault colour scheme */
             video {
-                background: #1a1a1a; /* line ~755 — change here if colour adjustment needed */
+                background: transparent;
+            }
+
+            /* Mobile viewer — video aligns to top, no extra height forcing centering */
+            .viewer {
+                min-height: auto !important;
+                display: block;
+                padding-top: 10px;
             }
         }
         /* Start Here Button */
@@ -1030,6 +1037,7 @@
             border-radius: 16px;
             overflow: hidden;
             display: block;
+            background: transparent;
         }
 
         .content-thumbnail,
