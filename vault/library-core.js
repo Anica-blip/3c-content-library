@@ -394,7 +394,12 @@ function showViewer(content, pdfOnlyMode) {
         viewerHtml = `<div style="text-align: center;"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="${presentationUrl}" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📊</span>Click to View Presentation</a></div>`;
     } else if (content.type === 'video') {
         const isDirectVideo = /\.(mp4|webm|mov|ogg|m4v)(\?|#|$)/i.test(content.url);
-        viewerHtml = (content.url.startsWith('data:') || isDirectVideo) ? '<video autoplay playsinline style="width: 100%; height: auto; max-height: 90vh; display: block; object-fit: contain; background: #1a1a1a;"><source src="' + content.url + '"></video>' : '<iframe src="' + content.url + '" style="width: 100%; height: 90vh; border: none; display: block;" allowfullscreen></iframe>';
+        viewerHtml = (content.url.startsWith('data:') || isDirectVideo) ?
+            '<div style="position:relative;width:100%;background:transparent;">' +
+            '<video id="vaultVideo" autoplay playsinline style="width:100%;height:auto;max-height:90vh;display:block;object-fit:contain;background:transparent;border-radius:16px;"><source src="' + content.url + '"></video>' +
+            '<div id="vaultPlayOverlay" onclick="var v=document.getElementById(\'vaultVideo\');v.play();this.style.display=\'none\';" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;cursor:pointer;background:transparent;">' +
+            '<div style="width:60px;height:60px;background:rgba(155,89,182,0.7);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;color:white;backdrop-filter:blur(4px);">▸</div></div></div>' :
+            '<iframe src="' + content.url + '" style="width:100%;height:90vh;border:none;display:block;" allowfullscreen></iframe>';
     } else if (content.type === 'image' || content.type === 'gif') {
         viewerHtml = '<div style="display: flex; justify-content: center; padding: 20px;"><img src="' + content.url + '" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>';
     } else if (content.type === 'audio') {
@@ -443,6 +448,22 @@ function showViewer(content, pdfOnlyMode) {
         </div>
     `;
     loadComments(content.id);
+
+    // Telegram webview autoplay fallback — show play overlay if video can't autostart
+    const vaultVid = document.getElementById('vaultVideo');
+    const vaultOverlay = document.getElementById('vaultPlayOverlay');
+    if (vaultVid && vaultOverlay) {
+        vaultVid.play().then(() => {
+            vaultOverlay.style.display = 'none';
+        }).catch(() => {
+            vaultOverlay.style.display = 'flex';
+        });
+        vaultVid.addEventListener('ended', () => {
+            vaultOverlay.style.display = 'flex';
+            vaultOverlay.querySelector('div').innerHTML = '↺';
+            vaultOverlay.onclick = () => { vaultVid.currentTime = 0; vaultVid.play(); vaultOverlay.style.display = 'none'; };
+        });
+    }
 }
 
 // ==================== COPY SHARE LINK ====================
