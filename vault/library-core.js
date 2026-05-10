@@ -395,8 +395,8 @@ function showViewer(content, pdfOnlyMode) {
     } else if (content.type === 'video') {
         const isDirectVideo = /\.(mp4|webm|mov|ogg|m4v)(\?|#|$)/i.test(content.url);
         viewerHtml = (content.url.startsWith('data:') || isDirectVideo) ?
-            '<div style="position:relative;width:100%;background:transparent;">' +
-            '<video id="vaultVideo" autoplay playsinline style="width:100%;height:auto;max-height:90vh;display:block;object-fit:contain;background:transparent;border-radius:16px;"><source src="' + content.url + '"></video>' +
+            '<div style="position:relative;width:fit-content;max-width:100%;margin:0 auto;background:transparent;border-radius:16px;overflow:hidden;">' +
+            '<video id="vaultVideo" autoplay playsinline style="display:block;max-width:100%;height:auto;max-height:90vh;object-fit:contain;background:transparent;"><source src="' + content.url + '"></video>' +
             '<div id="vaultPlayOverlay" onclick="var v=document.getElementById(\'vaultVideo\');v.play();this.style.display=\'none\';" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;cursor:pointer;background:transparent;">' +
             '<div style="width:60px;height:60px;background:rgba(155,89,182,0.7);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;color:white;backdrop-filter:blur(4px);">▸</div></div></div>' :
             '<iframe src="' + content.url + '" style="width:100%;height:90vh;border:none;display:block;" allowfullscreen></iframe>';
