@@ -1415,6 +1415,10 @@
         // Fire messages in sequence
         window.addEventListener('load', () => {
 
+            // Only show bubble on main folder landing page — not inside folders or content
+            const _vp = new URLSearchParams(window.location.search);
+            if (_vp.get('folder') || _vp.get('content') || _vp.get('url')) return;
+
             // SLOT 1 — Welcome: fires after 4s idle, once per session
             if (!localStorage.getItem(KEY_WELCOME)) {
                 scheduleWhenIdle(4000, () => {
