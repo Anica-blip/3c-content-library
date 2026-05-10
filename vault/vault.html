@@ -1526,7 +1526,7 @@
                 ].join(';');
                 btn.onmouseenter = () => btn.style.background = 'rgba(155,89,182,0.75)';
                 btn.onmouseleave = () => btn.style.background = 'rgba(155,89,182,0.45)';
-                btn.onclick = () => { player.restart(); btn.style.display = 'none'; };
+                btn.onclick = () => { player.restart(); player.play(); btn.style.display = 'none'; };
                 wrap.appendChild(btn);
 
                 player.on('ended', () => { btn.style.display = 'flex'; });
