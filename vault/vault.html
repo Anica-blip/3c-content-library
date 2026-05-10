@@ -10,6 +10,7 @@
     <script src="../config.js"></script>
     <script src="vault-supabase-client.js"></script>
     <script src="../password-utils.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.8/plyr.min.css">
     <style>
         :root {
             --bg-primary: #0a0e27;
@@ -750,6 +751,11 @@
             .right-viewer.active {
                 right: 0 !important;
             }
+
+            /* Mobile video container background — matches vault colour scheme */
+            video {
+                background: #1a1a1a; /* line ~755 — change here if colour adjustment needed */
+            }
         }
         /* Start Here Button */
         .start-here-btn {
@@ -1473,27 +1479,55 @@
             });
         });
 
-        // ── Strip video controls permanently ──
-        function stripVideoControls() {
-            document.querySelectorAll('video').forEach(v => {
-                v.removeAttribute('controls');
-                v.style.pointerEvents = 'none';
-                if (!v._controlsStripped) {
-                    v._controlsStripped = true;
-                    v.addEventListener('ended',          () => v.removeAttribute('controls'));
-                    v.addEventListener('pause',          () => v.removeAttribute('controls'));
-                    v.addEventListener('play',           () => v.removeAttribute('controls'));
-                    v.addEventListener('loadedmetadata', () => v.removeAttribute('controls'));
-                }
-            });
-        }
-        stripVideoControls();
-        new MutationObserver(stripVideoControls).observe(document.body, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['controls']
-        });
+        // ── Plyr: hide controls + replay button for Aurion Vault videos ──
+        (function initVaultPlyr() {
+            const mediaContainer = document.getElementById('mediaContainer');
+            if (!mediaContainer) return;
+
+            function setupPlyr(videoEl) {
+                if (videoEl._vaultPlyr) return;
+                videoEl._vaultPlyr = true;
+                videoEl.removeAttribute('controls');
+                videoEl.setAttribute('playsinline', '');
+
+                const player = new Plyr(videoEl, {
+                    controls: [],        // no visible controls
+                    clickToPlay: true,
+                    autopause: true
+                });
+
+                // Replay button — semi-transparent, small, bottom-right
+                const wrap = videoEl.closest('#mediaContainer') || videoEl.parentElement;
+                wrap.style.position = 'relative';
+
+                const btn = document.createElement('button');
+                btn.innerHTML = '▸';
+                btn.title = 'Replay';
+                btn.style.cssText = [
+                    'position:absolute', 'bottom:12px', 'right:12px',
+                    'background:rgba(155,89,182,0.45)', 'border:none',
+                    'color:rgba(255,255,255,0.85)', 'width:32px', 'height:32px',
+                    'border-radius:50%', 'font-size:15px', 'cursor:pointer',
+                    'display:none', 'align-items:center', 'justify-content:center',
+                    'backdrop-filter:blur(4px)', 'z-index:10',
+                    'transition:background 0.2s'
+                ].join(';');
+                btn.onmouseenter = () => btn.style.background = 'rgba(155,89,182,0.75)';
+                btn.onmouseleave = () => btn.style.background = 'rgba(155,89,182,0.45)';
+                btn.onclick = () => { player.restart(); btn.style.display = 'none'; };
+                wrap.appendChild(btn);
+
+                player.on('ended', () => { btn.style.display = 'flex'; });
+                player.on('play',  () => { btn.style.display = 'none'; });
+            }
+
+            // Watch for video elements injected by library-core.js
+            new MutationObserver(() => {
+                mediaContainer.querySelectorAll('video').forEach(v => {
+                    if (!v._vaultPlyr) setupPlyr(v);
+                });
+            }).observe(mediaContainer, { childList: true, subtree: true });
+        })();
     </script>
 
     <!-- Enhanced PDF viewer (shared from root) -->
@@ -1501,6 +1535,7 @@
 
     <!-- Vault core JS (clone of root library-core.js adapted for vault tables) -->
     <script src="library-core.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.8/plyr.polyfilled.min.js"></script>
 
     <!-- Cookie banner (shared from root) -->
     <script src="../cookie-banner.js"></script>
