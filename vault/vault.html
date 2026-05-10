@@ -1521,12 +1521,12 @@
                 player.on('play',  () => { btn.style.display = 'none'; });
             }
 
-            // Watch for video elements injected by library-core.js
+            // Watch entire body — videos render into #viewerContent not #mediaContainer
             new MutationObserver(() => {
-                mediaContainer.querySelectorAll('video').forEach(v => {
+                document.querySelectorAll('video').forEach(v => {
                     if (!v._vaultPlyr) setupPlyr(v);
                 });
-            }).observe(mediaContainer, { childList: true, subtree: true });
+            }).observe(document.body, { childList: true, subtree: true });
         })();
     </script>
 
