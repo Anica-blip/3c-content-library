@@ -2007,9 +2007,10 @@
                 viewerHtml = `
                     <div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${content.url.replace(/`/g, '\\`')}\`, \`${content.title.replace(/`/g, '\\`')}\`, \`${content.id}\`)">
                         <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                        <div style="font-size: 18px; color: #9b59b6; font-weight: 600; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
-                            📄 Click to view PDF
-                        </div>
+                        <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
+                            <span style="font-size: 24px;">📄</span>
+                            Click to view PDF
+                        </span>
                     </div>
                 `;
             } else if (content.type === 'flipbook') {
