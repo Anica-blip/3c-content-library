@@ -1,0 +1,58 @@
+/* ============================================================
+   Aurion Vault — Sidebar Skin
+   vault-skin.css
+   Sidebar transparency only — all other Vault styles unchanged
+   Built with ❤️ by Claude (Anthropic) × Chef Anica
+   3C Thread To Success Cooking Lab 🧪👨‍🍳
+   ============================================================ */
+
+/* ── RIGHT SIDEBAR — transparent, matches Public Library ────── */
+/* !important needed — internal <style> block defines solid background */
+.folder-sidebar {
+  background: rgba(10, 4, 22, 0.2) !important;
+  backdrop-filter: blur(28px) !important;
+  -webkit-backdrop-filter: blur(28px) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+.sidebar-header {
+  background: rgba(10, 4, 22, 0.25) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ── SUBFOLDER CARDS — transparent glass ────────────────────── */
+/* !important needed — JS renders these with inline styles */
+.subfolder-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  transition: all 0.3s ease !important;
+}
+
+.subfolder-card:hover {
+  background: rgba(123, 63, 228, 0.08) !important;
+  border-color: rgba(155, 89, 182, 0.2) !important;
+  transform: translateX(-4px) !important;
+}
+
+/* ── VIEW CONTENT BUTTON — purple transparent ───────────────── */
+.folder-sidebar button,
+.sidebar-body button {
+  background: rgba(123, 63, 228, 0.15) !important;
+  border: 1px solid rgba(155, 89, 182, 0.4) !important;
+  color: #c084fc !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  transition: all 0.3s ease !important;
+}
+
+.folder-sidebar button:hover,
+.sidebar-body button:hover {
+  background: rgba(123, 63, 228, 0.28) !important;
+  border-color: rgba(155, 89, 182, 0.65) !important;
+  box-shadow: 0 0 18px rgba(123, 63, 228, 0.2) !important;
+}
