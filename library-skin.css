@@ -74,8 +74,6 @@ body::after {
 .container,
 .folder-sidebar,
 #loadingOverlay,
-#previewModal,
-#pdfModal,
 #viewerContent,
 #viewer,
 .right-viewer,
@@ -83,6 +81,13 @@ body::after {
 .cookie-banner {
   position: relative;
   z-index: 2;
+}
+
+/* Modals are position:fixed — z-index only, never override position */
+#previewModal,
+#pdfModal,
+.pdf-modal {
+  z-index: 1000;
 }
 
 /* ── HEADER ─────────────────────────────────────────────────── */
