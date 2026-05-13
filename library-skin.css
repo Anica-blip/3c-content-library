@@ -1,5 +1,5 @@
 /* ============================================================
-   3C Public Library — Visual Skin Override v2
+   3C Public Library — Visual Skin Override v3
    library-skin.css
    Surgical CSS layer — no logic touched, no JS dependencies changed
    Built with ❤️ by Claude (Anthropic) × Chef Anica
@@ -33,7 +33,7 @@
   --shadow:             rgba(0, 0, 0, 0.5);
 }
 
-/* ── BODY — BASE FONT + ATMOSPHERE ─────────────────────────── */
+/* ── BODY ───────────────────────────────────────────────────── */
 body {
   font-family: 'Open Sans', sans-serif;
   font-weight: 400;
@@ -41,7 +41,7 @@ body {
   position: relative;
 }
 
-/* Grain texture overlay */
+/* Grain texture */
 body::before {
   content: '';
   position: fixed;
@@ -69,7 +69,7 @@ body::after {
   pointer-events: none;
 }
 
-/* All content above overlays */
+/* Content above overlays */
 .header,
 .container,
 .folder-sidebar,
@@ -119,8 +119,6 @@ body::after {
 }
 
 /* ── FOLDER CARDS ───────────────────────────────────────────── */
-
-/* Hide folder icon */
 .folder-icon {
   display: none !important;
 }
@@ -136,7 +134,6 @@ body::after {
   gap: 8px;
 }
 
-/* Teal accent top line */
 .folder-card-item::before {
   content: '';
   position: absolute;
@@ -165,51 +162,51 @@ body::after {
 
 /* ── FOLDER TEXT ────────────────────────────────────────────── */
 
-/* Folder title — Raleway spaced uppercase */
+/* Title — Raleway spaced, reduced to 10px */
 .folder-title {
   font-family: 'Raleway', sans-serif;
   font-weight: 500;
-  font-size: 13px;
+  font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-primary);
   margin-bottom: 8px;
 }
 
-/* Count line */
+/* Count — the important info, stays visible */
 .folder-details {
   font-family: 'Open Sans', sans-serif;
-  font-weight: 300;
+  font-weight: 400;
   font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--text-tertiary);
-  margin-bottom: 8px;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
 }
 
-/* Database slug — receded, not for the user */
+/* Slug — 5px, barely there */
 .folder-slug {
   font-family: 'Raleway', sans-serif;
   font-weight: 300;
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  color: rgba(0, 212, 200, 0.22);
+  font-size: 5px;
+  letter-spacing: 0.12em;
+  color: rgba(0, 212, 200, 0.2);
   text-transform: uppercase;
 }
 
-/* ── RIGHT SIDEBAR — near transparent ──────────────────────── */
+/* ── RIGHT SIDEBAR — transparent ───────────────────────────── */
 .folder-sidebar {
-  background: rgba(10, 4, 22, 0.45);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-left: 1px solid rgba(0, 212, 200, 0.1);
-  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.3);
+  background: rgba(10, 4, 22, 0.2);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.2);
 }
 
 .sidebar-header {
-  background: rgba(10, 4, 22, 0.5);
+  background: rgba(10, 4, 22, 0.25);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(0, 212, 200, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .sidebar-header h2,
@@ -222,40 +219,61 @@ body::after {
   color: var(--text-primary);
 }
 
-/* Subfolder cards inside sidebar — semi-transparent */
+/* Slug inside sidebar header */
+.sidebar-header p,
+.sidebar-header span {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 300;
+  font-size: 5px;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+}
+
+/* ── SUBFOLDER CARDS — transparent, no emoji ────────────────── */
 .subfolder-card {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   transition: all 0.3s ease;
 }
 
 .subfolder-card:hover {
-  background: rgba(123, 63, 228, 0.1);
-  border-color: rgba(0, 212, 200, 0.2);
+  background: rgba(123, 63, 228, 0.08);
+  border-color: rgba(155, 89, 182, 0.2);
 }
 
-/* ── SIDEBAR BUTTONS — transparent tint ─────────────────────── */
+/* Hide folder emojis/icons inside subfolder cards */
+.subfolder-card img,
+.subfolder-card svg,
+.subfolder-card .subfolder-icon,
+.subfolder-card > span:first-child,
+.subfolder-card .folder-emoji {
+  display: none !important;
+}
+
+/* ── VIEW CONTENT BUTTON — purple, transparent ──────────────── */
 .folder-sidebar button,
 .sidebar-body button {
   font-family: 'Open Sans', sans-serif;
   font-weight: 500;
   letter-spacing: 0.06em;
-  background: rgba(0, 212, 200, 0.1) !important;
-  border: 1px solid rgba(0, 212, 200, 0.3) !important;
-  color: var(--teal) !important;
+  background: rgba(123, 63, 228, 0.15) !important;
+  border: 1px solid rgba(155, 89, 182, 0.4) !important;
+  color: #c084fc !important;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: all 0.3s ease;
+  border-radius: 8px;
 }
 
 .folder-sidebar button:hover,
 .sidebar-body button:hover {
-  background: rgba(0, 212, 200, 0.2) !important;
-  border-color: rgba(0, 212, 200, 0.55) !important;
-  box-shadow: 0 0 18px rgba(0, 212, 200, 0.18);
+  background: rgba(123, 63, 228, 0.28) !important;
+  border-color: rgba(155, 89, 182, 0.65) !important;
+  box-shadow: 0 0 18px rgba(123, 63, 228, 0.2);
 }
 
 /* ── CONTENT CARDS ──────────────────────────────────────────── */
@@ -305,19 +323,4 @@ body::after {
 #loadingOverlay {
   background: var(--bg-primary);
   font-family: 'Open Sans', sans-serif;
-}
-
-/* ── WATERMARK FOOTER ───────────────────────────────────────── */
-.library-watermark {
-  position: relative;
-  z-index: 2;
-  text-align: center;
-  padding: 24px 20px;
-  margin-top: 60px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  font-family: 'Open Sans', sans-serif;
-  font-weight: 300;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: rgba(201, 168, 76, 0.45);
 }
