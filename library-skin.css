@@ -183,14 +183,14 @@ body::after {
   margin-bottom: 6px;
 }
 
-/* Slug — 5px, barely there */
+/* Slug — 5px, barely there, natural lowercase */
 .folder-slug {
   font-family: 'Raleway', sans-serif;
   font-weight: 300;
   font-size: 5px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   color: rgba(0, 212, 200, 0.2);
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 /* ── RIGHT SIDEBAR — transparent ───────────────────────────── */
