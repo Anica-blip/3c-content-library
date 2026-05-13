@@ -247,14 +247,12 @@ body::after {
   border-color: rgba(155, 89, 182, 0.2) !important;
 }
 
-/* Hide folder emojis/icons inside subfolder cards
-   Targets inline-styled emoji div: <div style="font-size:24px;">📂</div> */
+/* Hide folder emojis/icons inside subfolder cards */
 .subfolder-card img,
 .subfolder-card svg,
 .subfolder-card .subfolder-icon,
 .subfolder-card > span:first-child,
-.subfolder-card .folder-emoji,
-.subfolder-card div[style*="font-size"] {
+.subfolder-card .folder-emoji {
   display: none !important;
 }
 
