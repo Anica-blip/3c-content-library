@@ -194,19 +194,20 @@ body::after {
 }
 
 /* ── RIGHT SIDEBAR — transparent ───────────────────────────── */
+/* !important needed — internal <style> block loads after this file */
 .folder-sidebar {
-  background: rgba(10, 4, 22, 0.2);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.2);
+  background: rgba(10, 4, 22, 0.2) !important;
+  backdrop-filter: blur(28px) !important;
+  -webkit-backdrop-filter: blur(28px) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.2) !important;
 }
 
 .sidebar-header {
-  background: rgba(10, 4, 22, 0.25);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 4, 22, 0.25) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 
 .sidebar-header h2,
@@ -231,26 +232,29 @@ body::after {
 }
 
 /* ── SUBFOLDER CARDS — transparent, no emoji ────────────────── */
+/* !important needed — JS renders these with inline styles */
 .subfolder-card {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
-  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.03) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 10px !important;
+  transition: all 0.3s ease !important;
 }
 
 .subfolder-card:hover {
-  background: rgba(123, 63, 228, 0.08);
-  border-color: rgba(155, 89, 182, 0.2);
+  background: rgba(123, 63, 228, 0.08) !important;
+  border-color: rgba(155, 89, 182, 0.2) !important;
 }
 
-/* Hide folder emojis/icons inside subfolder cards */
+/* Hide folder emojis/icons inside subfolder cards
+   Targets inline-styled emoji div: <div style="font-size:24px;">📂</div> */
 .subfolder-card img,
 .subfolder-card svg,
 .subfolder-card .subfolder-icon,
 .subfolder-card > span:first-child,
-.subfolder-card .folder-emoji {
+.subfolder-card .folder-emoji,
+.subfolder-card div[style*="font-size"] {
   display: none !important;
 }
 
