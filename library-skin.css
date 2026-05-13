@@ -1,0 +1,302 @@
+/* ============================================================
+   3C Public Library — Visual Skin Override
+   library-skin.css
+   Surgical CSS layer — no logic touched, no JS dependencies changed
+   Built with ❤️ by Claude (Anthropic) × Chef Anica
+   3C Thread To Success Cooking Lab 🧪👨‍🍳
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Raleway:wght@300;400;500;600&display=swap');
+
+/* ── CSS VARIABLE OVERRIDES ─────────────────────────────────── */
+:root {
+  --bg-primary:        #0a0416;
+  --bg-secondary:      rgba(20, 8, 48, 0.75);
+  --text-primary:      #f0eaf8;
+  --text-secondary:    #c8b8e8;
+  --text-tertiary:     #8878a8;
+  --border-color:      rgba(123, 63, 228, 0.2);
+  --purple-light:      #9b6fd4;
+  --purple-medium:     #7b3fe4;
+  --purple-dark:       #4a1fa8;
+  --teal:              #00d4c8;
+  --gold:              #c9a84c;
+  --glass-bg:          rgba(255, 255, 255, 0.04);
+  --glass-border:      rgba(255, 255, 255, 0.08);
+  --glass-hover-bg:    rgba(123, 63, 228, 0.12);
+  --glass-hover-border:rgba(0, 212, 200, 0.3);
+  --card-bg:           rgba(255, 255, 255, 0.04);
+  --card-border:       rgba(255, 255, 255, 0.08);
+  --card-hover-bg:     rgba(123, 63, 228, 0.12);
+  --card-hover-border: rgba(0, 212, 200, 0.3);
+  --folder-bg:         rgba(255, 255, 255, 0.04);
+  --shadow:            rgba(0, 0, 0, 0.5);
+}
+
+/* ── BODY — ATMOSPHERE ──────────────────────────────────────── */
+body {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 400;
+  background: var(--bg-primary);
+  position: relative;
+}
+
+/* Grain texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Radial glow — subtle, centred */
+body::after {
+  content: '';
+  position: fixed;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(ellipse at center,
+    rgba(75, 31, 200, 0.18) 0%,
+    rgba(45, 13, 107, 0.08) 50%,
+    transparent 70%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Ensure all content sits above overlays */
+.header,
+.container,
+.folder-sidebar,
+#loadingOverlay,
+#previewModal,
+#pdfModal,
+.cookie-banner {
+  position: relative;
+  z-index: 2;
+}
+
+/* ── HEADER ─────────────────────────────────────────────────── */
+.header {
+  background: rgba(10, 4, 22, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(0, 212, 200, 0.15);
+  box-shadow: 0 1px 40px rgba(0, 0, 0, 0.5);
+}
+
+.header h1 {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+  text-shadow: 0 0 24px rgba(0, 212, 200, 0.35);
+}
+
+/* ── SIDEBAR (left panel) ───────────────────────────────────── */
+.sidebar {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+}
+
+.sidebar h2 {
+  font-family: 'Cinzel', serif;
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--teal);
+  text-shadow: none;
+}
+
+/* ── FOLDER CARDS ───────────────────────────────────────────── */
+
+/* Hide the folder icon — card stands alone */
+.folder-icon {
+  display: none !important;
+}
+
+.folder-card-item {
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 28px 20px 22px;
+  transition: all 0.35s ease;
+  gap: 8px;
+}
+
+/* Teal accent top line — replaces the old purple gradient */
+.folder-card-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  opacity: 0.5;
+  transition: opacity 0.35s ease;
+}
+
+.folder-card-item:hover {
+  background: var(--glass-hover-bg);
+  border-color: var(--glass-hover-border);
+  transform: translateY(-4px);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(0, 212, 200, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.folder-card-item:hover::before {
+  opacity: 1;
+}
+
+/* ── FOLDER TEXT ────────────────────────────────────────────── */
+.folder-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.folder-details {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 300;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+/* Slug — functional reference, styled subtle, no monospace */
+.folder-slug {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 300;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: rgba(0, 212, 200, 0.35);
+  text-transform: uppercase;
+}
+
+/* ── FOLDER SIDEBAR (right panel) ───────────────────────────── */
+.folder-sidebar {
+  background: rgba(10, 4, 22, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(0, 212, 200, 0.12);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar-header {
+  background: rgba(10, 4, 22, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 212, 200, 0.12);
+}
+
+.sidebar-header h2 {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+}
+
+/* ── SUBFOLDER CARDS ────────────────────────────────────────── */
+.subfolder-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.subfolder-card:hover {
+  background: var(--glass-hover-bg);
+  border-color: var(--glass-hover-border);
+}
+
+/* ── CONTENT CARDS ──────────────────────────────────────────── */
+.content-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.content-card:hover {
+  background: var(--glass-hover-bg);
+  border-color: var(--glass-hover-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.content-title {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 500;
+}
+
+/* ── SECTION HEADINGS ───────────────────────────────────────── */
+.folders-section > h2,
+.section-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+/* ── BUTTONS ────────────────────────────────────────────────── */
+.btn,
+button {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+/* ── LOADING OVERLAY ────────────────────────────────────────── */
+#loadingOverlay {
+  background: var(--bg-primary);
+  font-family: 'Raleway', sans-serif;
+}
+
+/* ── MODALS ─────────────────────────────────────────────────── */
+#previewModal .modal-content,
+#pdfModal .modal-content,
+.modal-content {
+  background: rgba(10, 4, 22, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 212, 200, 0.15);
+}
+
+/* ── WATERMARK FOOTER ───────────────────────────────────────── */
+.library-watermark {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 24px 20px;
+  margin-top: 60px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: 'Raleway', sans-serif;
+  font-weight: 300;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: rgba(201, 168, 76, 0.45);
+}
