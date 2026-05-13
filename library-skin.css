@@ -76,6 +76,10 @@ body::after {
 #loadingOverlay,
 #previewModal,
 #pdfModal,
+#viewerContent,
+#viewer,
+.right-viewer,
+.layout,
 .cookie-banner {
   position: relative;
   z-index: 2;
