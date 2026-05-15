@@ -745,7 +745,7 @@
                 width: 100%;
                 height: 100vh;
                 z-index: 1000;
-                transition: right 0.3s ease-in-out;
+                transition: none;
                 overflow-y: auto;
             }
             
@@ -1548,6 +1548,27 @@
 
     <!-- Vault core JS (clone of root library-core.js adapted for vault tables) -->
     <script src="library-core.js"></script>
+
+    <!-- Stop video on back/thumbnail — must run after library-core.js -->
+    <script>
+        function stopAllVideos() {
+            document.querySelectorAll('video').forEach(v => {
+                try { v.pause(); v.currentTime = 0; } catch(e) {}
+            });
+            document.querySelectorAll('#viewerContent iframe, .right-viewer iframe').forEach(f => {
+                f.src = '';
+            });
+        }
+
+        // Wrap hideContentViewer so video stops before panel hides on mobile
+        (function() {
+            const _orig = window.hideContentViewer;
+            window.hideContentViewer = function() {
+                stopAllVideos();
+                if (_orig) _orig.apply(this, arguments);
+            };
+        })();
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.8/plyr.polyfilled.min.js"></script>
 
     <!-- Cookie banner (shared from root) -->
