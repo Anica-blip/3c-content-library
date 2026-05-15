@@ -343,3 +343,17 @@ body::after {
   background: var(--bg-primary);
   font-family: 'Open Sans', sans-serif;
 }
+
+/* ── MOBILE VIDEO CONTAINER ─────────────────────────────────── */
+@media (max-width: 768px) {
+  .right-viewer {
+    background: var(--bg-primary) !important;
+  }
+
+  .right-viewer video {
+    background: transparent !important;
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+}
