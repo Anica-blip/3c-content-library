@@ -685,7 +685,7 @@
 
             /* Mobile video container background fix */
             video {
-                background: #1e1d1d;
+                background: transparent;
             }
             
             .viewer {
@@ -939,18 +939,13 @@
             }
             
             .right-viewer {
-                position: fixed;
-                top: 0;
-                right: -100%;
+                display: none;
                 width: 100%;
-                height: 100vh;
-                z-index: 1000;
-                transition: right 0.3s ease-in-out;
                 overflow-y: auto;
             }
             
             .right-viewer.active {
-                right: 0 !important;
+                display: block !important;
             }
         }
         /* Start Here Button */
@@ -1711,9 +1706,8 @@
                 subfolders.forEach(subfolder => {
                     const itemCount = subfolder.actualItemCount || 0;
                     subfoldersHtml += `
-                        <div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'" style="background: rgba(155, 89, 182, 0.1); border: 1px solid rgba(155, 89, 182, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(155, 89, 182, 0.2)'; this.style.borderColor='rgba(155, 89, 182, 0.5)'" onmouseout="this.style.background='rgba(155, 89, 182, 0.1)'; this.style.borderColor='rgba(155, 89, 182, 0.3)'">
+                        <div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'">
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <div style="font-size: 24px;">📂</div>
                                 <div style="flex: 1;">
                                     <div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div>
                                     <div style="font-size: 11px; color: #808080;">${itemCount} item${itemCount !== 1 ? 's' : ''}</div>
@@ -2059,9 +2053,9 @@
                 `;
             } else if (content.type === 'video') {
                 if (content.url.startsWith('data:')) {
-                    viewerHtml = `<video controls style="width: 100%; height: auto; max-height: 90vh; display: block; object-fit: contain;"><source src="${content.url}"></video>`;
+                    viewerHtml = `<div style="margin-top: 20px;"><video controls style="width: 100%; height: auto; max-height: 90vh; display: block; background: transparent;"><source src="${content.url}"></video></div>`;
                 } else {
-                    viewerHtml = `<iframe src="${content.url}" style="width: 100%; height: 90vh; border: none; display: block;" allowfullscreen></iframe>`;
+                    viewerHtml = `<div style="margin-top: 20px;"><iframe src="${content.url}" style="width: 100%; height: 80vh; border: none; display: block;" allowfullscreen></iframe></div>`;
                 }
             } else if (content.type === 'image') {
                 viewerHtml = `<div style="display: flex; justify-content: center; padding: 20px;"><img src="${content.url}" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>`;
