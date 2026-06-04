@@ -324,6 +324,15 @@ async function openContent(contentData) {
                 window.open(content.external_url, '_blank');
             }
             break;
+        case 'virtual-slideshow':
+        case 'quiz':
+        case 'card-game':
+        case 'spin-wheel':
+        case 'landing-page':
+            if (content.url) {
+                window.open(content.url, '_blank');
+            }
+            break;
         default:
             if (content.url) {
                 window.open(content.url, '_blank');
@@ -517,11 +526,18 @@ function getTypeIcon(type) {
     const icons = {
         pdf: '📄',
         flipbook: '📖',
-        presentation: '📊',        
+        presentation: '📊',
         video: '🎥',
         image: '🖼️',
         audio: '🎵',
-        link: '🔗'
+        gif: '🎞️',
+        link: '🔗',
+        quiz: '🧠',
+        'card-game': '🃏',
+        'spin-wheel': '🎡',
+        'landing-page': '🚀',
+        'virtual-slideshow': '🎞️',
+        other: '📎'
     };
     return icons[type] || '📎';
 }
