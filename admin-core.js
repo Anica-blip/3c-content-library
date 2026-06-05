@@ -24,10 +24,23 @@ function showAlert(type, message) {
     alertDiv.className = `alert alert-${type}`;
     alertDiv.textContent = message;
     alertDiv.style.display = 'block';
-    
-    setTimeout(() => {
-        alertDiv.style.display = 'none';
-    }, 5000);
+
+    // Scroll alert into view so it is never missed
+    alertDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Errors stay until clicked to dismiss — success auto-hides after 6s
+    if (type === 'error') {
+        alertDiv.style.cursor = 'pointer';
+        alertDiv.title = 'Click to dismiss';
+        alertDiv.onclick = () => { alertDiv.style.display = 'none'; };
+    } else {
+        alertDiv.style.cursor = '';
+        alertDiv.title = '';
+        alertDiv.onclick = null;
+        setTimeout(() => {
+            alertDiv.style.display = 'none';
+        }, 6000);
+    }
 }
 
 function updateConnectionStatus(connected) {
