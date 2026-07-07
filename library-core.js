@@ -189,13 +189,13 @@ function displayFolders() {
         const notTesting = f.title !== 'Testing' && f.slug !== 'intermediary_level.03'; // Exclude Testing folder
         return isRoot && isPublic && notTesting;
     }).sort((a, b) => {
-        const t = s => s.toLowerCase();
+        const lc = s => s.toLowerCase();
         const PIN1 = '3c bulletin board';
         const PIN2 = 'beginners';
-        const aIsFirst  = t(a.title) === PIN1;
-        const bIsFirst  = t(b.title) === PIN1;
-        const aIsSecond = t(a.title) === PIN2;
-        const bIsSecond = t(b.title) === PIN2;
+        const aIsFirst  = lc(a.title) === PIN1;
+        const bIsFirst  = lc(b.title) === PIN1;
+        const aIsSecond = lc(a.title) === PIN2;
+        const bIsSecond = lc(b.title) === PIN2;
         if (aIsFirst)  return -1;
         if (bIsFirst)  return 1;
         if (aIsSecond) return -1;
@@ -242,7 +242,7 @@ function displayFolders() {
                 ? `<button onclick="event.stopPropagation(); window.location.href='?folder=${folder.slug}';" style="margin-top: 8px; padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">📄 View Content</button>`
                 : '';
             
-            const isPinnedFirst = folder.title.toLowerCase() === '3c bulletin board';
+            const isPinnedFirst = folder.title.toLowerCase().trim() === '3c bulletin board';
             const titleStyle = isPinnedFirst
                 ? ' style="color:#8b5cf6; text-shadow:0 0 8px rgba(139,91,246,0.6);"'
                 : '';
