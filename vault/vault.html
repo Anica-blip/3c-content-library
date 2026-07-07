@@ -312,6 +312,10 @@
             .header h1 { font-size: 16px; }
             .header-right { gap: 6px; }
             #folderIconBtn { display: flex !important; }
+            
+            /* Mobile: hide "Public Library" text, show SVG folder icon only */
+            #publicLibBtn span.lib-text { display: none; }
+            #publicLibBtn { padding: 8px; }
             .content-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
             .content-thumbnail { width: 100%; aspect-ratio: 1/1; font-size: 36px; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 0; margin: 0; background-size: cover !important; background-position: center !important; background-repeat: no-repeat !important; }
             .content-thumbnail img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -1079,7 +1083,7 @@
             <div class="header-right">
                 <!-- Back to Vault button — shown on mobile or folder/content pages -->
                 <a id="folderIconBtn" href="vault.html"
-                   style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; padding: 8px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 20px; display: none; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(155, 89, 182, 0.3); transition: all 0.2s; width: 40px; height: 40px;"
+                   style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; padding: 4px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 20px; display: none; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(155, 89, 182, 0.3); transition: all 0.2s; width: 32px; height: 32px;"
                    title="Aurion Vault">
                     <img src="Aurion_button.png" alt="Aurion" style="width:24px;height:24px;object-fit:contain;">
                 </a>
@@ -1088,7 +1092,7 @@
                    style="display: flex; background: linear-gradient(135deg, #4a2c8f, #6d28d9); color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(109,40,217,0.35); transition: all 0.2s; white-space: nowrap;"
                    onmouseover="this.style.transform='translateY(-2px)'"
                    onmouseout="this.style.transform=''">
-                    <svg viewBox="0 0 24 20" width="22" height="22" fill="#c77dff" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><path d="M2 4a2 2 0 0 1 2-2h4.586l2 2H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4z"/></svg> Public Library
+                    <svg viewBox="0 0 24 20" width="22" height="22" fill="#c77dff" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;"><path d="M2 4a2 2 0 0 1 2-2h4.586l2 2H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4z"/></svg><span class="lib-text"> Public Library</span>
                 </a>
             </div>
         </div>
