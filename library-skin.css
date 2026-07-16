@@ -287,6 +287,18 @@ body::after {
   box-shadow: 0 0 18px rgba(123, 63, 228, 0.2);
 }
 
+/* ── FOLDER ICON BUTTON — show in toolbar on desktop too ────
+   The base inline style is display:none. Previously the only
+   override was inside the mobile media query, so on desktop the
+   button never appeared even though the JS already toggles its
+   visibility correctly based on page (landing vs folder/content).
+   This puts it back into the flex row on all viewports; the
+   existing JS visibility toggle still controls when it's actually
+   shown, matching how Aurion Vault already behaves. */
+#folderIconBtn {
+  display: flex !important;
+}
+
 /* ── CONTENT CARDS ──────────────────────────────────────────── */
 .content-card {
   background: rgba(255, 255, 255, 0.04);
