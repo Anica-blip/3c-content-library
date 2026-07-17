@@ -1332,8 +1332,17 @@ async function downloadFlipbook() {
 
 /**
  * Go back to library (returns to folder content page)
+ * If this page was opened as its own tab/window (window.opener is set,
+ * e.g. via window.open or a user opening the link in a new tab), close
+ * it — the original content page is still sitting there underneath and
+ * regains focus automatically. Only fall back to navigating within this
+ * same page if there's genuinely nowhere to close back to.
  */
 function goBack() {
+    if (window.opener && !window.opener.closed) {
+        window.close();
+        return;
+    }
     if (document.referrer) {
         window.location.href = document.referrer;
     } else {
