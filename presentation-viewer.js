@@ -1477,8 +1477,24 @@ async function downloadPresentation() {
 
 /**
  * Go back to library (returns to where user came from)
+ * Matches interactive-pdf-viewer.js's goBack exactly, so PDF, Flipbook,
+ * and Presentation all behave identically on close.
  */
 function goBack() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get('ref');
+    const folderSlug = urlParams.get('folder');
+
+    if (ref === 'private') {
+        if (document.referrer && !document.referrer.includes('presentation-viewer.html')) {
+            window.location.href = document.referrer;
+        } else if (folderSlug) {
+            window.location.href = `private-library.html?folder=${folderSlug}`;
+        }
+        return;
+    }
+
+    // Default: use referrer or history (for public library)
     if (document.referrer) {
         window.location.href = document.referrer;
     } else {
