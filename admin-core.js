@@ -1395,9 +1395,20 @@ async function openVaultFolderSidebar(folderId) {
             if (legacyItems.length > 0) {
                 contentHtml += `<div style="margin-top:24px;"><h4 style="color:#f0ad4e; font-size:14px; margin-bottom:6px; border-bottom:1px solid rgba(240,173,78,0.25); padding-bottom:8px;">⚠️ Legacy Content (${legacyItems.length}) — not shown on the live grid</h4>
                     <p style="color:#999; font-size:11px; margin-bottom:12px;">Added before this folder became a Collection. Move each one to bring it into the grid, or delete if it's no longer needed.</p>`;
+                const legacyIconMap = {
+                    pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵',
+                    gif: '🎞️', flipbook: '📖', presentation: '📊',
+                    quiz: '🧠', 'card-game': '🃏', 'spin-wheel': '🎡',
+                    'landing-page': '🚀', 'virtual-slideshow': '🎞️', link: '🔗', other: '📎'
+                };
                 legacyItems.forEach(item => {
+                    const icon = legacyIconMap[item.type] || legacyIconMap.other;
+                    const thumbnailHtml = item.thumbnail_url
+                        ? `<img src="${item.thumbnail_url}" style="width:100%; max-width:150px; height:auto; border-radius:8px; object-fit:cover;" alt="Thumbnail">`
+                        : `<div style="width:100%; max-width:150px; height:200px; background:#1a0d35; display:flex; align-items:center; justify-content:center; color:#999; font-size:48px; border-radius:8px;">${icon}</div>`;
                     contentHtml += `
                         <div class="content-card" style="margin-bottom:10px; opacity:0.85;">
+                            ${thumbnailHtml}
                             <div class="content-info">
                                 <div class="content-title">${escapeHtml(item.title)}</div>
                                 <div class="content-meta">Type: ${item.type.toUpperCase()}</div>
@@ -1405,6 +1416,7 @@ async function openVaultFolderSidebar(folderId) {
                             </div>
                             <div class="content-actions">
                                 <button onclick="moveVaultContentToSeries('${item.id}', '${folderId}')" style="background:linear-gradient(135deg,#00d4c8,#00a89e); color:#0a0416; font-weight:600;">→ Move to Collection</button>
+                                <button onclick="editVaultContent('${item.id}')">Edit</button>
                                 <button class="delete" onclick="deleteVaultContent('${item.id}', '${folderId}')">Delete</button>
                             </div>
                         </div>
