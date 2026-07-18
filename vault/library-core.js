@@ -185,9 +185,13 @@ async function displayContent() {
 
     // Collection/Series folders use the grid landing page instead of
     // the default sidebar + viewer layout
+    console.log('🔍 Folder display style check:', currentFolder.title, '→ displayStyle =', JSON.stringify(currentFolder.displayStyle));
     if (currentFolder.displayStyle === 'collection') {
+        console.log('🎬 Routing to displayCollectionGrid()');
         await displayCollectionGrid(currentFolder);
         return;
+    } else {
+        console.log('📋 Routing to default sidebar layout (displayStyle was not "collection")');
     }
 
     if (!contentCache[currentFolder.id]) {
@@ -295,6 +299,7 @@ function displayAllFolders() {
 let seriesItemsCache = [];
 
 async function displayCollectionGrid(folder) {
+    console.log('🎬 displayCollectionGrid() started for folder:', folder.title, folder.id);
     document.querySelector('.folders-section').style.display = 'none';
     document.getElementById('contentViewer').style.display = 'block';
     document.getElementById('folderSidebar').style.display = 'none';
@@ -332,6 +337,7 @@ async function displayCollectionGrid(folder) {
 
     try {
         seriesItemsCache = await vaultClient.getContentSeries(folder.id);
+        console.log('🎬 getContentSeries returned', seriesItemsCache.length, 'items for folder', folder.id);
     } catch (error) {
         console.error('Error loading series content:', error);
         grid.innerHTML = '<p style="color:#e74c3c;">Error loading content.</p>';
