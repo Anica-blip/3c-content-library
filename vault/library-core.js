@@ -306,8 +306,26 @@ async function displayCollectionGrid(folder) {
         <button onclick="window.location.href='vault.html'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>
         <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 4px;">${escapeHtml(folder.title)}</h2>
         ${folder.description ? '<div style="color:#9a8fb0; font-size:13px; margin-bottom:20px;">' + escapeHtml(folder.description) + '</div>' : '<div style="margin-bottom:20px;"></div>'}
-        <div id="seriesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px;"></div>
+        <div class="series-grid" id="seriesGrid"></div>
     `;
+
+    // One-time responsive rule for the series grid — desktop wraps
+    // across as many columns as fit, mobile stacks single-column
+    // downward, matching the rest of this site's 768px breakpoint.
+    if (!document.getElementById('seriesGridStyle')) {
+        const style = document.createElement('style');
+        style.id = 'seriesGridStyle';
+        style.textContent = `
+            .series-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
+            @media (max-width: 768px) {
+                .series-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+                .series-grid .series-card { flex-direction: row !important; align-items: center; gap: 14px; }
+                .series-grid .series-thumb { width: 90px !important; flex-shrink: 0; aspect-ratio: 1 !important; }
+                .series-grid .series-title { text-align: left !important; margin-top: 0 !important; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
 
     const grid = document.getElementById('seriesGrid');
     grid.innerHTML = '<p style="color:#999;">Loading...</p>';
@@ -330,8 +348,8 @@ async function displayCollectionGrid(folder) {
             'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%231a0f2e" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" font-size="80"%3E' + encodeURIComponent(getTypeIcon(item.type)) + '%3C/text%3E%3C/svg%3E';
         return `
             <div class="series-card" onclick="openSeriesItem('${item.id}')" style="cursor: pointer; display: flex; flex-direction: column; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
-                <div style="aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background-image: url('${thumb}'); background-size: cover; background-position: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(155,89,182,0.2);"></div>
-                <div style="margin-top: 8px; font-size: 13px; color: #ffffff; text-align: center; line-height: 1.3;">${escapeHtml(item.title)}</div>
+                <div class="series-thumb" style="aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background-image: url('${thumb}'); background-size: cover; background-position: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(155,89,182,0.2);"></div>
+                <div class="series-title" style="margin-top: 8px; font-size: 13px; color: #ffffff; text-align: center; line-height: 1.3;">${escapeHtml(item.title)}</div>
             </div>
         `;
     }).join('');
