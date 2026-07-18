@@ -1386,6 +1386,35 @@ async function openVaultFolderSidebar(folderId) {
             console.error('Error loading series content:', e);
             contentHtml += '<p style="color:#e74c3c;">Error loading series content.</p>';
         }
+
+        // Legacy vault_content items — old content added before this
+        // folder was switched to Collection style. Invisible on the
+        // live grid (which only reads content_series) until moved.
+        try {
+            const legacyItems = await vaultClient.getContentByFolder(folderId);
+            if (legacyItems.length > 0) {
+                contentHtml += `<div style="margin-top:24px;"><h4 style="color:#f0ad4e; font-size:14px; margin-bottom:6px; border-bottom:1px solid rgba(240,173,78,0.25); padding-bottom:8px;">⚠️ Legacy Content (${legacyItems.length}) — not shown on the live grid</h4>
+                    <p style="color:#999; font-size:11px; margin-bottom:12px;">Added before this folder became a Collection. Move each one to bring it into the grid, or delete if it's no longer needed.</p>`;
+                legacyItems.forEach(item => {
+                    contentHtml += `
+                        <div class="content-card" style="margin-bottom:10px; opacity:0.85;">
+                            <div class="content-info">
+                                <div class="content-title">${escapeHtml(item.title)}</div>
+                                <div class="content-meta">Type: ${item.type.toUpperCase()}</div>
+                                ${item.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(item.url)}" target="_blank" style="color:#007bff;">${truncateURL(item.url)}</a></div>` : ''}
+                            </div>
+                            <div class="content-actions">
+                                <button onclick="moveVaultContentToSeries('${item.id}', '${folderId}')" style="background:linear-gradient(135deg,#00d4c8,#00a89e); color:#0a0416; font-weight:600;">→ Move to Collection</button>
+                                <button class="delete" onclick="deleteVaultContent('${item.id}', '${folderId}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                contentHtml += '</div>';
+            }
+        } catch (e) {
+            console.error('Error loading legacy vault content:', e);
+        }
     } else {
     // Content items — load from vault_content
     try {
@@ -1597,6 +1626,47 @@ async function deleteSeriesContentItem(contentId, folderId) {
         if (folderId) openVaultFolderSidebar(folderId);
     } catch (error) {
         showAlert('error', 'Error deleting series content: ' + error.message);
+    }
+}
+
+// ==================== MOVE LEGACY CONTENT TO SERIES ====================
+async function moveVaultContentToSeries(contentId, folderId) {
+    if (!confirm('Move this item into the Collection? It will be removed from the old list and added to the series grid.')) return;
+
+    try {
+        const items = await vaultClient.getContentByFolder(folderId);
+        const item = items.find(i => i.id === contentId);
+        if (!item) { showAlert('error', 'Item not found — it may have already been moved.'); return; }
+
+        const seriesData = {
+            folder_id: item.folder_id,
+            title: item.title,
+            type: item.type,
+            url: item.url || null,
+            external_url: item.external_url || null,
+            thumbnail_url: item.thumbnail_url || null,
+            description: item.description || null,
+            custom_url: item.custom_url || null
+        };
+
+        // Create first — only delete the original once the new row
+        // is confirmed saved, so a failure never loses the item.
+        const created = await vaultClient.createSeriesContent(seriesData);
+
+        try {
+            await vaultClient.deleteContent(contentId);
+        } catch (deleteError) {
+            showAlert('error', `⚠️ Moved successfully, but the old copy could not be removed automatically. "${item.title}" now exists in BOTH lists — please delete the old one manually from Legacy Content. (${deleteError.message})`);
+            await loadAllData();
+            openVaultFolderSidebar(folderId);
+            return;
+        }
+
+        showAlert('success', `✅ "${item.title}" moved to Collection`);
+        await loadAllData();
+        openVaultFolderSidebar(folderId);
+    } catch (error) {
+        showAlert('error', 'Error moving content: ' + error.message);
     }
 }
 
