@@ -87,9 +87,9 @@ class VaultSupabaseClient {
      * Create new vault folder
      * Generates slug locally — no dependency on existing Postgres RPC functions
      */
-    async createFolder(title, description = '', tableName = '', isPublic = true, parentId = null, folderType = 'root', customUrl = null) {
+    async createFolder(title, description = '', tableName = '', isPublic = true, parentId = null, folderType = 'root', customUrl = null, displayStyle = 'default') {
         try {
-            console.log('📁 Creating vault folder:', { title, tableName, isPublic, parentId, folderType });
+            console.log('📁 Creating vault folder:', { title, tableName, isPublic, parentId, folderType, displayStyle });
 
             // Generate slug locally
             const slug = customUrl
@@ -108,7 +108,8 @@ class VaultSupabaseClient {
                 description: description,
                 is_public:   isPublic,
                 parent_id:   parentId,
-                folder_type: folderType
+                folder_type: folderType,
+                display_style: displayStyle
             };
 
             console.log('📤 Inserting vault folder:', folderData);
@@ -317,6 +318,109 @@ class VaultSupabaseClient {
                 })
                 .eq('id', contentId);
         }
+    }
+
+    // ==================== SERIES CONTENT OPERATIONS ====================
+    // content_series — dedicated table for the Collection/Series grid
+    // landing page. Same shape as vault_content so it can reuse the
+    // same viewer dispatch logic on the front end.
+
+    /**
+     * Get all series content for a folder (collection-style folders)
+     */
+    async getContentSeries(folderId) {
+        const { data, error } = await this.client
+            .from('content_series')
+            .select('*')
+            .eq('folder_id', folderId)
+            .order('display_order', { ascending: true });
+
+        if (error) throw error;
+        return data || [];
+    }
+
+    /**
+     * Get single series content item by ID
+     */
+    async getSeriesContentItem(id) {
+        const { data, error } = await this.client
+            .from('content_series')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        return data;
+    }
+
+    /**
+     * Create new series content item
+     * Generates slug locally, same pattern as createContent
+     */
+    async createSeriesContent(contentData) {
+        try {
+            const baseSlug = contentData.custom_url
+                ? contentData.custom_url.toLowerCase().replace(/[^a-z0-9_]/g, '_')
+                : contentData.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+            const slug = contentData.custom_url || `${baseSlug}_${Date.now()}`.slice(0, 80);
+
+            // Get max display_order for this folder
+            const { data: maxOrder } = await this.client
+                .from('content_series')
+                .select('display_order')
+                .eq('folder_id', contentData.folder_id)
+                .order('display_order', { ascending: false })
+                .limit(1)
+                .single();
+
+            const displayOrder = maxOrder ? maxOrder.display_order + 1 : 0;
+
+            const { data, error } = await this.client
+                .from('content_series')
+                .insert([{
+                    ...contentData,
+                    slug: slug,
+                    custom_url: contentData.custom_url || null,
+                    display_order: displayOrder
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('❌ createSeriesContent error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Update series content item
+     */
+    async updateSeriesContent(id, updates) {
+        const { data, error } = await this.client
+            .from('content_series')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    }
+
+    /**
+     * Delete series content item
+     */
+    async deleteSeriesContent(id) {
+        const { error } = await this.client
+            .from('content_series')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        return true;
     }
 
     // ==================== PASSWORD OPERATIONS ====================
