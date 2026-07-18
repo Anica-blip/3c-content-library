@@ -84,6 +84,30 @@ class VaultSupabaseClient {
             } catch (e) {
                 console.warn('Could not merge display_style from vault_folders:', e);
             }
+
+            // Item counts for Collection folders — the stats view only
+            // counts vault_content, so it always shows 0 here. Compute
+            // the real count from content_series and override it.
+            const collectionFolderIds = foldersList.filter(f => f.display_style === 'collection').map(f => f.id);
+            if (collectionFolderIds.length > 0) {
+                try {
+                    const { data: seriesRows, error: seriesError } = await this.client
+                        .from('content_series')
+                        .select('folder_id')
+                        .in('folder_id', collectionFolderIds);
+                    if (!seriesError && seriesRows) {
+                        const countMap = {};
+                        seriesRows.forEach(r => { countMap[r.folder_id] = (countMap[r.folder_id] || 0) + 1; });
+                        foldersList.forEach(f => {
+                            if (f.display_style === 'collection') {
+                                f.actual_item_count = countMap[f.id] || 0;
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Could not compute content_series item counts:', e);
+                }
+            }
         }
 
         return foldersList;
