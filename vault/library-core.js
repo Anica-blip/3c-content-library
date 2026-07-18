@@ -311,25 +311,8 @@ async function displayCollectionGrid(folder, highlightSlug) {
         <button id="collectionBackBtn" onclick="window.location.href='vault.html'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>
         <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 4px;">${escapeHtml(folder.title)}</h2>
         ${folder.description ? '<div style="color:#9a8fb0; font-size:13px; margin-bottom:20px;">' + escapeHtml(folder.description) + '</div>' : '<div style="margin-bottom:20px;"></div>'}
-        <div id="seriesSubfolders"></div>
         <div class="series-grid" id="seriesGrid"></div>
     `;
-
-    // Subfolders — a Collection-style folder can still have subfolders
-    // underneath it, each independently Default or Collection style.
-    // Rendered as cards, same pattern used everywhere else on the
-    // site, so it reads as one consistent system, not two.
-    const subfolders = library.folders.filter(f => f.parentId === folder.id).sort((a, b) => a.title.localeCompare(b.title));
-    const subfoldersEl = document.getElementById('seriesSubfolders');
-    if (subfolders.length > 0) {
-        let subfoldersHtml = '<div style="margin-bottom:24px;">';
-        subfolders.forEach(sf => {
-            const itemCount = sf.actualItemCount || 0;
-            subfoldersHtml += `<div class="subfolder-card" onclick="window.location.href='?folder=${sf.slug}'" style="background: rgba(155, 89, 182, 0.1); border: 1px solid rgba(155, 89, 182, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(155, 89, 182, 0.2)'; this.style.borderColor='rgba(155, 89, 182, 0.5)'" onmouseout="this.style.background='rgba(155, 89, 182, 0.1)'; this.style.borderColor='rgba(155, 89, 182, 0.3)'"><div style="display: flex; align-items: center; gap: 10px;"><div style="font-size: 24px;">📂</div><div style="flex: 1;"><div style="font-weight: 600; color: #ffffff; font-size: 14px;">${escapeHtml(sf.title)}</div><div style="font-size: 11px; color: #808080;">${itemCount} item${itemCount !== 1 ? 's' : ''}</div></div><div style="color: #9b59b6; font-size: 18px;">→</div></div></div>`;
-        });
-        subfoldersHtml += '</div>';
-        subfoldersEl.innerHTML = subfoldersHtml;
-    }
 
     // One-time responsive rule for the series grid — desktop wraps
     // across as many columns as fit, mobile stacks single-column
@@ -374,7 +357,7 @@ async function displayCollectionGrid(folder, highlightSlug) {
     }
 
     if (seriesItemsCache.length === 0) {
-        grid.innerHTML = subfolders.length > 0 ? '' : '<p style="color:#999;">No content yet.</p>';
+        grid.innerHTML = '<p style="color:#999;">No content yet.</p>';
         return;
     }
 
