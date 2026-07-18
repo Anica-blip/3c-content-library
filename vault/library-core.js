@@ -75,7 +75,8 @@ async function loadData() {
             id: f.id, title: f.title, name: f.title, slug: f.custom_url || f.slug,
             customUrl: f.custom_url, tableName: f.table_name, description: f.description,
             folderType: f.folder_type, parentId: f.parent_id, depth: f.depth || 0,
-            path: f.path, actualItemCount: f.actual_item_count || 0, isPublic: f.is_public
+            path: f.path, actualItemCount: f.actual_item_count || 0, isPublic: f.is_public,
+            displayStyle: f.display_style || 'default'
         }));
         library.content = [];
         libraryCache = library; cacheTimestamp = now;
@@ -182,6 +183,13 @@ async function displayContent() {
     currentFolder = findFolderBySlug(folderSlug);
     if (!currentFolder) { document.getElementById('viewer').innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>'; return; }
 
+    // Collection/Series folders use the grid landing page instead of
+    // the default sidebar + viewer layout
+    if (currentFolder.displayStyle === 'collection') {
+        await displayCollectionGrid(currentFolder);
+        return;
+    }
+
     if (!contentCache[currentFolder.id]) {
         try {
             const content = await vaultClient.getContentByFolder(currentFolder.id);
@@ -278,6 +286,140 @@ function displayAllFolders() {
     });
     document.getElementById('foldersGrid').innerHTML = html;
 }
+
+// ==================== COLLECTION / SERIES GRID ====================
+// Alternate folder landing page: all content shown as a wrapping
+// grid of thumbnail + title cards, instead of the sidebar + viewer
+// layout. Content comes from content_series, not vault_content.
+
+let seriesItemsCache = [];
+
+async function displayCollectionGrid(folder) {
+    document.querySelector('.folders-section').style.display = 'none';
+    document.getElementById('contentViewer').style.display = 'block';
+    document.getElementById('folderSidebar').style.display = 'none';
+    const commentsSection = document.getElementById('commentsSection');
+    if (commentsSection) commentsSection.style.display = 'none';
+
+    const viewer = document.getElementById('viewer');
+    viewer.innerHTML = `
+        <button onclick="window.location.href='vault.html'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>
+        <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 4px;">${escapeHtml(folder.title)}</h2>
+        ${folder.description ? '<div style="color:#9a8fb0; font-size:13px; margin-bottom:20px;">' + escapeHtml(folder.description) + '</div>' : '<div style="margin-bottom:20px;"></div>'}
+        <div id="seriesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px;"></div>
+    `;
+
+    const grid = document.getElementById('seriesGrid');
+    grid.innerHTML = '<p style="color:#999;">Loading...</p>';
+
+    try {
+        seriesItemsCache = await vaultClient.getContentSeries(folder.id);
+    } catch (error) {
+        console.error('Error loading series content:', error);
+        grid.innerHTML = '<p style="color:#e74c3c;">Error loading content.</p>';
+        return;
+    }
+
+    if (seriesItemsCache.length === 0) {
+        grid.innerHTML = '<p style="color:#999;">No content yet.</p>';
+        return;
+    }
+
+    grid.innerHTML = seriesItemsCache.map(item => {
+        const thumb = item.thumbnail_url ||
+            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%231a0f2e" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" font-size="80"%3E' + encodeURIComponent(getTypeIcon(item.type)) + '%3C/text%3E%3C/svg%3E';
+        return `
+            <div class="series-card" onclick="openSeriesItem('${item.id}')" style="cursor: pointer; display: flex; flex-direction: column; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
+                <div style="aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background-image: url('${thumb}'); background-size: cover; background-position: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(155,89,182,0.2);"></div>
+                <div style="margin-top: 8px; font-size: 13px; color: #ffffff; text-align: center; line-height: 1.3;">${escapeHtml(item.title)}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ==================== OPEN SERIES ITEM ====================
+function openSeriesItem(itemId) {
+    const item = seriesItemsCache.find(i => i.id === itemId);
+    if (!item) return;
+
+    if (item.type === 'pdf') {
+        openPDFModal(item.url, item.title, item.id);
+        return;
+    }
+
+    if (item.type === 'flipbook') {
+        const isMobile = window.innerWidth <= 768;
+        const page = isMobile ? '../flipbook-viewer-mobile.html' : '../flipbook-viewer.html';
+        const url = item.url ? page + '?manifest=' + encodeURIComponent(item.url) : page + '?content=' + item.id;
+        window.location.href = url;
+        return;
+    }
+
+    if (item.type === 'presentation') {
+        const url = item.url ? '../presentation-viewer.html?manifest=' + encodeURIComponent(item.url) : '../presentation-viewer.html?content=' + item.id;
+        window.location.href = url;
+        return;
+    }
+
+    if (item.type === 'video') { openSeriesMedia(item, 'video'); return; }
+    if (item.type === 'audio') { openSeriesMedia(item, 'audio'); return; }
+    if (item.type === 'image' || item.type === 'gif') { openSeriesMedia(item, 'image'); return; }
+
+    // Fallback — external link
+    window.open(item.url || item.external_url || '#', '_blank');
+}
+
+// ==================== SERIES MEDIA MODAL ====================
+// Reuses #mediaModal (already in vault.html). Video/image size to
+// their own natural dimensions — no forced aspect ratio, no
+// letterboxing margins. Plyr's hide-controls + replay-on-end
+// behaviour (vault.html) picks up any <video> automatically via
+// its MutationObserver, so no extra wiring needed here.
+function openSeriesMedia(item, kind) {
+    const modal = document.getElementById('mediaModal');
+    const title = document.getElementById('mediaTitle');
+    const container = document.getElementById('mediaContainer');
+    if (!modal || !container) return;
+
+    if (title) title.textContent = item.title || '';
+    container.innerHTML = '';
+
+    if (kind === 'video') {
+        container.innerHTML = '<video autoplay playsinline style="display:block; max-width:90vw; max-height:80vh; width:auto; height:auto; background:transparent; border-radius:8px;"><source src="' + item.url + '"></video>';
+    } else if (kind === 'audio') {
+        container.innerHTML = '<audio controls autoplay style="width:400px; max-width:90vw;"><source src="' + item.url + '"></audio>';
+    } else if (kind === 'image') {
+        container.innerHTML = '<img src="' + item.url + '" style="display:block; max-width:90vw; max-height:80vh; width:auto; height:auto; border-radius:8px;">';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeMediaPlayer() {
+    const modal = document.getElementById('mediaModal');
+    const container = document.getElementById('mediaContainer');
+    if (container) {
+        container.querySelectorAll('video, audio').forEach(el => {
+            try { el.pause(); el.currentTime = 0; el.src = ''; } catch (e) {}
+        });
+        container.innerHTML = '';
+    }
+    if (modal) modal.style.display = 'none';
+}
+
+// Click outside the media content (on the dark backdrop) closes it
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('mediaModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => { if (e.target === modal) closeMediaPlayer(); });
+    }
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('mediaModal');
+        if (modal && modal.style.display === 'flex') closeMediaPlayer();
+    }
+});
 
 // ==================== OPEN FOLDER SIDEBAR ====================
 async function openFolderSidebar(folderId) {
