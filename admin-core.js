@@ -9,6 +9,7 @@ let currentThumbnail = null;
 let debugMode = false;
 let folders = [];
 let allContent = [];
+let editingSeriesContent = false; // true when the content form is editing a content_series item
 let vaultFolders = []; // Vault folders — separate from library folders
 
 // ==================== UTILITY FUNCTIONS ====================
@@ -481,6 +482,7 @@ async function createFolder() {
     const folderType = document.getElementById('folderType').value;
     const parentId = document.getElementById('parentFolder').value || null;
     const customURL = document.getElementById('folderCustomURL').value.trim() || null;
+    const displayStyle = document.getElementById('folderDisplayStyle')?.value || 'default';
     
     console.log('📋 Form values:', { title, tableName, visibility, description, folderType, parentId, customURL });
     
@@ -530,9 +532,9 @@ async function createFolder() {
                 return;
             }
             console.log('🥷 Creating vault folder in vault_folders...');
-            folder = await vaultClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
+            folder = await vaultClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL, displayStyle);
             const displayURL = folder.custom_url || folder.slug;
-            showAlert('success', `✅ Vault folder created: ${displayURL} → vault_folders`);
+            showAlert('success', `✅ Vault folder created: ${displayURL} → vault_folders${displayStyle === 'collection' ? ' (Collection style)' : ''}`);
         } else {
             folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
             const folderTypeLabel = folderType === 'sub_root' ? 'Sub-root folder' : 'Root folder';
@@ -549,6 +551,7 @@ async function createFolder() {
         document.getElementById('parentFolder').value = '';
         document.getElementById('folderCustomURL').value = '';
         document.getElementById('urlPreview').textContent = 'URL: (will be auto-generated)';
+        if (document.getElementById('folderDisplayStyle')) document.getElementById('folderDisplayStyle').value = 'default';
         updateFolderTypeUI();
         
         // Reload data
@@ -905,17 +908,23 @@ async function saveContent(event) {
         };
         
         if (editMode) {
-            // Detect if this is a vault content item by checking folder ownership
-            const isVault = vaultFolders.some(f => f.id === folderId);
-            if (isVault) {
-                debugLog('✏️ Updating vault content: ' + contentId);
-                await vaultClient.updateContent(contentId, contentData);
+            if (editingSeriesContent) {
+                debugLog('✏️ Updating series content: ' + contentId);
+                await vaultClient.updateSeriesContent(contentId, contentData);
+                showAlert('success', `✅ Series content updated`);
             } else {
-                debugLog('✏️ Updating library content: ' + contentId);
-                await supabaseClient.updateContent(contentId, contentData, folderId);
+                // Detect if this is a vault content item by checking folder ownership
+                const isVault = vaultFolders.some(f => f.id === folderId);
+                if (isVault) {
+                    debugLog('✏️ Updating vault content: ' + contentId);
+                    await vaultClient.updateContent(contentId, contentData);
+                } else {
+                    debugLog('✏️ Updating library content: ' + contentId);
+                    await supabaseClient.updateContent(contentId, contentData, folderId);
+                }
+                const displayURL = customURL || 'auto-generated';
+                showAlert('success', `✅ Content updated (URL: ${displayURL})`);
             }
-            const displayURL = customURL || 'auto-generated';
-            showAlert('success', `✅ Content updated (URL: ${displayURL})`);
         } else {
             // ── Route by destination ──
             const destination = document.getElementById('contentDestination')?.value || 'library';
@@ -926,14 +935,24 @@ async function saveContent(event) {
                     showAlert('error', '❌ Vault client not connected. Make sure vault/vault-supabase-client.js is deployed and refresh the page.');
                     return;
                 }
-                debugLog('🥷 Creating vault content: ' + title);
-                result = await vaultClient.createContent(contentData);
+                const targetFolder = vaultFolders.find(f => f.id === folderId);
+                const isSeriesFolder = targetFolder && targetFolder.display_style === 'collection';
+                if (isSeriesFolder) {
+                    debugLog('🎬 Creating series content: ' + title);
+                    result = await vaultClient.createSeriesContent(contentData);
+                    showAlert('success', `✅ Series content saved to "${targetFolder.title}"`);
+                } else {
+                    debugLog('🥷 Creating vault content: ' + title);
+                    result = await vaultClient.createContent(contentData);
+                    const displayURL = result.custom_url || result.slug;
+                    showAlert('success', `✅ Content saved (URL: ${displayURL})`);
+                }
             } else {
                 debugLog('➕ Creating library content: ' + title);
                 result = await supabaseClient.createContent(contentData);
+                const displayURL = result.custom_url || result.slug;
+                showAlert('success', `✅ Content saved (URL: ${displayURL})`);
             }
-            const displayURL = result.custom_url || result.slug;
-            showAlert('success', `✅ Content saved (URL: ${displayURL})`);
         }
         
         // Reset form
@@ -1040,6 +1059,7 @@ function resetContentForm() {
     
     currentFile = null;
     currentThumbnail = null;
+    editingSeriesContent = false;
 }
 
 // ==================== UI DISPLAY ====================
@@ -1246,6 +1266,9 @@ function displayVaultFoldersGrid() {
         const subfoldersCount = subfolders.length;
         const itemCount = folder.actual_item_count || 0;
         const displayURL = folder.table_name || folder.slug;
+        const styleBadge = folder.display_style === 'collection'
+            ? '<div style="position:absolute; top:8px; right:8px; background:rgba(0,212,200,0.2); color:#00d4c8; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:600;">🎬 Collection</div>'
+            : '';
 
         const countLabel = subfoldersCount > 0
             ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${itemCount} item${itemCount !== 1 ? 's' : ''}`
@@ -1253,7 +1276,8 @@ function displayVaultFoldersGrid() {
 
         html += `
             <div class="folder-grid-card" onclick="openVaultFolderSidebar('${folder.id}')"
-                 style="border-color: rgba(109, 40, 217, 0.5);">
+                 style="border-color: rgba(109, 40, 217, 0.5); position:relative;">
+                ${styleBadge}
                 <div class="folder-icon">📁</div>
                 <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
                 <div class="folder-grid-meta">${countLabel}</div>
@@ -1281,6 +1305,13 @@ async function openVaultFolderSidebar(folderId) {
             <h3 style="margin: 0; color: #c084fc; font-size: 18px;">${escapeHtml(folder.title)}</h3>
             <div style="font-size: 12px; color: #808080; margin-top: 4px;">Table: <strong style="color: #8b5cf6;">${folder.table_name || folder.slug}</strong></div>
             ${folder.description ? `<div style="font-size: 12px; color: #999; margin-top: 2px;">${escapeHtml(folder.description)}</div>` : ''}
+            <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 11px; color: #808080;">Landing Style:</label>
+                <select onchange="setVaultFolderDisplayStyle('${folder.id}', this.value)" style="font-size: 12px; padding: 4px 8px; background: rgba(139,92,246,0.15); color: #c084fc; border: 1px solid rgba(139,92,246,0.4); border-radius: 4px;">
+                    <option value="default" ${folder.display_style !== 'collection' ? 'selected' : ''}>Default</option>
+                    <option value="collection" ${folder.display_style === 'collection' ? 'selected' : ''}>Collection / Series</option>
+                </select>
+            </div>
         </div>
         <div style="display: flex; gap: 8px;">
             <button onclick="deleteVaultFolder('${folder.id}')" style="padding: 6px 12px; font-size: 12px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">🗑️ Delete</button>
@@ -1315,6 +1346,47 @@ async function openVaultFolderSidebar(folderId) {
         contentHtml += '</div>';
     }
 
+    // Content items — collection folders use content_series, everything
+    // else uses vault_content exactly as before
+    if (folder.display_style === 'collection') {
+        try {
+            const items = await vaultClient.getContentSeries(folderId);
+            if (items.length > 0) {
+                contentHtml += `<div><h4 style="color:#c084fc; font-size:14px; margin-bottom:12px; border-bottom:1px solid rgba(192,132,252,0.2); padding-bottom:8px;">🎬 Series Content (${items.length})</h4>`;
+                const iconMap = {
+                    pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵',
+                    gif: '🎞️', flipbook: '📖', presentation: '📊', other: '📎'
+                };
+                items.forEach(item => {
+                    const icon = iconMap[item.type] || iconMap.other;
+                    const thumbnailHtml = item.thumbnail_url
+                        ? `<img src="${item.thumbnail_url}" style="width:100%; max-width:150px; height:auto; border-radius:8px; object-fit:cover;" alt="Thumbnail">`
+                        : `<div style="width:100%; max-width:150px; height:200px; background:#1a0d35; display:flex; align-items:center; justify-content:center; color:#999; font-size:48px; border-radius:8px;">${icon}</div>`;
+                    contentHtml += `
+                        <div class="content-card" style="margin-bottom:10px;">
+                            ${thumbnailHtml}
+                            <div class="content-info">
+                                <div class="content-title">${escapeHtml(item.title)}</div>
+                                <div class="content-meta">Type: ${item.type.toUpperCase()} | Views: ${item.view_count || 0}</div>
+                                ${item.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(item.url)}" target="_blank" style="color:#007bff;">${truncateURL(item.url)}</a></div>` : '<div class="content-meta" style="color:#dc3545;">⚠️ No URL</div>'}
+                                ${item.description ? `<div class="content-meta">${escapeHtml(item.description)}</div>` : ''}
+                            </div>
+                            <div class="content-actions">
+                                <button onclick="editSeriesContentItem('${item.id}', '${folderId}')">Edit</button>
+                                <button class="delete" onclick="deleteSeriesContentItem('${item.id}', '${folderId}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                contentHtml += '</div>';
+            } else {
+                contentHtml += '<p style="color:#999; text-align:center; padding:20px;">No series content yet. Set Destination to Aurion Vault and Folder to this one when adding content below.</p>';
+            }
+        } catch (e) {
+            console.error('Error loading series content:', e);
+            contentHtml += '<p style="color:#e74c3c;">Error loading series content.</p>';
+        }
+    } else {
     // Content items — load from vault_content
     try {
         const items = await vaultClient.getContentByFolder(folderId);
@@ -1418,6 +1490,7 @@ async function openVaultFolderSidebar(folderId) {
         console.error('Error loading vault content:', e);
         contentHtml += '<p style="color:#e74c3c; font-size:12px;">Error loading content items.</p>';
     }
+    }
 
     if (contentHtml === '') {
         contentHtml = '<p style="color:#999; text-align:center; padding:30px;">No content yet. Add content above using 🥷 Aurion Vault destination.</p>';
@@ -1477,6 +1550,65 @@ async function moveVaultContentDown(contentId, folderId) {
         openVaultFolderSidebar(folderId);
     } catch (e) {
         showAlert('error', 'Error reordering: ' + e.message);
+    }
+}
+
+// ==================== SERIES CONTENT — EDIT / DELETE ====================
+function editSeriesContentItem(contentId, folderId) {
+    vaultClient.getSeriesContentItem(contentId).then(item => {
+        if (!item) { showAlert('error', 'Series content item not found'); return; }
+
+        document.getElementById('editMode').value = 'true';
+        document.getElementById('contentId').value = item.id;
+        document.getElementById('contentFormTitle').textContent = '✏️ Edit Series Content';
+        document.getElementById('saveButton').textContent = '💾 Update Series Content';
+        editingSeriesContent = true;
+
+        document.getElementById('contentFolder').value = item.folder_id;
+        document.getElementById('contentTitle').value = item.title;
+        document.getElementById('contentType').value = item.type;
+        document.getElementById('contentUrl').value = item.url || '';
+        document.getElementById('externalUrl').value = item.external_url || '';
+        document.getElementById('contentDescription').value = item.description || '';
+        document.getElementById('contentCustomURL').value = item.custom_url || '';
+
+        currentFile = null;
+        currentThumbnail = null;
+
+        if (item.thumbnail_url) {
+            const preview = document.getElementById('thumbnailPreview');
+            preview.src = item.thumbnail_url;
+            preview.style.display = 'block';
+        }
+
+        document.getElementById('contentForm').scrollIntoView({ behavior: 'smooth' });
+    }).catch(error => {
+        showAlert('error', 'Error loading series content: ' + error.message);
+    });
+}
+
+async function deleteSeriesContentItem(contentId, folderId) {
+    if (!confirm('Delete this series content item?')) return;
+
+    try {
+        await vaultClient.deleteSeriesContent(contentId);
+        showAlert('success', '✅ Series content deleted');
+        await loadAllData();
+        if (folderId) openVaultFolderSidebar(folderId);
+    } catch (error) {
+        showAlert('error', 'Error deleting series content: ' + error.message);
+    }
+}
+
+// ==================== VAULT FOLDER — LANDING STYLE TOGGLE ====================
+async function setVaultFolderDisplayStyle(folderId, style) {
+    try {
+        await vaultClient.updateFolder(folderId, { display_style: style });
+        showAlert('success', `✅ Landing style set to "${style === 'collection' ? 'Collection / Series' : 'Default'}"`);
+        await loadAllData();
+        openVaultFolderSidebar(folderId);
+    } catch (error) {
+        showAlert('error', 'Error updating landing style: ' + error.message);
     }
 }
 
