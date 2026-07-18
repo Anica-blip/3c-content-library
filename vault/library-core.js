@@ -354,11 +354,33 @@ async function displayCollectionGrid(folder) {
             'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%231a0f2e" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" font-size="80"%3E' + encodeURIComponent(getTypeIcon(item.type)) + '%3C/text%3E%3C/svg%3E';
         return `
             <div class="series-card" onclick="openSeriesItem('${item.id}')" style="cursor: pointer; display: flex; flex-direction: column; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
-                <div class="series-thumb" style="aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background-image: url('${thumb}'); background-size: cover; background-position: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(155,89,182,0.2);"></div>
+                <div class="series-thumb" style="position: relative; aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background-image: url('${thumb}'); background-size: cover; background-position: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(155,89,182,0.2);">
+                    <button onclick="event.stopPropagation(); copySeriesLink('${item.id}')" title="Copy link" style="position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(10,4,22,0.65); backdrop-filter: blur(4px); color: #c084fc; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(123,63,228,0.55)'" onmouseout="this.style.background='rgba(10,4,22,0.65)'">🔗</button>
+                </div>
                 <div class="series-title" style="margin-top: 8px; font-size: 13px; color: #ffffff; text-align: center; line-height: 1.3;">${escapeHtml(item.title)}</div>
             </div>
         `;
     }).join('');
+}
+
+// ==================== COPY SERIES LINK ====================
+// Copies the most direct usable link for this item. External-app
+// types (quiz, card-game, etc.) share their own URL directly, since
+// that already opens exactly that one item on its own. Types that
+// render inside the vault's own viewer share the raw file URL —
+// good enough for sharing today; a fully wrapped deep-link (opening
+// straight into this grid's viewer) is a separate feature if wanted
+// later.
+function copySeriesLink(itemId) {
+    const item = seriesItemsCache.find(i => i.id === itemId);
+    if (!item) return;
+    const link = item.url || item.external_url || '';
+    if (!link) { alert('This item has no link to copy.'); return; }
+    navigator.clipboard.writeText(link).then(() => {
+        alert('✅ Link copied!\n\n' + item.title + '\n' + link);
+    }).catch(() => {
+        prompt('Copy this link:', link);
+    });
 }
 
 // ==================== OPEN SERIES ITEM ====================
@@ -389,8 +411,19 @@ function openSeriesItem(itemId) {
     if (item.type === 'audio') { openSeriesMedia(item, 'audio'); return; }
     if (item.type === 'image' || item.type === 'gif') { openSeriesMedia(item, 'image'); return; }
 
-    // Fallback — external link
-    window.open(item.url || item.external_url || '#', '_blank');
+    // Quiz, card-game, spin-wheel, landing-page, virtual-slideshow,
+    // link — these are external, single-page apps (like the 3C quiz
+    // engine). Same-tab navigation, matching every other type here.
+    // The browser's own Back button returns to this grid, since it's
+    // a real navigation, not a popup.
+    if (item.type === 'quiz' || item.type === 'card-game' || item.type === 'spin-wheel' ||
+        item.type === 'landing-page' || item.type === 'virtual-slideshow' || item.type === 'link') {
+        window.location.href = item.url || item.external_url || '#';
+        return;
+    }
+
+    // Fallback for anything unrecognised — still same-tab, not a new one
+    window.location.href = item.url || item.external_url || '#';
 }
 
 // ==================== SERIES MEDIA MODAL ====================
