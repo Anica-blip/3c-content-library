@@ -85,6 +85,14 @@
                 <small>Choose where this folder is saved. Library = public library tables. Aurion Vault = vault tables.</small>
             </div>
             <div class="form-group">
+                <label>Landing Style</label>
+                <select id="folderDisplayStyle">
+                    <option value="default">Default (folder list + sidebar viewer)</option>
+                    <option value="collection">Collection / Series (grid of thumbnails, click to view)</option>
+                </select>
+                <small>Collection style shows all content as a wrapping grid — no subfolders, no fixed order. Currently only applies to Aurion Vault folders.</small>
+            </div>
+            <div class="form-group">
                 <label>Folder Type *</label>
                 <select id="folderType" onchange="updateFolderTypeUI()">
                     <option value="root">Root Folder</option>
