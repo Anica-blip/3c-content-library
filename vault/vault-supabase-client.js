@@ -89,15 +89,19 @@ class VaultSupabaseClient {
             // counts vault_content, so it always shows 0 here. Compute
             // the real count from content_series and override it.
             const collectionFolderIds = foldersList.filter(f => f.display_style === 'collection').map(f => f.id);
+            console.log('📊 getFolders(): collection-style folder IDs found:', collectionFolderIds);
             if (collectionFolderIds.length > 0) {
                 try {
                     const { data: seriesRows, error: seriesError } = await this.client
                         .from('content_series')
                         .select('folder_id')
                         .in('folder_id', collectionFolderIds);
-                    if (!seriesError && seriesRows) {
+                    if (seriesError) {
+                        console.error('📊 getFolders(): content_series count query FAILED:', seriesError);
+                    } else if (seriesRows) {
                         const countMap = {};
                         seriesRows.forEach(r => { countMap[r.folder_id] = (countMap[r.folder_id] || 0) + 1; });
+                        console.log('📊 getFolders(): content_series row counts by folder:', countMap);
                         foldersList.forEach(f => {
                             if (f.display_style === 'collection') {
                                 f.actual_item_count = countMap[f.id] || 0;
@@ -467,6 +471,24 @@ class VaultSupabaseClient {
 
         if (error) throw error;
         return true;
+    }
+
+    /**
+     * Increment view count for a series content item
+     */
+    async incrementSeriesViewCount(contentId) {
+        const { data: current } = await this.client
+            .from('content_series')
+            .select('view_count')
+            .eq('id', contentId)
+            .single();
+
+        if (current) {
+            await this.client
+                .from('content_series')
+                .update({ view_count: (current.view_count || 0) + 1 })
+                .eq('id', contentId);
+        }
     }
 
     // ==================== PASSWORD OPERATIONS ====================
