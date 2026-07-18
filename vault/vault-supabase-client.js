@@ -64,7 +64,29 @@ class VaultSupabaseClient {
             .order('created_at', { ascending: false });
 
         if (error) throw error;
-        return data || [];
+
+        const foldersList = data || [];
+
+        // display_style may not be exposed by vault_folders_with_stats
+        // depending on how that view was defined — fetch it directly
+        // from vault_folders and merge in by id, so this works
+        // regardless of the view's column list.
+        if (foldersList.length > 0) {
+            try {
+                const { data: styles, error: styleError } = await this.client
+                    .from('vault_folders')
+                    .select('id, display_style');
+                if (!styleError && styles) {
+                    const styleMap = {};
+                    styles.forEach(s => { styleMap[s.id] = s.display_style; });
+                    foldersList.forEach(f => { f.display_style = styleMap[f.id] || f.display_style || 'default'; });
+                }
+            } catch (e) {
+                console.warn('Could not merge display_style from vault_folders:', e);
+            }
+        }
+
+        return foldersList;
     }
 
     /**
