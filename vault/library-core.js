@@ -308,7 +308,7 @@ async function displayCollectionGrid(folder, highlightSlug) {
 
     const viewer = document.getElementById('viewer');
     viewer.innerHTML = `
-        <button onclick="window.location.href='vault.html'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>
+        <button id="collectionBackBtn" onclick="window.location.href='vault.html'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>
         <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 4px;">${escapeHtml(folder.title)}</h2>
         ${folder.description ? '<div style="color:#9a8fb0; font-size:13px; margin-bottom:20px;">' + escapeHtml(folder.description) + '</div>' : '<div style="margin-bottom:20px;"></div>'}
         <div class="series-grid" id="seriesGrid"></div>
@@ -323,6 +323,9 @@ async function displayCollectionGrid(folder, highlightSlug) {
         style.id = 'seriesGridStyle';
         style.textContent = `
             .series-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
+            @media (min-width: 769px) {
+                #collectionBackBtn { display: none !important; }
+            }
             @media (max-width: 768px) {
                 .series-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
                 .series-grid .series-card { flex-direction: row !important; align-items: center; gap: 14px; }
