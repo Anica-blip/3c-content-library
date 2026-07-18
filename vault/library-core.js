@@ -88,7 +88,7 @@ async function loadData() {
 // ==================== URL PARAMS ====================
 function getUrlParams() {
     const params = new URLSearchParams(window.location.search);
-    return { folder: params.get('folder'), content: params.get('content'), url: params.get('url'), view: params.get('view') };
+    return { folder: params.get('folder'), content: params.get('content'), url: params.get('url'), view: params.get('view'), highlight: params.get('highlight') };
 }
 
 // ==================== FIND HELPERS ====================
@@ -188,7 +188,7 @@ async function displayContent() {
     console.log('🔍 Folder display style check:', currentFolder.title, '→ displayStyle =', JSON.stringify(currentFolder.displayStyle));
     if (currentFolder.displayStyle === 'collection') {
         console.log('🎬 Routing to displayCollectionGrid()');
-        await displayCollectionGrid(currentFolder);
+        await displayCollectionGrid(currentFolder, params.highlight);
         return;
     } else {
         console.log('📋 Routing to default sidebar layout (displayStyle was not "collection")');
@@ -298,7 +298,7 @@ function displayAllFolders() {
 
 let seriesItemsCache = [];
 
-async function displayCollectionGrid(folder) {
+async function displayCollectionGrid(folder, highlightSlug) {
     console.log('🎬 displayCollectionGrid() started for folder:', folder.title, folder.id);
     document.querySelector('.folders-section').style.display = 'none';
     document.getElementById('contentViewer').style.display = 'block';
@@ -317,6 +317,7 @@ async function displayCollectionGrid(folder) {
     // One-time responsive rule for the series grid — desktop wraps
     // across as many columns as fit, mobile stacks single-column
     // downward, matching the rest of this site's 768px breakpoint.
+    // Also defines the highlight glow for shared links.
     if (!document.getElementById('seriesGridStyle')) {
         const style = document.createElement('style');
         style.id = 'seriesGridStyle';
@@ -327,6 +328,14 @@ async function displayCollectionGrid(folder) {
                 .series-grid .series-card { flex-direction: row !important; align-items: center; gap: 14px; }
                 .series-grid .series-thumb { width: 90px !important; flex-shrink: 0; aspect-ratio: 1 !important; }
                 .series-grid .series-title { text-align: left !important; margin-top: 0 !important; }
+            }
+            .series-card.series-highlighted .series-thumb {
+                box-shadow: 0 0 0 3px #00d4c8, 0 0 24px rgba(0,212,200,0.55) !important;
+                animation: seriesHighlightPulse 1.6s ease-in-out 3;
+            }
+            @keyframes seriesHighlightPulse {
+                0%, 100% { box-shadow: 0 0 0 3px #00d4c8, 0 0 22px rgba(0,212,200,0.35); }
+                50%      { box-shadow: 0 0 0 5px #00d4c8, 0 0 34px rgba(0,212,200,0.75); }
             }
         `;
         document.head.appendChild(style);
@@ -353,7 +362,7 @@ async function displayCollectionGrid(folder) {
         const thumb = item.thumbnail_url ||
             'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%231a0f2e" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" font-size="80"%3E' + encodeURIComponent(getTypeIcon(item.type)) + '%3C/text%3E%3C/svg%3E';
         return `
-            <div class="series-card" onclick="openSeriesItem('${item.id}')" style="cursor: pointer; display: flex; flex-direction: column; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
+            <div class="series-card" data-item-id="${item.id}" data-custom-url="${item.custom_url || item.slug || ''}" onclick="openSeriesItem('${item.id}')" style="cursor: pointer; display: flex; flex-direction: column; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
                 <div class="series-thumb" style="position: relative; aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background-image: url('${thumb}'); background-size: cover; background-position: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(155,89,182,0.2);">
                     <button onclick="event.stopPropagation(); copySeriesLink('${item.id}')" title="Copy link" style="position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(10,4,22,0.65); backdrop-filter: blur(4px); color: #c084fc; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(123,63,228,0.55)'" onmouseout="this.style.background='rgba(10,4,22,0.65)'">🔗</button>
                 </div>
@@ -361,23 +370,41 @@ async function displayCollectionGrid(folder) {
             </div>
         `;
     }).join('');
+
+    // Shared-link highlight — find the item this link pointed at,
+    // glow it, and scroll it into view, without hiding the rest of
+    // the grid. Matches on custom_url first, falls back to raw id.
+    if (highlightSlug) {
+        const target = seriesItemsCache.find(i => i.custom_url === highlightSlug || i.slug === highlightSlug || i.id === highlightSlug);
+        if (target) {
+            const card = grid.querySelector(`[data-item-id="${target.id}"]`);
+            if (card) {
+                card.classList.add('series-highlighted');
+                setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+            }
+        } else {
+            console.warn('Highlight target not found in this folder:', highlightSlug);
+        }
+    }
 }
 
 // ==================== COPY SERIES LINK ====================
-// Copies the most direct usable link for this item. External-app
-// types (quiz, card-game, etc.) share their own URL directly, since
-// that already opens exactly that one item on its own. Types that
-// render inside the vault's own viewer share the raw file URL —
-// good enough for sharing today; a fully wrapped deep-link (opening
-// straight into this grid's viewer) is a separate feature if wanted
-// later.
+// Copies a library URL — ?folder=X&highlight=Y — so visitors land
+// in the Vault first (traffic + view tracking) rather than skipping
+// straight to an external quiz app. Opens the full grid with that
+// one item glowing and scrolled into view, keeping the "browse
+// everything" feel intact rather than isolating a single item.
 function copySeriesLink(itemId) {
     const item = seriesItemsCache.find(i => i.id === itemId);
     if (!item) return;
-    const link = item.url || item.external_url || '';
-    if (!link) { alert('This item has no link to copy.'); return; }
+
+    const baseUrl = window.location.origin + window.location.pathname;
+    const folderSlug = currentFolder ? (currentFolder.tableName || currentFolder.slug) : '';
+    const itemSlug = item.custom_url || item.slug || item.id;
+    const link = baseUrl + '?folder=' + encodeURIComponent(folderSlug) + '&highlight=' + encodeURIComponent(itemSlug);
+
     navigator.clipboard.writeText(link).then(() => {
-        alert('✅ Link copied!\n\n' + item.title + '\n' + link);
+        alert('✅ Library link copied!\n\n' + item.title + '\n' + link);
     }).catch(() => {
         prompt('Copy this link:', link);
     });
@@ -387,6 +414,12 @@ function copySeriesLink(itemId) {
 function openSeriesItem(itemId) {
     const item = seriesItemsCache.find(i => i.id === itemId);
     if (!item) return;
+
+    // Track that this item was opened — fire and forget, never
+    // blocks navigation. Shows up as "Views" in the admin panel.
+    if (typeof vaultClient !== 'undefined' && vaultClient.incrementSeriesViewCount) {
+        vaultClient.incrementSeriesViewCount(item.id).catch(() => {});
+    }
 
     if (item.type === 'pdf') {
         openPDFModal(item.url, item.title, item.id);
