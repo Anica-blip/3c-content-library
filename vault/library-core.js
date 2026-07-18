@@ -454,16 +454,24 @@ async function openFolderSidebar(folderId) {
     const subfolders = library.folders.filter(f => f.parentId === folderId).sort((a, b) => a.title.localeCompare(b.title));
 
     let folderContent = [];
-    try {
-        const { data, error } = await vaultClient.client.from('vault_content')
-            .select('id, folder_id, title, type, url, thumbnail_url, description, slug, display_order')
-            .eq('folder_id', folderId).order('display_order', { ascending: true });
-        console.log('Vault sidebar query result:', { data, error, count: data ? data.length : 0 });
-        if (!error && data) {
-            folderContent = data.map(item => ({ id: item.id, title: item.title, slug: item.slug, type: item.type, folderId: item.folder_id, url: item.url, thumbnail: item.thumbnail_url, description: item.description, order: item.display_order }));
-            console.log('Loaded vault folder content:', folderContent.length, 'items');
-        } else if (error) { console.error('Vault sidebar Supabase error:', error); }
-    } catch (err) { console.error('Error loading vault folder content:', err); }
+    if (folder.displayStyle === 'collection') {
+        try {
+            const items = await vaultClient.getContentSeries(folderId);
+            folderContent = items.map(item => ({ id: item.id, title: item.title, slug: item.slug, type: item.type, folderId: item.folder_id, url: item.url, thumbnail: item.thumbnail_url, description: item.description, order: item.display_order }));
+            console.log('Loaded series folder content:', folderContent.length, 'items');
+        } catch (err) { console.error('Error loading series folder content:', err); }
+    } else {
+        try {
+            const { data, error } = await vaultClient.client.from('vault_content')
+                .select('id, folder_id, title, type, url, thumbnail_url, description, slug, display_order')
+                .eq('folder_id', folderId).order('display_order', { ascending: true });
+            console.log('Vault sidebar query result:', { data, error, count: data ? data.length : 0 });
+            if (!error && data) {
+                folderContent = data.map(item => ({ id: item.id, title: item.title, slug: item.slug, type: item.type, folderId: item.folder_id, url: item.url, thumbnail: item.thumbnail_url, description: item.description, order: item.display_order }));
+                console.log('Loaded vault folder content:', folderContent.length, 'items');
+            } else if (error) { console.error('Vault sidebar Supabase error:', error); }
+        } catch (err) { console.error('Error loading vault folder content:', err); }
+    }
 
     document.getElementById('sidebarFolderTitle').innerHTML = `<div><h3 style="margin: 0; color: #9b59b6; font-size: 18px;">${folder.title}</h3><div style="font-size: 12px; color: #808080; margin-top: 4px;">${folder.tableName || folder.slug}</div></div>`;
 
@@ -476,9 +484,10 @@ async function openFolderSidebar(folderId) {
     }
     if (folderContent.length > 0) {
         const itemCount = folderContent.length;
+        const isCollection = folder.displayStyle === 'collection';
         if (subfolders.length > 0) contentHtml += '<hr style="border: none; border-top: 1px solid rgba(155, 89, 182, 0.3); margin: 20px 0;">';
-        contentHtml += '<p style="color: #9b59b6; margin-top: 15px; font-size: 14px;">📄 This folder has ' + itemCount + ' content item' + (itemCount !== 1 ? 's' : '') + '. Click to view:</p>';
-        contentHtml += '<button onclick="window.location.href=\'?folder=' + (folder.tableName || folder.slug) + '\'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 12px rgba(155, 89, 182, 0.4)\'" onmouseout="this.style.transform=\'\'; this.style.boxShadow=\'0 2px 8px rgba(155, 89, 182, 0.3)\'">📂 View Content (' + itemCount + ')</button>';
+        contentHtml += '<p style="color: #9b59b6; margin-top: 15px; font-size: 14px;">' + (isCollection ? '🎬' : '📄') + ' This folder has ' + itemCount + ' content item' + (itemCount !== 1 ? 's' : '') + '. Click to view:</p>';
+        contentHtml += '<button onclick="window.location.href=\'?folder=' + (folder.tableName || folder.slug) + '\'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 12px rgba(155, 89, 182, 0.4)\'" onmouseout="this.style.transform=\'\'; this.style.boxShadow=\'0 2px 8px rgba(155, 89, 182, 0.3)\'">' + (isCollection ? '🎬 View Collection (' : '📂 View Content (') + itemCount + ')</button>';
     }
     if (folderContent.length === 0 && subfolders.length === 0) contentHtml = '<p style="color: #999; text-align: center; padding: 40px;">No sub-folders or content yet.</p>';
     document.getElementById('sidebarContent').innerHTML = contentHtml;
