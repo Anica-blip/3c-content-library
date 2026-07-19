@@ -323,13 +323,11 @@ async function displayCollectionGrid(folder, highlightSlug) {
         style.id = 'seriesGridStyle';
         style.textContent = `
             .series-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
-            @media (min-width: 769px) {
-                #collectionBackBtn { display: none !important; }
-            }
+            #collectionBackBtn { display: none !important; }
             @media (max-width: 768px) {
                 .series-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
                 .series-grid .series-card { flex-direction: row !important; align-items: center; gap: 14px; }
-                .series-grid .series-thumb { width: 90px !important; flex-shrink: 0; aspect-ratio: 1 !important; }
+                .series-grid .series-thumb { width: 130px !important; flex-shrink: 0; aspect-ratio: 1 !important; }
                 .series-grid .series-title { text-align: left !important; margin-top: 0 !important; }
             }
             .series-card.series-highlighted .series-thumb {
@@ -482,7 +480,9 @@ function openSeriesMedia(item, kind) {
     const container = document.getElementById('mediaContainer');
     if (!modal || !container) return;
 
-    if (title) title.textContent = item.title || '';
+    // Iframe-embedded apps already show their own title on screen —
+    // showing ours too was just a duplicate sitting above it.
+    if (title) title.textContent = (kind === 'iframe') ? '' : (item.title || '');
     container.innerHTML = '';
 
     if (kind === 'video') {
@@ -492,7 +492,13 @@ function openSeriesMedia(item, kind) {
     } else if (kind === 'image') {
         container.innerHTML = '<img src="' + item.url + '" style="display:block; max-width:90vw; max-height:80vh; width:auto; height:auto; border-radius:8px;">';
     } else if (kind === 'iframe') {
-        container.innerHTML = '<iframe src="' + (item.url || item.external_url) + '" style="width:90vw; max-width:1100px; height:85vh; border:none; border-radius:8px; background:#fff;" allow="autoplay; fullscreen"></iframe>';
+        // No border, no radius, no background — the app itself already
+        // has its own bezel/frame/background designed in. This iframe
+        // is just an invisible window behind it, sized to nearly the
+        // full viewport so nothing of the app's own screen gets cut off.
+        container.style.maxWidth = '100vw';
+        container.style.maxHeight = '100vh';
+        container.innerHTML = '<iframe src="' + (item.url || item.external_url) + '" style="width:98vw; height:96vh; border:none; background:transparent; display:block;" allow="autoplay; fullscreen"></iframe>';
     }
 
     modal.style.display = 'flex';
