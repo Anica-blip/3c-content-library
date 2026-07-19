@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drop In — Aurion's Vault</title>
+<link rel="icon" type="image/png" href="../favicon1.png">
+<style>
+    :root {
+        --bg-primary: #0a0416;
+        --bg-chat: rgba(26, 26, 26, 0.95);
+        --purple-light: #9b59b6;
+        --purple-medium: #8e44ad;
+        --accent: #7b3fe4;
+        --teal: #00d4c8;
+        --text-primary: #ffffff;
+        --text-dim: rgba(240, 234, 248, 0.55);
+        --border: rgba(155, 89, 182, 0.25);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+        width: 100%; height: 100%;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        overflow-x: hidden;
+    }
+    .header {
+        background: linear-gradient(135deg, #2d1b69 0%, #4a2c8f 50%, #3b1f7a 100%);
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 2px 20px rgba(74, 44, 143, 0.4);
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-left img {
+        height: 36px; width: 36px; border-radius: 50%;
+        object-fit: cover; background: white; padding: 3px;
+    }
+    .header-left h1 {
+        font-size: 18px;
+        font-weight: 800;
+        color: #c084fc;
+        text-shadow: 0 0 16px rgba(192, 132, 252, 0.55);
+        letter-spacing: 0.3px;
+    }
+    .icon-btn {
+        background: rgba(155, 89, 182, 0.15);
+        border: 1px solid rgba(155, 89, 182, 0.35);
+        color: #c084fc;
+        width: 34px; height: 34px;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .icon-btn:hover { background: rgba(155, 89, 182, 0.3); border-color: rgba(155,89,182,0.6); }
+    .icon-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .main {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 24px 16px 100px;
+        min-height: calc(100vh - 64px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* PERSONA PICKER — compact row, sits close to the header */
+    .intro-hint { text-align: center; font-size: 12px; color: var(--text-dim); margin: 14px 0 10px; }
+
+    .persona-grid { display: flex; justify-content: center; gap: 22px; margin-bottom: 26px; }
+    .persona-card {
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 10px;
+        transition: all 0.2s;
+    }
+    .persona-card:hover .persona-avatar { transform: translateY(-2px); box-shadow: 0 0 0 2px var(--persona-color, var(--purple-light)); }
+    .persona-card.selected .persona-avatar { box-shadow: 0 0 0 2px var(--persona-color, var(--purple-light)), 0 0 12px rgba(123,63,228,0.5); }
+    .persona-avatar {
+        width: 20px; height: 20px; border-radius: 50%;
+        background-size: cover; background-position: center;
+        background-color: var(--persona-color, var(--purple-light));
+        transition: all 0.2s;
+    }
+    .persona-card .p-name { font-size: 10px; font-weight: 600; color: #fff; }
+    .persona-card .p-role { font-size: 8px; color: var(--text-dim); }
+
+    .start-form { display: flex; flex-direction: column; gap: 10px; }
+    .start-form textarea {
+        width: 100%; min-height: 180px; resize: vertical;
+        background: var(--bg-chat); border: 1px solid var(--border);
+        border-radius: 12px; padding: 16px; color: #fff; font-size: 15px;
+        font-family: inherit; line-height: 1.6;
+    }
+    .start-form textarea:focus { outline: none; border-color: var(--accent); }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--purple-light), var(--purple-medium));
+        color: #fff; border: none; padding: 12px 20px; border-radius: 10px;
+        font-size: 14px; font-weight: 600; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        transition: all 0.2s;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(155,89,182,0.4); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-primary svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .disclaimer {
+        font-size: 11px; color: var(--text-dim); text-align: center;
+        margin-top: 4px; line-height: 1.5;
+    }
+
+    .email-alt {
+        text-align: center; margin-top: 22px; padding-top: 18px;
+        border-top: 1px solid var(--border);
+        font-size: 12px; color: var(--text-dim); line-height: 1.6;
+    }
+    .email-alt a { color: var(--teal); text-decoration: none; }
+    .email-alt a:hover { text-decoration: underline; }
+
+    /* CHAT VIEW */
+    .chat-view { display: none; flex-direction: column; flex: 1; }
+    .chat-top {
+        display: flex; align-items: center; gap: 10px;
+        background: var(--bg-chat); border: 1px solid var(--border);
+        border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;
+    }
+    .chat-top .persona-avatar { width: 38px; height: 38px; font-size: 14px; margin: 0; flex-shrink: 0; }
+    .chat-top .chat-top-info { flex: 1; }
+    .chat-top .chat-top-info .p-name { font-size: 13px; font-weight: 600; color: #fff; }
+    .chat-top .status-line { font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .status-dot.pending { background: #f0ad4e; }
+    .status-dot.replied { background: #27ae60; }
+    .status-dot.active { background: #00d4c8; }
+
+    .messages { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; flex: 1; }
+    .msg { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; }
+    .msg.visitor { align-self: flex-end; background: linear-gradient(135deg, var(--purple-medium), var(--accent)); color: #fff; border-bottom-right-radius: 4px; }
+    .msg.persona { align-self: flex-start; background: var(--bg-chat); border: 1px solid var(--border); color: #f0eaf8; border-bottom-left-radius: 4px; }
+    .msg-time { font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+    .composer {
+        display: flex; gap: 8px; align-items: flex-end;
+        background: var(--bg-chat); border: 1px solid var(--border);
+        border-radius: 12px; padding: 10px;
+        position: sticky; bottom: 16px;
+    }
+    .composer textarea {
+        flex: 1; background: transparent; border: none; color: #fff;
+        font-size: 14px; font-family: inherit; resize: none; min-height: 22px; max-height: 100px;
+    }
+    .composer textarea:focus { outline: none; }
+    .composer .icon-btn { flex-shrink: 0; background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); border: none; color: #fff; }
+
+    .thread-link-note {
+        font-size: 11px; color: var(--text-dim); text-align: center; margin-bottom: 14px;
+        display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
+    }
+    .thread-link-note button {
+        background: none; border: 1px solid var(--border); color: var(--teal);
+        font-size: 11px; padding: 3px 10px; border-radius: 20px; cursor: pointer;
+    }
+
+    .new-chat-link { text-align: center; margin-top: 10px; }
+    .new-chat-link a { font-size: 12px; color: var(--text-dim); text-decoration: underline; cursor: pointer; }
+
+    #watermark {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: rgba(10, 14, 39, 0.85);
+        border-top: 1px solid rgba(155, 89, 182, 0.15);
+        padding: 4px 16px; text-align: right;
+        font-size: 10px; color: rgba(155, 89, 182, 0.6);
+        letter-spacing: 0.3px; z-index: 50;
+    }
+    #watermark a { color: rgba(192, 132, 252, 0.7); text-decoration: none; }
+    #watermark a:hover { color: rgba(192, 132, 252, 1); }
+
+    @media (max-width: 480px) {
+        .persona-grid { gap: 8px; }
+        .persona-card { padding: 14px 6px; }
+        .main { padding: 18px 12px 100px; }
+    }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <img src="../3C Thread To Success logo.png" alt="3C Logo">
+        <h1>Drop In</h1>
+    </div>
+    <button class="icon-btn" id="exitBtn" title="Exit">
+        <svg viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 16l5-5-5-5M20 11H9"/></svg>
+    </button>
+</div>
+
+<div class="main">
+
+    <div id="introView">
+        <p class="intro-hint">Who would you like to hear from?</p>
+
+        <div class="persona-grid" id="personaGrid"></div>
+
+        <div class="start-form">
+            <textarea id="firstMessage" placeholder="Write your message..."></textarea>
+            <button class="btn-primary" id="startBtn" disabled>
+                <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
+                Drop it in
+            </button>
+            <div class="disclaimer">You're writing to a real person, not an AI — replies come from us directly, so please be patient.</div>
+        </div>
+
+        <div class="email-alt" id="emailAlt" style="display:none;">
+            If you'd rather share personal details like your email address, please
+            <a id="emailLink" href="#">write to us directly</a> — those messages are deleted once handled.
+        </div>
+    </div>
+
+    <div class="chat-view" id="chatView">
+        <div class="chat-top">
+            <div class="persona-avatar" id="chatAvatar"></div>
+            <div class="chat-top-info">
+                <div class="p-name" id="chatPersonaName"></div>
+                <div class="status-line"><span class="status-dot" id="chatStatusDot"></span><span id="chatStatusText"></span></div>
+            </div>
+        </div>
+
+        <div class="thread-link-note">
+            Save this link to return to this conversation
+            <button id="copyLinkBtn">Copy link</button>
+        </div>
+
+        <div class="messages" id="messagesList"></div>
+
+        <div class="composer">
+            <textarea id="replyInput" placeholder="Write a message..." rows="1"></textarea>
+            <button class="icon-btn" id="sendBtn" title="Send">
+                <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
+            </button>
+        </div>
+
+        <div class="new-chat-link"><a id="newChatLink">Messages are deleted once your conversation is complete — start a fresh chat for a new topic</a></div>
+    </div>
+
+</div>
+
+<div id="watermark">
+    Designed &amp; built with ❤️ by <a href="https://www.anthropic.com" target="_blank" rel="noopener">Claude</a> (Anthropic) × Chef Anica · <span style="opacity:0.7;">3C Thread To Success Cooking Lab 🧪👨‍🍳</span>
+</div>
+
+<script type="module">
+const WORKER_URL = 'https://dropin-chat.3c-innertherapy.workers.dev';
+
+const PERSONAS = {
+    aurion: { name: 'Aurion', role: 'Host', color: '#00d4c8', avatar: 'https://files.3c-public-library.org/Personas/Aurion.png' },
+    caelum: { name: 'Caelum', role: 'PR Manager', color: '#7b8fd4', avatar: 'https://files.3c-public-library.org/Personas/Caelum.png' },
+    anica:  { name: 'Anica',  role: 'Founder', color: '#e07bda', avatar: 'https://files.3c-public-library.org/Personas/Anica.png' },
+};
+
+let selectedPersona = null;
+let currentThread = null;
+let pollTimer = null;
+
+function getUrlToken() {
+    return new URLSearchParams(window.location.search).get('t');
+}
+
+function fmtTime(ts) {
+    return new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+document.getElementById('exitBtn').onclick = () => {
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'vault-close-modal' }, '*');
+        return;
+    }
+    if (document.referrer) {
+        window.location.href = document.referrer;
+    } else {
+        window.location.href = '../vault.html';
+    }
+};
+
+function renderPersonaGrid() {
+    const grid = document.getElementById('personaGrid');
+    grid.innerHTML = Object.entries(PERSONAS).map(([key, p]) => `
+        <div class="persona-card" data-persona="${key}" style="--persona-color:${p.color}">
+            <div class="persona-avatar" style="--persona-color:${p.color}; background-image:url('${p.avatar}')"></div>
+            <div class="p-name">${p.name}</div>
+            <div class="p-role">${p.role}</div>
+        </div>
+    `).join('');
+    grid.querySelectorAll('.persona-card').forEach(card => {
+        card.onclick = () => {
+            grid.querySelectorAll('.persona-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedPersona = card.dataset.persona;
+            updateStartButton();
+        };
+    });
+}
+
+function updateStartButton() {
+    const msg = document.getElementById('firstMessage').value.trim();
+    document.getElementById('startBtn').disabled = !(selectedPersona && msg);
+}
+
+document.getElementById('firstMessage').addEventListener('input', updateStartButton);
+
+document.getElementById('startBtn').onclick = async () => {
+    const message = document.getElementById('firstMessage').value.trim();
+    if (!selectedPersona || !message) return;
+    const btn = document.getElementById('startBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    try {
+        const res = await fetch(`${WORKER_URL}/api/chat/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ persona: selectedPersona, message }),
+        });
+        const data = await res.json();
+        if (data.threadId) {
+            localStorage.setItem('dropin_last_thread', data.threadId);
+            window.location.href = `${window.location.pathname}?t=${data.threadId}`;
+        } else {
+            throw new Error(data.error || 'Could not start conversation');
+        }
+    } catch (e) {
+        alert('Something went wrong sending that — please try again.\n\n' + e.message);
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg> Drop it in';
+    }
+};
+
+function renderThread(thread) {
+    currentThread = thread;
+    const p = PERSONAS[thread.persona];
+
+    document.getElementById('introView').style.display = 'none';
+    document.getElementById('chatView').style.display = 'flex';
+
+    document.getElementById('chatAvatar').style.setProperty('--persona-color', p.color);
+    document.getElementById('chatAvatar').style.backgroundImage = `url('${p.avatar}')`;
+    document.getElementById('chatPersonaName').textContent = p.name;
+
+    const statusMap = {
+        pending: { dot: 'pending', text: 'Sent — waiting on a reply' },
+        replied: { dot: 'replied', text: 'Replied' },
+        active:  { dot: 'active',  text: 'Just started' },
+    };
+    const s = statusMap[thread.status] || statusMap.active;
+    document.getElementById('chatStatusDot').className = 'status-dot ' + s.dot;
+    document.getElementById('chatStatusText').textContent = s.text;
+
+    document.getElementById('messagesList').innerHTML = thread.messages.map(m => `
+        <div class="msg ${m.sender === 'visitor' ? 'visitor' : 'persona'}">
+            ${escapeHtml(m.text)}
+            <div class="msg-time">${fmtTime(m.timestamp)}</div>
+        </div>
+    `).join('');
+
+    const list = document.getElementById('messagesList');
+    list.scrollTop = list.scrollHeight;
+}
+
+async function loadThread(token) {
+    try {
+        const res = await fetch(`${WORKER_URL}/api/chat/${token}`);
+        if (!res.ok) {
+            document.getElementById('introView').innerHTML =
+                '<p class="intro-hint" style="font-size:16px; margin-top:60px;">This conversation has ended.<br>Start a new one whenever you\'re ready.</p>';
+            return;
+        }
+        const data = await res.json();
+        renderThread(data.thread);
+    } catch (e) {
+        console.error('Failed to load thread:', e);
+    }
+}
+
+document.getElementById('sendBtn').onclick = sendReply;
+document.getElementById('replyInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendReply();
+    }
+});
+
+async function sendReply() {
+    const input = document.getElementById('replyInput');
+    const message = input.value.trim();
+    if (!message || !currentThread) return;
+    input.value = '';
+    try {
+        const res = await fetch(`${WORKER_URL}/api/chat/${currentThread.id}/message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message }),
+        });
+        const data = await res.json();
+        if (data.thread) renderThread(data.thread);
+    } catch (e) {
+        alert('Could not send that message — please try again.');
+    }
+}
+
+document.getElementById('copyLinkBtn').onclick = () => {
+    const link = window.location.href;
+    navigator.clipboard.writeText(link).then(() => {
+        alert('✅ Link copied — save it to find your way back to this conversation.');
+    }).catch(() => {
+        prompt('Copy this link:', link);
+    });
+};
+
+document.getElementById('newChatLink').onclick = () => {
+    window.location.href = window.location.pathname;
+};
+
+async function init() {
+    try {
+        const res = await fetch(`${WORKER_URL}/api/config`);
+        const data = await res.json();
+        if (data.contactEmail) {
+            document.getElementById('emailLink').href = `mailto:${data.contactEmail}`;
+            document.getElementById('emailAlt').style.display = 'block';
+        }
+    } catch (e) { /* non-critical */ }
+
+    const token = getUrlToken();
+    if (token) {
+        localStorage.setItem('dropin_last_thread', token);
+        await loadThread(token);
+        pollTimer = setInterval(() => loadThread(token), 20000);
+    } else {
+        renderPersonaGrid();
+    }
+}
+
+init();
+</script>
+</body>
+</html>
