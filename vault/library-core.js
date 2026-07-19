@@ -268,9 +268,13 @@ function displayAllFolders() {
     console.log('Displaying only root folders');
 
     const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0).sort((a, b) => {
-        // Pin aurion_gems first
-        if (a.tableName === 'aurion_gems') return -1;
-        if (b.tableName === 'aurion_gems') return 1;
+        // Pin pop_in first, aurion_gems second, everything else alphabetical
+        const pinOrder = { pop_in: 0, aurion_gems: 1 };
+        const aPin = pinOrder[a.tableName];
+        const bPin = pinOrder[b.tableName];
+        if (aPin !== undefined && bPin !== undefined) return aPin - bPin;
+        if (aPin !== undefined) return -1;
+        if (bPin !== undefined) return 1;
         return a.title.localeCompare(b.title);
     });
 
@@ -286,7 +290,12 @@ function displayAllFolders() {
             ? '<button onclick="event.stopPropagation(); openFolderSidebar(\'' + folder.id + '\');" style="margin-top: 8px; padding: 6px 14px; background: linear-gradient(135deg, #7c3aed, #9b59b6); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: 0.3px; box-shadow: 0 2px 8px rgba(124,58,237,0.35); transition: all 0.2s;" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">🚀 Start Here</button>'
             : '';
 
-        html += '<div class="folder-card-item" onclick="openFolderSidebar(\'' + folder.id + '\')"><div class="folder-icon"><svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 18 L4 11 Q4 9 6 9 L24 9 Q27 9 29 13 L31 18 Z" fill="#7c3aed"/><rect x="2" y="18" width="60" height="32" rx="6" fill="rgba(30, 10, 60, 0.85)"/><rect x="2" y="18" width="60" height="32" rx="6" fill="none" stroke="rgba(124, 58, 237, 0.55)" stroke-width="1.5"/><rect x="2" y="18" width="60" height="8" rx="0" fill="rgba(124, 58, 237, 0.08)"/></svg></div><div class="folder-title">' + folder.title + '</div><div class="folder-details">' + countLabel + '</div><div class="folder-slug">' + folder.tableName + '</div>' + startHereBtn + '</div>';
+        // Pop In gets a neon purple title — visually distinct from library content
+        const titleStyle = folder.tableName === 'pop_in'
+            ? ' style="color:#c084fc; text-shadow:0 0 10px rgba(192,132,252,0.6);"'
+            : '';
+
+        html += '<div class="folder-card-item" onclick="openFolderSidebar(\'' + folder.id + '\')"><div class="folder-icon"><svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 18 L4 11 Q4 9 6 9 L24 9 Q27 9 29 13 L31 18 Z" fill="#7c3aed"/><rect x="2" y="18" width="60" height="32" rx="6" fill="rgba(30, 10, 60, 0.85)"/><rect x="2" y="18" width="60" height="32" rx="6" fill="none" stroke="rgba(124, 58, 237, 0.55)" stroke-width="1.5"/><rect x="2" y="18" width="60" height="8" rx="0" fill="rgba(124, 58, 237, 0.08)"/></svg></div><div class="folder-title"' + titleStyle + '>' + folder.title + '</div><div class="folder-details">' + countLabel + '</div><div class="folder-slug">' + folder.tableName + '</div>' + startHereBtn + '</div>';
     });
     document.getElementById('foldersGrid').innerHTML = html;
 }
