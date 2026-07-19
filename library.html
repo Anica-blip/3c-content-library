@@ -2635,7 +2635,14 @@
                 `;
                 return;
             } finally {
-                // Hide loading overlay with fade effect
+                // Reveal the page and hide the loading overlay at the
+                // exact same moment — both only happen once loadData()
+                // and displayContent() have genuinely finished. This
+                // replaces relying on DOMContentLoaded, which fires as
+                // soon as HTML parsing completes and does NOT wait for
+                // this async data to load — that mismatch was the race
+                // condition causing the overlay/header ordering issue.
+                document.documentElement.style.visibility = 'visible';
                 setTimeout(() => {
                     const overlay = document.getElementById('loadingOverlay');
                     overlay.classList.add('hidden');
@@ -2644,15 +2651,6 @@
                 }, 100);
             }
         })();
-    </script>
-    <script>
-        // Reveal the page — by the time DOMContentLoaded fires, every
-        // stylesheet (including library-skin.css) has already been
-        // fully applied, so this guarantees the very first visible
-        // frame is the correctly-styled page, never a half-loaded one.
-        document.addEventListener('DOMContentLoaded', () => {
-            document.documentElement.style.visibility = 'visible';
-        });
     </script>
     <script src="cookie-banner.js"></script>
 </body>
