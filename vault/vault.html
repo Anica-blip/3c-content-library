@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Hide everything until every stylesheet below has fully loaded
+         and applied — same fix as library.html. No possible moment
+         where an unstyled or half-styled page can paint. Revealed by
+         the DOMContentLoaded listener near the end of <body>. -->
+    <style>html{visibility:hidden;background:#0a0416;}</style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aurion's Vault — 3C Thread To Success</title>
@@ -676,7 +681,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(26, 26, 26, 0.95);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -1588,6 +1593,16 @@
         </div>
         <button class="bubble-close" onclick="dismissBubble()" aria-label="Close">×</button>
     </div>
+
+    <script>
+        // Reveal the page — by the time DOMContentLoaded fires, every
+        // stylesheet (including vault-skin.css) has already been
+        // fully applied, so the very first visible frame is the
+        // correctly-styled page, never a half-loaded one.
+        document.addEventListener('DOMContentLoaded', () => {
+            document.documentElement.style.visibility = 'visible';
+        });
+    </script>
 
 </body>
 </html>
