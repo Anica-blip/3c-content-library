@@ -1,0 +1,10 @@
+name = "dropin-chat"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "CHAT_KV"
+id = "PASTE_YOUR_NAMESPACE_ID_HERE"
+
+[triggers]
+crons = ["0 14 * * *"]
