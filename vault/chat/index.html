@@ -209,7 +209,7 @@
     }
     #resumeBanner span { font-size: 12px; color: var(--text-dim); }
     #resumeBanner button {
-        background: linear-gradient(135deg, var(--teal), #00a89e); color: #0a0416; border: none;
+        background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); color: #fff; border: none;
         font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 20px; cursor: pointer;
     }
 
@@ -223,8 +223,8 @@
     }
     .resume-code-box input:focus { outline: none; border-color: var(--accent); }
     .resume-code-box button {
-        background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); color: #fff;
-        border: none; font-size: 12px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+        background: linear-gradient(135deg, var(--teal), #00a89e); color: #0a0416;
+        border: none; font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer;
     }
 
     /* HOW IT WORKS MODAL */
@@ -296,7 +296,7 @@
         <div class="resume-code-link" id="resumeCodeToggle">Already started a conversation? <a>Enter your code</a></div>
         <div class="resume-code-box" id="resumeCodeBox" style="display:none;">
             <input type="text" id="resumeCodeInput" placeholder="Paste your conversation code">
-            <button id="resumeCodeBtn">Go</button>
+            <button id="resumeCodeBtn">Continue</button>
         </div>
 
         <div class="email-alt" id="emailAlt" style="display:none;">
@@ -603,8 +603,8 @@ async function checkForResumableThread() {
         const p = PERSONAS[data.thread.persona];
         const banner = document.getElementById('resumeBanner');
         banner.innerHTML = `
-            <span>Continue your last conversation with ${p ? p.name : data.thread.persona}?</span>
-            <button id="resumeLastBtn">Continue</button>
+            <span>Resume your last conversation with ${p ? p.name : data.thread.persona}?</span>
+            <button id="resumeLastBtn">Resume</button>
         `;
         banner.style.display = 'flex';
         document.getElementById('resumeLastBtn').onclick = () => {
