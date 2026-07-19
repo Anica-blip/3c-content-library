@@ -447,14 +447,22 @@ function openSeriesItem(itemId) {
     if (item.type === 'audio') { openSeriesMedia(item, 'audio'); return; }
     if (item.type === 'image' || item.type === 'gif') { openSeriesMedia(item, 'image'); return; }
 
-    // Quiz, card-game, spin-wheel, landing-page, virtual-slideshow,
-    // link — these are external, single-page apps (like the 3C quiz
-    // engine). Same-tab navigation, matching every other type here.
-    // The browser's own Back button returns to this grid, since it's
-    // a real navigation, not a popup.
-    if (item.type === 'quiz' || item.type === 'card-game' || item.type === 'spin-wheel' ||
-        item.type === 'landing-page' || item.type === 'virtual-slideshow' || item.type === 'link') {
+    // Quiz has its own exit button (fixed separately in quiz_app.js
+    // to return to document.referrer) — still same-tab navigation.
+    if (item.type === 'quiz') {
         window.location.href = item.url || item.external_url || '#';
+        return;
+    }
+
+    // card-game, spin-wheel, landing-page, virtual-slideshow, link —
+    // these are external single-page apps with no close button of
+    // their own. Rather than navigate away entirely, load them in an
+    // iframe inside the same modal video/audio already use, so the
+    // vault's own X button controls closing — no changes needed to
+    // the destination site itself.
+    if (item.type === 'card-game' || item.type === 'spin-wheel' ||
+        item.type === 'landing-page' || item.type === 'virtual-slideshow' || item.type === 'link') {
+        openSeriesMedia(item, 'iframe');
         return;
     }
 
@@ -483,6 +491,8 @@ function openSeriesMedia(item, kind) {
         container.innerHTML = '<audio controls autoplay style="width:400px; max-width:90vw;"><source src="' + item.url + '"></audio>';
     } else if (kind === 'image') {
         container.innerHTML = '<img src="' + item.url + '" style="display:block; max-width:90vw; max-height:80vh; width:auto; height:auto; border-radius:8px;">';
+    } else if (kind === 'iframe') {
+        container.innerHTML = '<iframe src="' + (item.url || item.external_url) + '" style="width:90vw; max-width:1100px; height:85vh; border:none; border-radius:8px; background:#fff;" allow="autoplay; fullscreen"></iframe>';
     }
 
     modal.style.display = 'flex';
@@ -511,6 +521,27 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         const modal = document.getElementById('mediaModal');
         if (modal && modal.style.display === 'flex') closeMediaPlayer();
+    }
+});
+
+// Apps running inside the iframe modal (Mirror Quest and similar)
+// can't just navigate to "go back" — that only changes what's shown
+// inside their own small window, not the modal around them. Instead
+// they post a message out to this page asking it to close the modal.
+// Pair this with a standard exit function inside each app:
+//
+//   function vaultExit() {
+//       if (window.parent && window.parent !== window) {
+//           window.parent.postMessage({ type: 'vault-close-modal' }, '*');
+//           return;
+//       }
+//       if (document.referrer) { window.location.href = document.referrer; }
+//       else { window.history.back(); }
+//   }
+//
+window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'vault-close-modal') {
+        closeMediaPlayer();
     }
 });
 
