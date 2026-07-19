@@ -107,7 +107,12 @@
         transition: all 0.2s;
     }
     .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(155,89,182,0.4); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; animation: none; }
+    .btn-primary:not(:disabled) { animation: dropPulse 2.2s ease-in-out infinite; }
+    @keyframes dropPulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(155,89,182,0.4); }
+        50%      { box-shadow: 0 0 0 8px rgba(155,89,182,0); }
+    }
     .btn-primary svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
     .disclaimer {
@@ -122,6 +127,16 @@
     }
     .email-alt a { color: var(--teal); text-decoration: none; }
     .email-alt a:hover { text-decoration: underline; }
+    .email-copy-row {
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        margin-top: 10px;
+    }
+    .email-copy-row span { color: var(--teal); font-weight: 600; font-size: 12px; }
+    .email-copy-row button {
+        background: none; border: 1px solid var(--border); color: var(--teal);
+        font-size: 11px; padding: 3px 12px; border-radius: 20px; cursor: pointer;
+    }
+    .email-copy-row button:hover { background: rgba(0,212,200,0.1); }
 
     /* CHAT VIEW */
     .chat-view { display: none; flex-direction: column; flex: 1; }
@@ -161,6 +176,11 @@
     .thread-link-note {
         font-size: 11px; color: var(--text-dim); text-align: center; margin-bottom: 14px;
         display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
+        animation: noticeFlash 1.6s ease-in-out 4;
+    }
+    @keyframes noticeFlash {
+        0%, 100% { color: var(--text-dim); }
+        50%      { color: var(--teal); }
     }
     .thread-link-note button {
         background: none; border: 1px solid var(--border); color: var(--teal);
@@ -217,8 +237,11 @@
         </div>
 
         <div class="email-alt" id="emailAlt" style="display:none;">
-            If you'd rather share personal details like your email address, please
-            <a id="emailLink" href="#">write to us directly</a> — those messages are deleted once handled.
+            If you'd rather share personal details like your email address, please write to us directly — those messages are deleted once handled.
+            <div class="email-copy-row">
+                <span id="emailAddressText"></span>
+                <button id="copyEmailBtn">Copy</button>
+            </div>
         </div>
     </div>
 
@@ -435,8 +458,15 @@ async function init() {
         const res = await fetch(`${WORKER_URL}/api/config`);
         const data = await res.json();
         if (data.contactEmail) {
-            document.getElementById('emailLink').href = `mailto:${data.contactEmail}`;
+            document.getElementById('emailAddressText').textContent = data.contactEmail;
             document.getElementById('emailAlt').style.display = 'block';
+            document.getElementById('copyEmailBtn').onclick = () => {
+                navigator.clipboard.writeText(data.contactEmail).then(() => {
+                    alert('✅ Email address copied!');
+                }).catch(() => {
+                    prompt('Copy this email address:', data.contactEmail);
+                });
+            };
         }
     } catch (e) { /* non-critical */ }
 
