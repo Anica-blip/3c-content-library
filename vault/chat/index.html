@@ -201,10 +201,61 @@
     #watermark a { color: rgba(192, 132, 252, 0.7); text-decoration: none; }
     #watermark a:hover { color: rgba(192, 132, 252, 1); }
 
+    /* RESUME BANNER — shown when this device remembers a previous chat */
+    #resumeBanner {
+        background: rgba(0, 212, 200, 0.1); border: 1px solid rgba(0, 212, 200, 0.35);
+        border-radius: 12px; padding: 12px 16px; margin: 14px 0 20px;
+        display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    }
+    #resumeBanner span { font-size: 12px; color: var(--text-dim); }
+    #resumeBanner button {
+        background: linear-gradient(135deg, var(--teal), #00a89e); color: #0a0416; border: none;
+        font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 20px; cursor: pointer;
+    }
+
+    /* MANUAL CODE ENTRY */
+    .resume-code-link { text-align: center; margin-top: 24px; font-size: 11px; color: var(--text-dim); }
+    .resume-code-link a { color: var(--teal); text-decoration: underline; cursor: pointer; }
+    .resume-code-box { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+    .resume-code-box input {
+        background: var(--bg-chat); border: 1px solid var(--border); border-radius: 8px;
+        padding: 8px 12px; color: #fff; font-size: 12px; width: 220px;
+    }
+    .resume-code-box input:focus { outline: none; border-color: var(--accent); }
+    .resume-code-box button {
+        background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); color: #fff;
+        border: none; font-size: 12px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+    }
+
+    /* HOW IT WORKS MODAL */
+    .modal-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+        z-index: 300; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .how-it-works-box {
+        background: var(--bg-chat); border: 1px solid var(--border); border-radius: 16px;
+        max-width: 480px; width: 100%; max-height: 82vh; display: flex; flex-direction: column;
+    }
+    .modal-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 18px 20px; border-bottom: 1px solid var(--border);
+    }
+    .modal-header h2 { font-size: 16px; color: #fff; }
+    .modal-scroll { padding: 18px 20px; overflow-y: auto; }
+    .qa-block { margin-bottom: 20px; }
+    .qa-block h3 { font-size: 13px; color: var(--teal); margin-bottom: 6px; }
+    .qa-block p { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+    .qa-block ul { margin: 8px 0 8px 18px; }
+    .qa-block li { font-size: 13px; color: var(--text-dim); line-height: 1.7; }
+    .qa-block strong { color: #fff; }
+
     @media (max-width: 480px) {
         .persona-grid { gap: 8px; }
         .persona-card { padding: 14px 6px; }
         .main { padding: 18px 12px 100px; }
+        .resume-code-box { flex-direction: column; align-items: center; }
+        .resume-code-box input { width: 100%; max-width: 280px; }
     }
 </style>
 </head>
@@ -215,14 +266,20 @@
         <img src="../../3C Thread To Success logo.png" alt="3C Logo">
         <h1>Drop In</h1>
     </div>
-    <button class="icon-btn" id="exitBtn" title="Exit">
-        <svg viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 16l5-5-5-5M20 11H9"/></svg>
-    </button>
+    <div style="display:flex; align-items:center; gap:8px;">
+        <button class="icon-btn" id="howItWorksBtn" title="How it works">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </button>
+        <button class="icon-btn" id="exitBtn" title="Exit">
+            <svg viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 16l5-5-5-5M20 11H9"/></svg>
+        </button>
+    </div>
 </div>
 
 <div class="main">
 
     <div id="introView">
+        <div id="resumeBanner" style="display:none;"></div>
         <p class="intro-hint">Who would you like to hear from?</p>
 
         <div class="persona-grid" id="personaGrid"></div>
@@ -234,6 +291,12 @@
                 Drop it in
             </button>
             <div class="disclaimer">You're writing to a real person, not an AI — replies come from us directly, so please be patient.</div>
+        </div>
+
+        <div class="resume-code-link" id="resumeCodeToggle">Already started a conversation? <a>Enter your code</a></div>
+        <div class="resume-code-box" id="resumeCodeBox" style="display:none;">
+            <input type="text" id="resumeCodeInput" placeholder="Paste your conversation code">
+            <button id="resumeCodeBtn">Go</button>
         </div>
 
         <div class="email-alt" id="emailAlt" style="display:none;">
@@ -271,6 +334,49 @@
         <div class="new-chat-link"><a id="newChatLink">Messages are deleted once your conversation is complete — start a fresh chat for a new topic</a></div>
     </div>
 
+</div>
+
+<div class="modal-overlay" id="howItWorksModal">
+    <div class="modal-box how-it-works-box">
+        <div class="modal-header">
+            <h2>💬 How Drop In Works</h2>
+            <button class="icon-btn" id="closeHowItWorks" title="Close">
+                <svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+            </button>
+        </div>
+        <div class="modal-scroll">
+            <div class="qa-block">
+                <h3>What is Drop In?</h3>
+                <p>Drop In is a simple way to write to Aurion, Caelum, or Anica. Every reply is written by a real person, so you'll always receive a genuine response rather than an automated one.</p>
+            </div>
+            <div class="qa-block">
+                <h3>How do I see my reply?</h3>
+                <p>As soon as you send your message, Drop In creates a private link just for your conversation.<br>This device will remember that link automatically, but we recommend saving it yourself or using the Copy Link button. That way you'll always have an easy way to return whenever you like.</p>
+            </div>
+            <div class="qa-block">
+                <h3>I lost my link. What should I do?</h3>
+                <p>No problem.<br>Simply get in touch with us again and let us know roughly what you asked about and when you sent your message. We'll do our best to locate your conversation and send the link back to you.</p>
+            </div>
+            <div class="qa-block">
+                <h3>Is my conversation stored forever?</h3>
+                <p>No.<br>Your conversations aren't connected to your identity unless you choose to share your details. Once your conversation has naturally come to an end, it will be permanently removed.</p>
+            </div>
+            <div class="qa-block">
+                <h3>Am I chatting with AI?</h3>
+                <p>No.<br>Every message is read and every reply is written by a real person. That means responses may take a little longer than an automated chat, but you'll receive a thoughtful reply from someone who has actually taken the time to read what you've shared.</p>
+            </div>
+            <div class="qa-block">
+                <h3>Who should I write to?</h3>
+                <p>Choose the person whose style feels right for you.</p>
+                <ul>
+                    <li><strong>Aurion</strong> — Friendly encouragement, curiosity, and a gentle nudge in the right direction.</li>
+                    <li><strong>Caelum</strong> — Clear guidance, thoughtful perspective, and practical advice.</li>
+                    <li><strong>Anica</strong> — Honest conversations, personal insight, and a down-to-earth approach to growth.</li>
+                </ul>
+                <p>There isn't a right or wrong choice. Simply Drop In and start the conversation with whoever you'd like to hear from.</p>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="watermark">
@@ -477,8 +583,64 @@ async function init() {
         pollTimer = setInterval(() => loadThread(token), 20000);
     } else {
         renderPersonaGrid();
+        await checkForResumableThread();
     }
 }
+
+// Checks localStorage for a remembered thread and, if it still exists
+// and isn't deleted, offers to continue it — rather than assuming it's
+// still valid and silently sending them into a dead conversation.
+async function checkForResumableThread() {
+    const lastId = localStorage.getItem('dropin_last_thread');
+    if (!lastId) return;
+    try {
+        const res = await fetch(`${WORKER_URL}/api/chat/${lastId}`);
+        if (!res.ok) {
+            localStorage.removeItem('dropin_last_thread');
+            return;
+        }
+        const data = await res.json();
+        const p = PERSONAS[data.thread.persona];
+        const banner = document.getElementById('resumeBanner');
+        banner.innerHTML = `
+            <span>Continue your last conversation with ${p ? p.name : data.thread.persona}?</span>
+            <button id="resumeLastBtn">Continue</button>
+        `;
+        banner.style.display = 'flex';
+        document.getElementById('resumeLastBtn').onclick = () => {
+            window.location.href = `${window.location.pathname}?t=${lastId}`;
+        };
+    } catch (e) { /* non-critical */ }
+}
+
+// ── HOW IT WORKS MODAL ──
+document.getElementById('howItWorksBtn').onclick = () => {
+    document.getElementById('howItWorksModal').classList.add('active');
+};
+document.getElementById('closeHowItWorks').onclick = () => {
+    document.getElementById('howItWorksModal').classList.remove('active');
+};
+document.getElementById('howItWorksModal').addEventListener('click', (e) => {
+    if (e.target.id === 'howItWorksModal') {
+        document.getElementById('howItWorksModal').classList.remove('active');
+    }
+});
+
+// ── MANUAL CODE ENTRY ──
+document.getElementById('resumeCodeToggle').onclick = () => {
+    document.getElementById('resumeCodeToggle').style.display = 'none';
+    document.getElementById('resumeCodeBox').style.display = 'flex';
+    document.getElementById('resumeCodeInput').focus();
+};
+function goToCode() {
+    const code = document.getElementById('resumeCodeInput').value.trim();
+    if (!code) return;
+    window.location.href = `${window.location.pathname}?t=${encodeURIComponent(code)}`;
+}
+document.getElementById('resumeCodeBtn').onclick = goToCode;
+document.getElementById('resumeCodeInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') goToCode();
+});
 
 init();
 </script>
