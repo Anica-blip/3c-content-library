@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Drop In — Admin</title>
-<link rel="icon" type="image/png" href="../favicon1.png">
+<link rel="icon" type="image/png" href="../../favicon1.png">
 <style>
     :root {
         --bg-primary: #0a0416;
@@ -197,7 +197,7 @@
 
 <div class="header">
     <div class="header-left">
-        <img src="../3C Thread To Success logo.png" alt="3C Logo">
+        <img src="../../3C Thread To Success logo.png" alt="3C Logo">
         <h1>Drop In — Admin</h1>
     </div>
     <div class="header-right">
@@ -549,13 +549,26 @@ document.getElementById('settingsCancel').onclick = () => {
 };
 document.getElementById('settingsSave').onclick = async () => {
     const email = document.getElementById('contactEmailInput').value.trim();
+    const btn = document.getElementById('settingsSave');
+    const originalText = btn.textContent;
+    btn.textContent = 'Saving...';
+    btn.disabled = true;
     try {
         await adminFetch('/api/admin/config', {
             method: 'POST',
             body: JSON.stringify({ contactEmail: email }),
         });
-        document.getElementById('settingsModal').classList.remove('active');
-    } catch (e) { /* handled */ }
+        btn.textContent = '✓ Saved';
+        setTimeout(() => {
+            document.getElementById('settingsModal').classList.remove('active');
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }, 700);
+    } catch (e) {
+        alert('Could not save — please try again.\n\n' + e.message);
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
 };
 
 loadList();
