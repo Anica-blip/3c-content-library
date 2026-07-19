@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drop In — Admin</title>
+<link rel="icon" type="image/png" href="../favicon1.png">
+<style>
+    :root {
+        --bg-primary: #0a0416;
+        --bg-chat: rgba(26, 26, 26, 0.95);
+        --purple-light: #9b59b6;
+        --purple-medium: #8e44ad;
+        --accent: #7b3fe4;
+        --teal: #00d4c8;
+        --text-primary: #ffffff;
+        --text-dim: rgba(240, 234, 248, 0.55);
+        --border: rgba(155, 89, 182, 0.25);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+        width: 100%; height: 100%;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        overflow: hidden;
+    }
+    .header {
+        background: linear-gradient(135deg, #2d1b69 0%, #4a2c8f 50%, #3b1f7a 100%);
+        padding: 14px 20px;
+        display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 2px 20px rgba(74, 44, 143, 0.4);
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-left img { height: 32px; width: 32px; border-radius: 50%; object-fit: cover; background: white; padding: 3px; }
+    .header-left h1 { font-size: 16px; font-weight: 800; color: #c084fc; text-shadow: 0 0 16px rgba(192, 132, 252, 0.55); }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+
+    .icon-btn {
+        background: rgba(155, 89, 182, 0.15);
+        border: 1px solid rgba(155, 89, 182, 0.35);
+        color: #c084fc;
+        width: 32px; height: 32px; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: all 0.2s;
+    }
+    .icon-btn:hover { background: rgba(155, 89, 182, 0.3); border-color: rgba(155,89,182,0.6); }
+    .icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .layout { display: flex; height: calc(100vh - 61px); }
+
+    .list-pane {
+        width: 320px; flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        display: flex; flex-direction: column;
+        background: rgba(10, 4, 22, 0.5);
+    }
+    .list-controls { padding: 12px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; }
+    .search-box {
+        flex: 1; display: flex; align-items: center; gap: 6px;
+        background: var(--bg-chat); border: 1px solid var(--border);
+        border-radius: 8px; padding: 6px 10px;
+    }
+    .search-box svg { width: 14px; height: 14px; stroke: var(--text-dim); fill: none; stroke-width: 2; flex-shrink: 0; }
+    .search-box input { background: none; border: none; color: #fff; font-size: 12px; flex: 1; outline: none; }
+
+    .list-tabs { display: flex; border-bottom: 1px solid var(--border); }
+    .list-tab {
+        flex: 1; text-align: center; padding: 9px 6px; font-size: 11px; font-weight: 600;
+        color: var(--text-dim); cursor: pointer; border-bottom: 2px solid transparent;
+    }
+    .list-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+
+    .dashboard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px; border-bottom: 1px solid var(--border); }
+    .dash-tile {
+        border-radius: 10px; padding: 12px 8px; text-align: center; cursor: pointer;
+        border: 1px solid transparent; transition: all 0.2s;
+    }
+    .dash-tile:hover { transform: translateY(-1px); }
+    .dash-tile.active-filter { border-color: currentColor; }
+    .dash-tile .dash-count { font-size: 24px; font-weight: 800; line-height: 1; }
+    .dash-tile .dash-label { font-size: 10px; margin-top: 5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; }
+    .dash-tile.new { background: rgba(0,212,200,0.12); color: var(--teal); }
+    .dash-tile.new.has-new { animation: newPulse 1.8s ease-in-out infinite; }
+    .dash-tile.pending { background: rgba(240,173,78,0.12); color: #f0ad4e; }
+    .dash-tile.replied { background: rgba(39,174,96,0.12); color: #27ae60; }
+    .dash-tile.deleted { background: rgba(231,76,60,0.12); color: #e74c3c; }
+    @keyframes newPulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(0,212,200,0.45); }
+        50%      { box-shadow: 0 0 0 7px rgba(0,212,200,0); }
+    }
+
+    .thread-list { flex: 1; overflow-y: auto; }
+    .thread-item {
+        padding: 12px 14px; border-bottom: 1px solid rgba(155,89,182,0.1);
+        cursor: pointer; display: flex; gap: 10px; align-items: flex-start;
+        transition: background 0.15s;
+    }
+    .thread-item:hover { background: rgba(155, 89, 182, 0.08); }
+    .thread-item.selected { background: rgba(123, 63, 228, 0.15); border-left: 3px solid var(--accent); }
+    .thread-avatar { width: 30px; height: 30px; border-radius: 50%; background-size: cover; background-position: center; flex-shrink: 0; margin-top: 2px; }
+    .thread-info { flex: 1; min-width: 0; }
+    .thread-info .t-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .thread-info .t-persona { font-size: 12px; font-weight: 700; color: #fff; }
+    .thread-info .t-time { font-size: 9px; color: var(--text-dim); flex-shrink: 0; }
+    .thread-info .t-snippet {
+        font-size: 11px; color: var(--text-dim); margin-top: 3px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; flex-shrink: 0; }
+    .status-dot.pending { background: #f0ad4e; }
+    .status-dot.replied { background: #27ae60; }
+    .status-dot.active { background: #00d4c8; }
+    .empty-list { padding: 40px 20px; text-align: center; color: var(--text-dim); font-size: 12px; }
+
+    .detail-pane { flex: 1; display: flex; flex-direction: column; }
+    .detail-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 13px; }
+
+    .detail-top {
+        padding: 14px 20px; border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .detail-top .d-persona { display: flex; align-items: center; gap: 10px; }
+    .detail-top .thread-avatar { width: 36px; height: 36px; margin-top: 0; }
+    .detail-top .d-name { font-size: 14px; font-weight: 700; color: #fff; }
+    .detail-top .d-status { font-size: 11px; color: var(--text-dim); display: flex; align-items: center; margin-top: 2px; }
+    .detail-actions { display: flex; gap: 6px; }
+    .detail-actions .icon-btn.danger { color: #e74c3c; border-color: rgba(231,76,60,0.4); }
+    .detail-actions .icon-btn.danger:hover { background: rgba(231,76,60,0.2); }
+
+    .detail-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 65%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; }
+    .msg.visitor { align-self: flex-start; background: var(--bg-chat); border: 1px solid var(--border); color: #f0eaf8; border-bottom-left-radius: 4px; }
+    .msg.persona { align-self: flex-end; background: linear-gradient(135deg, var(--purple-medium), var(--accent)); color: #fff; border-bottom-right-radius: 4px; }
+    .msg-time { font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+    .detail-composer {
+        display: flex; gap: 8px; align-items: flex-end;
+        padding: 14px 20px; border-top: 1px solid var(--border);
+    }
+    .detail-composer textarea {
+        flex: 1; background: var(--bg-chat); border: 1px solid var(--border);
+        border-radius: 10px; padding: 10px 12px; color: #fff; font-size: 14px;
+        font-family: inherit; resize: none; min-height: 22px; max-height: 120px;
+    }
+    .detail-composer textarea:focus { outline: none; border-color: var(--accent); }
+    .detail-composer .icon-btn { background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); border: none; color: #fff; }
+
+    .restore-btn {
+        background: rgba(39,174,96,0.15); border: 1px solid rgba(39,174,96,0.4); color: #27ae60;
+        font-size: 11px; padding: 4px 10px; border-radius: 20px; cursor: pointer;
+    }
+    .purge-btn {
+        background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #e74c3c;
+        font-size: 11px; padding: 4px 10px; border-radius: 20px; cursor: pointer;
+    }
+
+    .modal-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+        z-index: 200; align-items: center; justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+        background: var(--bg-chat); border: 1px solid var(--border); border-radius: 14px;
+        padding: 22px; width: 90%; max-width: 380px;
+    }
+    .modal-box h3 { font-size: 14px; margin-bottom: 14px; color: #fff; }
+    .modal-box input {
+        width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+        border-radius: 8px; padding: 10px; color: #fff; font-size: 13px; margin-bottom: 12px;
+    }
+    .modal-box .modal-actions { display: flex; gap: 8px; }
+    .modal-box button { flex: 1; padding: 9px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .modal-save { background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); color: #fff; }
+    .modal-cancel { background: rgba(255,255,255,0.08); color: var(--text-dim); }
+
+    #watermark {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: rgba(10, 14, 39, 0.9);
+        border-top: 1px solid rgba(155, 89, 182, 0.15);
+        padding: 3px 16px; text-align: right;
+        font-size: 9px; color: rgba(155, 89, 182, 0.6);
+        z-index: 50;
+    }
+    #watermark a { color: rgba(192, 132, 252, 0.7); text-decoration: none; }
+
+    @media (max-width: 768px) {
+        .layout { flex-direction: column; }
+        .list-pane { width: 100%; height: 100%; }
+        .list-pane.hidden { display: none; }
+        .detail-pane.hidden { display: none; }
+    }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <img src="../3C Thread To Success logo.png" alt="3C Logo">
+        <h1>Drop In — Admin</h1>
+    </div>
+    <div class="header-right">
+        <button class="icon-btn" id="settingsBtn" title="Settings">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="icon-btn" id="exitBtn" title="Exit">
+            <svg viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 16l5-5-5-5M20 11H9"/></svg>
+        </button>
+    </div>
+</div>
+
+<div class="layout">
+    <div class="list-pane" id="listPane">
+        <div class="list-controls">
+            <div class="search-box">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="text" id="searchInput" placeholder="Search conversations...">
+            </div>
+        </div>
+        <div class="dashboard" id="dashboard">
+            <div class="dash-tile new" data-filter="new">
+                <div class="dash-count" id="countNew">0</div>
+                <div class="dash-label">New</div>
+            </div>
+            <div class="dash-tile pending" data-filter="pending">
+                <div class="dash-count" id="countPending">0</div>
+                <div class="dash-label">Pending</div>
+            </div>
+            <div class="dash-tile replied" data-filter="replied">
+                <div class="dash-count" id="countReplied">0</div>
+                <div class="dash-label">Replied</div>
+            </div>
+            <div class="dash-tile deleted" data-filter="deleted">
+                <div class="dash-count" id="countDeleted">0</div>
+                <div class="dash-label">Deleted</div>
+            </div>
+        </div>
+        <div class="thread-list" id="threadList"></div>
+    </div>
+
+    <div class="detail-pane" id="detailPane">
+        <div class="detail-empty" id="detailEmpty">Select a conversation to view it</div>
+        <div id="detailContent" style="display:none; flex-direction:column; height:100%;">
+            <div class="detail-top">
+                <div class="d-persona">
+                    <div class="thread-avatar" id="detailAvatar"></div>
+                    <div>
+                        <div class="d-name" id="detailName"></div>
+                        <div class="d-status"><span class="status-dot" id="detailStatusDot"></span><span id="detailStatusText"></span></div>
+                    </div>
+                </div>
+                <div class="detail-actions" id="detailActions"></div>
+            </div>
+            <div class="detail-messages" id="detailMessages"></div>
+            <div class="detail-composer" id="replyComposer">
+                <textarea id="replyInput" placeholder="Reply as this persona..." rows="1"></textarea>
+                <button class="icon-btn" id="sendReplyBtn" title="Send">
+                    <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="settingsModal">
+    <div class="modal-box">
+        <h3>Contact email (shown on the public page)</h3>
+        <input type="email" id="contactEmailInput" placeholder="you@example.com">
+        <div class="modal-actions">
+            <button class="modal-cancel" id="settingsCancel">Cancel</button>
+            <button class="modal-save" id="settingsSave">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="watermark">
+    Designed &amp; built with ❤️ by <a href="https://www.anthropic.com" target="_blank" rel="noopener">Claude</a> (Anthropic) × Chef Anica · <span style="opacity:0.7;">3C Thread To Success Cooking Lab 🧪👨‍🍳</span>
+</div>
+
+<script type="module">
+const WORKER_URL = 'https://dropin-chat.3c-innertherapy.workers.dev';
+
+const PERSONAS = {
+    aurion: { name: 'Aurion', role: 'Host', color: '#00d4c8', avatar: 'https://files.3c-public-library.org/Personas/Aurion.png' },
+    caelum: { name: 'Caelum', role: 'PR Manager', color: '#7b8fd4', avatar: 'https://files.3c-public-library.org/Personas/Caelum.png' },
+    anica:  { name: 'Anica',  role: 'Founder', color: '#e07bda', avatar: 'https://files.3c-public-library.org/Personas/Anica.png' },
+};
+
+let ADMIN_KEY = sessionStorage.getItem('dropin_admin_key');
+if (!ADMIN_KEY) {
+    ADMIN_KEY = prompt('Enter the Drop In admin key:');
+    if (ADMIN_KEY) sessionStorage.setItem('dropin_admin_key', ADMIN_KEY);
+}
+
+async function adminFetch(path, options = {}) {
+    const res = await fetch(`${WORKER_URL}${path}`, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Key': ADMIN_KEY || '',
+            ...(options.headers || {}),
+        },
+    });
+    if (res.status === 401) {
+        sessionStorage.removeItem('dropin_admin_key');
+        alert('Incorrect admin key. Please refresh and try again.');
+        throw new Error('Unauthorized');
+    }
+    return res.json();
+}
+
+let currentFilter = null; // null = show all non-deleted
+let allThreads = [];
+let deletedThreads = [];
+let selectedThreadId = null;
+
+function fmtTime(ts) {
+    return new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// A thread's dashboard bucket: unread beats everything else, then
+// whoever sent the most recent message decides pending vs replied.
+function computeBucket(t) {
+    if (!t.read) return 'new';
+    return t.status === 'replied' ? 'replied' : 'pending';
+}
+
+document.getElementById('exitBtn').onclick = () => {
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'vault-close-modal' }, '*');
+        return;
+    }
+    if (document.referrer) {
+        window.location.href = document.referrer;
+    } else {
+        window.location.href = '../vault.html';
+    }
+};
+
+document.querySelectorAll('.dash-tile').forEach(tile => {
+    tile.onclick = () => {
+        const filter = tile.dataset.filter;
+        currentFilter = (currentFilter === filter) ? null : filter; // click again to clear
+        document.querySelectorAll('.dash-tile').forEach(t => t.classList.remove('active-filter'));
+        if (currentFilter) tile.classList.add('active-filter');
+        renderList();
+    };
+});
+
+document.getElementById('searchInput').addEventListener('input', renderList);
+
+async function loadList() {
+    try {
+        const [activeData, deletedData] = await Promise.all([
+            adminFetch('/api/admin/chats'),
+            adminFetch('/api/admin/deleted'),
+        ]);
+        allThreads = activeData.threads || [];
+        deletedThreads = deletedData.threads || [];
+        updateDashboardCounts();
+        renderList();
+    } catch (e) { /* handled */ }
+}
+
+function updateDashboardCounts() {
+    const counts = { new: 0, pending: 0, replied: 0 };
+    allThreads.forEach(t => { counts[computeBucket(t)]++; });
+
+    document.getElementById('countNew').textContent = counts.new;
+    document.getElementById('countPending').textContent = counts.pending;
+    document.getElementById('countReplied').textContent = counts.replied;
+    document.getElementById('countDeleted').textContent = deletedThreads.length;
+
+    document.querySelector('.dash-tile.new').classList.toggle('has-new', counts.new > 0);
+}
+
+function renderList() {
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const listEl = document.getElementById('threadList');
+
+    let threads = currentFilter === 'deleted' ? deletedThreads : allThreads;
+    if (currentFilter && currentFilter !== 'deleted') {
+        threads = threads.filter(t => computeBucket(t) === currentFilter);
+    }
+    if (query) {
+        threads = threads.filter(t =>
+            t.persona.toLowerCase().includes(query) ||
+            t.messages.some(m => m.text.toLowerCase().includes(query))
+        );
+    }
+
+    if (threads.length === 0) {
+        listEl.innerHTML = `<div class="empty-list">${currentFilter === 'deleted' ? 'Nothing in Recently Deleted.' : 'Nothing here right now.'}</div>`;
+        return;
+    }
+
+    listEl.innerHTML = threads.map(t => {
+        const p = PERSONAS[t.persona] || { name: t.persona, avatar: '' };
+        const last = t.messages[t.messages.length - 1];
+        const bucket = t.deleted ? null : computeBucket(t);
+        return `
+            <div class="thread-item ${t.id === selectedThreadId ? 'selected' : ''}" data-id="${t.id}" data-deleted="${!!t.deleted}">
+                <div class="thread-avatar" style="background-image:url('${p.avatar}')"></div>
+                <div class="thread-info">
+                    <div class="t-top">
+                        <span class="t-persona">${bucket ? `<span class="status-dot ${bucket === 'new' ? 'active' : bucket}"></span>` : ''}${p.name}</span>
+                        <span class="t-time">${fmtTime(t.updatedAt)}</span>
+                    </div>
+                    <div class="t-snippet">${last ? escapeHtml(last.text) : ''}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    listEl.querySelectorAll('.thread-item').forEach(item => {
+        item.onclick = () => openThread(item.dataset.id);
+    });
+}
+
+async function openThread(id) {
+    selectedThreadId = id;
+    renderList();
+
+    document.getElementById('detailEmpty').style.display = 'none';
+    document.getElementById('detailContent').style.display = 'flex';
+
+    try {
+        const data = await adminFetch(`/api/admin/chats/${id}`);
+        renderThreadDetail(data.thread);
+
+        // Mark as read the moment it's opened — moves it out of "New"
+        if (!data.thread.deleted && !data.thread.read) {
+            await adminFetch(`/api/admin/chats/${id}/read`, { method: 'POST' });
+            const local = allThreads.find(t => t.id === id);
+            if (local) local.read = true;
+            updateDashboardCounts();
+            renderList();
+        }
+    } catch (e) { /* handled */ }
+}
+
+function renderThreadDetail(thread) {
+    const p = PERSONAS[thread.persona] || { name: thread.persona, avatar: '' };
+    document.getElementById('detailAvatar').style.backgroundImage = `url('${p.avatar}')`;
+    document.getElementById('detailName').textContent = p.name;
+
+    const statusMap = {
+        pending: { dot: 'pending', text: 'Pending reply' },
+        replied: { dot: 'replied', text: 'Replied' },
+        active:  { dot: 'active',  text: 'New' },
+    };
+    const isDeleted = thread.deleted;
+    const s = statusMap[thread.status] || statusMap.active;
+    document.getElementById('detailStatusDot').style.display = isDeleted ? 'none' : 'inline-block';
+    document.getElementById('detailStatusDot').className = 'status-dot ' + s.dot;
+    document.getElementById('detailStatusText').textContent = isDeleted ? 'Deleted' : s.text;
+
+    document.getElementById('detailMessages').innerHTML = thread.messages.map(m => `
+        <div class="msg ${m.sender === 'visitor' ? 'visitor' : 'persona'}">
+            ${escapeHtml(m.text)}
+            <div class="msg-time">${fmtTime(m.timestamp)}</div>
+        </div>
+    `).join('');
+    const msgArea = document.getElementById('detailMessages');
+    msgArea.scrollTop = msgArea.scrollHeight;
+
+    const actions = document.getElementById('detailActions');
+    if (isDeleted) {
+        actions.innerHTML = `
+            <button class="restore-btn" id="restoreBtn">Restore</button>
+            <button class="purge-btn" id="purgeBtn">Delete forever</button>
+        `;
+        document.getElementById('replyComposer').style.display = 'none';
+        document.getElementById('restoreBtn').onclick = () => restoreThread(thread.id);
+        document.getElementById('purgeBtn').onclick = () => purgeThread(thread.id);
+    } else {
+        actions.innerHTML = `
+            <button class="icon-btn danger" id="deleteThreadBtn" title="Delete">
+                <svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M7 7l1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"/></svg>
+            </button>
+        `;
+        document.getElementById('replyComposer').style.display = 'flex';
+        document.getElementById('deleteThreadBtn').onclick = () => deleteThread(thread.id);
+    }
+}
+
+document.getElementById('sendReplyBtn').onclick = sendReply;
+document.getElementById('replyInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendReply();
+    }
+});
+async function sendReply() {
+    const input = document.getElementById('replyInput');
+    const message = input.value.trim();
+    if (!message || !selectedThreadId) return;
+    input.value = '';
+    try {
+        const data = await adminFetch(`/api/admin/chats/${selectedThreadId}/reply`, {
+            method: 'POST',
+            body: JSON.stringify({ message }),
+        });
+        if (data.thread) renderThreadDetail(data.thread);
+        loadList();
+    } catch (e) { /* handled */ }
+}
+
+async function deleteThread(id) {
+    if (!confirm('Move this conversation to Recently Deleted?')) return;
+    await adminFetch(`/api/admin/chats/${id}/delete`, { method: 'POST' });
+    selectedThreadId = null;
+    document.getElementById('detailEmpty').style.display = 'flex';
+    document.getElementById('detailContent').style.display = 'none';
+    loadList();
+}
+async function restoreThread(id) {
+    await adminFetch(`/api/admin/chats/${id}/restore`, { method: 'POST' });
+    selectedThreadId = null;
+    document.getElementById('detailEmpty').style.display = 'flex';
+    document.getElementById('detailContent').style.display = 'none';
+    loadList();
+}
+async function purgeThread(id) {
+    if (!confirm('This permanently deletes the conversation — it cannot be undone. Continue?')) return;
+    await adminFetch(`/api/admin/chats/${id}/purge`, { method: 'POST' });
+    selectedThreadId = null;
+    document.getElementById('detailEmpty').style.display = 'flex';
+    document.getElementById('detailContent').style.display = 'none';
+    loadList();
+}
+
+document.getElementById('settingsBtn').onclick = async () => {
+    try {
+        const res = await fetch(`${WORKER_URL}/api/config`);
+        const data = await res.json();
+        document.getElementById('contactEmailInput').value = data.contactEmail || '';
+    } catch (e) {}
+    document.getElementById('settingsModal').classList.add('active');
+};
+document.getElementById('settingsCancel').onclick = () => {
+    document.getElementById('settingsModal').classList.remove('active');
+};
+document.getElementById('settingsSave').onclick = async () => {
+    const email = document.getElementById('contactEmailInput').value.trim();
+    try {
+        await adminFetch('/api/admin/config', {
+            method: 'POST',
+            body: JSON.stringify({ contactEmail: email }),
+        });
+        document.getElementById('settingsModal').classList.remove('active');
+    } catch (e) { /* handled */ }
+};
+
+loadList();
+setInterval(loadList, 30000);
+</script>
+</body>
+</html>
