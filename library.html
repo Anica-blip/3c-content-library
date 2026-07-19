@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Hide everything until every stylesheet below has fully loaded
+         and applied. This is the very first rule parsed, before any
+         external resource, so there is no possible moment where an
+         unstyled or half-styled page can paint. Revealed by the
+         DOMContentLoaded listener near the end of <body>. -->
+    <style>html{visibility:hidden;background:#0a0416;}</style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3C Public Library</title>
@@ -2638,6 +2644,15 @@
                 }, 100);
             }
         })();
+    </script>
+    <script>
+        // Reveal the page — by the time DOMContentLoaded fires, every
+        // stylesheet (including library-skin.css) has already been
+        // fully applied, so this guarantees the very first visible
+        // frame is the correctly-styled page, never a half-loaded one.
+        document.addEventListener('DOMContentLoaded', () => {
+            document.documentElement.style.visibility = 'visible';
+        });
     </script>
     <script src="cookie-banner.js"></script>
 </body>
