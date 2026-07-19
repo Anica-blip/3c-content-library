@@ -185,11 +185,14 @@
     }
     #watermark a { color: rgba(192, 132, 252, 0.7); text-decoration: none; }
 
+    .back-mobile { display: none; }
+
     @media (max-width: 768px) {
         .layout { flex-direction: column; }
         .list-pane { width: 100%; height: 100%; }
         .list-pane.hidden { display: none; }
         .detail-pane.hidden { display: none; }
+        .back-mobile { display: flex; }
     }
 </style>
 </head>
@@ -243,6 +246,9 @@
         <div class="detail-empty" id="detailEmpty">Select a conversation to view it</div>
         <div id="detailContent" style="display:none; flex-direction:column; height:100%;">
             <div class="detail-top">
+                <button class="icon-btn back-mobile" id="backMobileBtn" title="Back to list">
+                    <svg viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M4 12h11a5 5 0 0 0 0-10"/></svg>
+                </button>
                 <div class="d-persona">
                     <div class="thread-avatar" id="detailAvatar"></div>
                     <div>
@@ -430,6 +436,12 @@ async function openThread(id) {
     document.getElementById('detailEmpty').style.display = 'none';
     document.getElementById('detailContent').style.display = 'flex';
 
+    // On mobile (stacked layout), switch to showing only the detail pane
+    if (window.innerWidth <= 768) {
+        document.getElementById('listPane').classList.add('hidden');
+        document.getElementById('detailPane').classList.remove('hidden');
+    }
+
     try {
         const data = await adminFetch(`/api/admin/chats/${id}`);
         renderThreadDetail(data.thread);
@@ -489,6 +501,11 @@ function renderThreadDetail(thread) {
         document.getElementById('deleteThreadBtn').onclick = () => deleteThread(thread.id);
     }
 }
+
+document.getElementById('backMobileBtn').onclick = () => {
+    document.getElementById('listPane').classList.remove('hidden');
+    document.getElementById('detailPane').classList.add('hidden');
+};
 
 document.getElementById('sendReplyBtn').onclick = sendReply;
 document.getElementById('replyInput').addEventListener('keydown', (e) => {
