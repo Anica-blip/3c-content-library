@@ -1,10 +1,12 @@
 /**
- * Drop In — 3C Aurion's Vault chat Worker
+ * Drop In — 3C Aurion's Vault chat + reviews Worker
  * Handles: public chat (start/send/read), admin (list/reply/delete/restore),
- * Telegram notifications, and the daily purge of soft-deleted threads.
+ * public reviews (submit/approved), admin review moderation (approve/reject),
+ * Telegram notifications, and the daily purge of soft-deleted/rejected items.
  *
  * Bindings required (Settings → Bindings):
- *   CHAT_KV          — KV namespace
+ *   CHAT_KV          — KV namespace (chat threads)
+ *   REVIEWS_KV       — KV namespace (reviews) — separate storage, same Worker
  *
  * Variables required (Settings → Variables, encrypted):
  *   TELEGRAM_BOT_TOKEN
@@ -14,12 +16,14 @@
  *                        Treat it like a password — do not share it,
  *                        do not commit it anywhere.
  *
- * Cron Trigger required: 0 14 * * *  (daily purge of old deleted threads)
+ * Cron Trigger required: 0 14 * * *  (daily purge — deleted chats AND
+ *                                     rejected reviews, both after 7 days)
  *
  * Built with ❤️ by Claude (Anthropic) × Chef Anica · 3C Thread To Success Cooking Lab 🧪👨‍🍳
  */
 
 const PERSONAS = ['aurion', 'caelum', 'anica'];
+const RATED_FOR_OPTIONS = ['library', 'vault', 'both'];
 const DELETE_GRACE_DAYS = 7;
 
 const corsHeaders = {
@@ -169,6 +173,59 @@ export default {
                 return json({ ok: true, thread });
             }
 
+            // ── PUBLIC: submit a review ──
+            if (path === '/api/reviews/submit' && method === 'POST') {
+                const body = await request.json();
+                const { emojis, ratedFor, note, identity, stars } = body;
+
+                if (!RATED_FOR_OPTIONS.includes(ratedFor)) {
+                    return json({ error: 'Invalid ratedFor value' }, 400);
+                }
+                const hasEmojis = Array.isArray(emojis) && emojis.length > 0;
+                const hasNote = typeof note === 'string' && note.trim().length > 0;
+                if (!hasEmojis && !hasNote) {
+                    return json({ error: 'A review needs at least an emoji or a note' }, 400);
+                }
+
+                const id = randomToken();
+                const review = {
+                    id,
+                    emojis: hasEmojis ? emojis : [],
+                    ratedFor,
+                    note: hasNote ? note.trim().slice(0, 1000) : '',
+                    identity: (identity === 'visitor' || identity === 'member') ? identity : null,
+                    stars: (Number.isInteger(stars) && stars >= 1 && stars <= 5) ? stars : null,
+                    status: 'pending',
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                    rejectedAt: null,
+                };
+                await env.REVIEWS_KV.put(`review:${id}`, JSON.stringify(review));
+
+                ctx.waitUntil(sendTelegram(env,
+                    `⭐ <b>New review</b>\nFor: ${ratedFor}\n\n${(review.emojis.join(' ') || '') + (review.note ? '\n' + review.note.slice(0, 200) : '')}`
+                ));
+
+                return json({ ok: true, id });
+            }
+
+            // ── PUBLIC: approved reviews for the live slider ──
+            if (path === '/api/reviews/approved' && method === 'GET') {
+                const forFilter = url.searchParams.get('for'); // 'library' | 'vault' | null (all)
+                const list = await env.REVIEWS_KV.list({ prefix: 'review:' });
+                const reviews = [];
+                for (const key of list.keys) {
+                    const raw = await env.REVIEWS_KV.get(key.name);
+                    if (!raw) continue;
+                    const r = JSON.parse(raw);
+                    if (r.status !== 'approved') continue;
+                    if (forFilter && r.ratedFor !== forFilter && r.ratedFor !== 'both') continue;
+                    reviews.push(r);
+                }
+                reviews.sort((a, b) => b.createdAt - a.createdAt);
+                return json({ reviews });
+            }
+
             // ── ADMIN: everything below requires the admin key ──
             if (path.startsWith('/api/admin/')) {
                 if (!requireAdmin(request, env)) {
@@ -279,6 +336,54 @@ export default {
                     return json({ ok: true });
                 }
 
+                // List all reviews (pending, approved, rejected — the
+                // page filters by status itself for the three tiles)
+                if (path === '/api/admin/reviews' && method === 'GET') {
+                    const list = await env.REVIEWS_KV.list({ prefix: 'review:' });
+                    const reviews = [];
+                    for (const key of list.keys) {
+                        const raw = await env.REVIEWS_KV.get(key.name);
+                        if (raw) reviews.push(JSON.parse(raw));
+                    }
+                    reviews.sort((a, b) => b.createdAt - a.createdAt);
+                    return json({ reviews });
+                }
+
+                // Approve a review — makes it visible on the public slider.
+                // Also used to un-reject one (moving it straight back to approved).
+                const approveMatch = path.match(/^\/api\/admin\/reviews\/([a-zA-Z0-9]+)\/approve$/);
+                if (approveMatch && method === 'POST') {
+                    const raw = await env.REVIEWS_KV.get(`review:${approveMatch[1]}`);
+                    if (!raw) return json({ error: 'Not found' }, 404);
+                    const review = JSON.parse(raw);
+                    review.status = 'approved';
+                    review.rejectedAt = null;
+                    review.updatedAt = Date.now();
+                    await env.REVIEWS_KV.put(`review:${review.id}`, JSON.stringify(review));
+                    return json({ ok: true });
+                }
+
+                // Reject a review — hidden from the public slider, sits in
+                // the Rejected tile for DELETE_GRACE_DAYS before auto-purge
+                const rejectMatch = path.match(/^\/api\/admin\/reviews\/([a-zA-Z0-9]+)\/reject$/);
+                if (rejectMatch && method === 'POST') {
+                    const raw = await env.REVIEWS_KV.get(`review:${rejectMatch[1]}`);
+                    if (!raw) return json({ error: 'Not found' }, 404);
+                    const review = JSON.parse(raw);
+                    review.status = 'rejected';
+                    review.rejectedAt = Date.now();
+                    review.updatedAt = Date.now();
+                    await env.REVIEWS_KV.put(`review:${review.id}`, JSON.stringify(review));
+                    return json({ ok: true });
+                }
+
+                // Permanently delete a review right now, skipping the grace window
+                const reviewPurgeMatch = path.match(/^\/api\/admin\/reviews\/([a-zA-Z0-9]+)\/purge$/);
+                if (reviewPurgeMatch && method === 'POST') {
+                    await env.REVIEWS_KV.delete(`review:${reviewPurgeMatch[1]}`);
+                    return json({ ok: true });
+                }
+
                 return json({ error: 'Not found' }, 404);
             }
 
@@ -290,22 +395,37 @@ export default {
     },
 
     // ── Daily cleanup: permanently remove anything soft-deleted more than
-    //    DELETE_GRACE_DAYS ago. This is the actual "safety net" — Cloudflare
-    //    itself does not keep any backup of deleted KV data, so this grace
-    //    window is entirely our own doing, not something Cloudflare provides.
+    //    DELETE_GRACE_DAYS ago — chat threads AND rejected reviews. This is
+    //    the actual "safety net" — Cloudflare itself does not keep any
+    //    backup of deleted KV data, so this grace window is entirely our
+    //    own doing, not something Cloudflare provides.
     async scheduled(event, env, ctx) {
         const cutoff = Date.now() - DELETE_GRACE_DAYS * 24 * 60 * 60 * 1000;
-        const list = await env.CHAT_KV.list({ prefix: 'thread:' });
-        let purged = 0;
-        for (const key of list.keys) {
+
+        const threadList = await env.CHAT_KV.list({ prefix: 'thread:' });
+        let purgedThreads = 0;
+        for (const key of threadList.keys) {
             const raw = await env.CHAT_KV.get(key.name);
             if (!raw) continue;
             const t = JSON.parse(raw);
             if (t.deleted && t.deletedAt && t.deletedAt < cutoff) {
                 await env.CHAT_KV.delete(key.name);
-                purged++;
+                purgedThreads++;
             }
         }
-        console.log(`Daily purge complete — removed ${purged} thread(s).`);
+
+        const reviewList = await env.REVIEWS_KV.list({ prefix: 'review:' });
+        let purgedReviews = 0;
+        for (const key of reviewList.keys) {
+            const raw = await env.REVIEWS_KV.get(key.name);
+            if (!raw) continue;
+            const r = JSON.parse(raw);
+            if (r.status === 'rejected' && r.rejectedAt && r.rejectedAt < cutoff) {
+                await env.REVIEWS_KV.delete(key.name);
+                purgedReviews++;
+            }
+        }
+
+        console.log(`Daily purge complete — removed ${purgedThreads} thread(s), ${purgedReviews} review(s).`);
     },
 };
