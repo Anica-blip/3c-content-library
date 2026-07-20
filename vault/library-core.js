@@ -466,6 +466,9 @@ async function renderReviewSliderEmbed() {
                 overflow-y: auto; max-height: 78px; word-wrap: break-word;
             }
             #reviewSliderEmbed .rs-meta { font-size: 9px; color: #6a5a80; }
+            #reviewSliderEmbed .rs-stars { font-size: 13px; letter-spacing: 2px; margin-top: 2px; }
+            #reviewSliderEmbed .rs-star-filled { color: #d4a017; }
+            #reviewSliderEmbed .rs-star-empty { color: rgba(106, 90, 128, 0.35); }
             #reviewSliderEmbed .rs-logos { display: flex; gap: 6px; align-items: center; justify-content: center; opacity: 0.7; margin-top: 2px; }
             #reviewSliderEmbed .rs-logos img { height: 16px; width: 16px; border-radius: 50%; object-fit: cover; }
             #reviewSliderEmbed .rs-dots { display: flex; gap: 5px; justify-content: center; padding-top: 16px; }
@@ -520,7 +523,13 @@ function buildEmbedTrack() {
             : '';
         const emojiOnly = emojiHtml && !hasNote;
         const identityLabel = r.identity === 'member' ? 'Community Member' : (r.identity === 'visitor' ? '3C Visitor' : '');
-        const starsHtml = r.stars ? '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars) : '';
+        const starsHtml = r.stars
+            ? '<div class="rs-stars">'
+                + Array.from({ length: 5 }, (_, i) =>
+                    `<span class="${i < r.stars ? 'rs-star-filled' : 'rs-star-empty'}">★</span>`
+                  ).join('')
+              + '</div>'
+            : '';
         const logos = REVIEW_LOGOS[r.ratedFor] || [];
         const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
         return `
@@ -529,7 +538,8 @@ function buildEmbedTrack() {
                     <div class="rs-title">💝 From Our Visitors</div>
                     ${emojiHtml ? `<div class="rs-emojis${emojiOnly ? ' rs-emoji-only' : ''}">${emojiHtml}</div>` : ''}
                     ${hasNote ? `<div class="rs-note">${escapeHtml(r.note)}</div>` : (fallbackQuote ? `<div class="rs-note">${escapeHtml(fallbackQuote)}</div>` : '')}
-                    ${(identityLabel || starsHtml) ? `<div class="rs-meta">${identityLabel}${identityLabel && starsHtml ? ' · ' : ''}${starsHtml}</div>` : ''}
+                    ${identityLabel ? `<div class="rs-meta">${identityLabel}</div>` : ''}
+                    ${starsHtml}
                     ${logoHtml ? `<div class="rs-logos">${logoHtml}</div>` : ''}
                 </div>
             </div>
