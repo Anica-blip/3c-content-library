@@ -398,11 +398,12 @@ async function displayCollectionGrid(folder, highlightSlug) {
         }
     }
 
-    // Live review banner — only on the Drop In folder specifically,
-    // not repeated on every Collection folder. Sits ABOVE the folder's
-    // own title and thumbnails, as its own distinct section — not
-    // blended into the folder content itself.
-    if (folder.tableName === 'drop_in') {
+    // Live review banner — only on the folder titled "Drop In", whose
+    // table_name is actually still 'pop_in' (display title changed,
+    // technical identity kept so the pinning/purple-title logic above
+    // keeps working). Sits BELOW the folder's own thumbnails, as an
+    // extra floating layer — the folder content itself is untouched.
+    if (folder.tableName === 'pop_in') {
         await renderReviewSliderEmbed();
     }
 }
@@ -436,14 +437,15 @@ async function renderReviewSliderEmbed() {
         const style = document.createElement('style');
         style.id = 'reviewSliderStyle';
         style.textContent = `
-            #reviewSliderEmbed:not(:empty) { margin-top: 28px; padding-top: 4px; max-width: 420px; }
-            #reviewSliderEmbed .rs-card {
-                background: rgba(245, 240, 220, 0.10);
-                backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-                border: 1px solid rgba(245, 240, 220, 0.15);
-                border-radius: 14px; padding: 14px 16px;
-                display: flex; flex-direction: column; gap: 6px;
+            #reviewSliderEmbed:not(:empty) {
+                margin-top: 28px; max-width: 420px; border-radius: 16px; overflow: hidden;
+                background: rgba(245, 240, 220, 0.05);
+                backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+                border: 1px solid rgba(245, 240, 220, 0.12);
+                box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.15);
             }
+            #reviewSliderEmbed .rs-track { display: flex; transition: transform 0.6s ease; }
+            #reviewSliderEmbed .rs-card { flex: 0 0 100%; padding: 16px 18px 12px; display: flex; flex-direction: column; gap: 6px; }
             #reviewSliderEmbed .rs-title { font-size: 10px; font-weight: 700; color: #c084fc; text-shadow: 0 0 8px rgba(192,132,252,0.35); }
             #reviewSliderEmbed .rs-emojis { font-size: 16px; letter-spacing: 3px; opacity: 0.9; }
             #reviewSliderEmbed .rs-emojis.rs-emoji-only { font-size: 24px; letter-spacing: 5px; margin: 2px 0; }
@@ -451,7 +453,7 @@ async function renderReviewSliderEmbed() {
             #reviewSliderEmbed .rs-meta { font-size: 9px; color: rgba(240,234,248,0.4); }
             #reviewSliderEmbed .rs-logos { display: flex; gap: 6px; align-items: center; opacity: 0.55; margin-top: 2px; }
             #reviewSliderEmbed .rs-logos img { height: 16px; width: 16px; border-radius: 50%; object-fit: cover; }
-            #reviewSliderEmbed .rs-dots { display: flex; gap: 5px; margin-top: 6px; }
+            #reviewSliderEmbed .rs-dots { display: flex; gap: 5px; justify-content: center; padding: 0 0 12px; }
             #reviewSliderEmbed .rs-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.15); }
             #reviewSliderEmbed .rs-dot.active { background: rgba(0,212,200,0.6); }
         `;
@@ -469,41 +471,60 @@ async function renderReviewSliderEmbed() {
 
     if (embedReviews.length === 0) return;
 
-    renderEmbedCard();
+    embedIndex = 0;
+    buildEmbedTrack();
     if (embedTimer) clearInterval(embedTimer);
     embedTimer = setInterval(() => {
         embedIndex = (embedIndex + 1) % embedReviews.length;
-        renderEmbedCard();
+        updateEmbedPosition();
     }, 6000);
 }
 
-function renderEmbedCard() {
+// Builds every card once, laid out side by side — sliding between
+// them is then just a transform, giving a real slide-in motion
+// instead of the content instantly replacing itself.
+function buildEmbedTrack() {
     const container = document.getElementById('reviewSliderEmbed');
     if (!container) return;
-    const r = embedReviews[embedIndex];
-    const emojiHtml = (r.emojis || []).join(' ');
-    const hasNote = r.note && r.note.trim();
-    // No written note but emoji were picked — use the emoji's own
-    // line(s) as a readable quote instead of leaving that space bare
-    const fallbackQuote = (!hasNote && r.emojis && r.emojis.length)
-        ? r.emojis.map(e => REVIEW_EMOJI_LINES[e]).filter(Boolean).join(' ')
-        : '';
-    const emojiOnly = emojiHtml && !hasNote;
-    const identityLabel = r.identity === 'member' ? 'Community Member' : (r.identity === 'visitor' ? '3C Visitor' : '');
-    const starsHtml = r.stars ? '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars) : '';
-    const logos = REVIEW_LOGOS[r.ratedFor] || [];
-    const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
-    const dotsHtml = embedReviews.map((_, i) => `<div class="rs-dot ${i === embedIndex ? 'active' : ''}"></div>`).join('');
+
+    const cardsHtml = embedReviews.map(r => {
+        const emojiHtml = (r.emojis || []).join(' ');
+        const hasNote = r.note && r.note.trim();
+        const fallbackQuote = (!hasNote && r.emojis && r.emojis.length)
+            ? r.emojis.map(e => REVIEW_EMOJI_LINES[e]).filter(Boolean).join(' ')
+            : '';
+        const emojiOnly = emojiHtml && !hasNote;
+        const identityLabel = r.identity === 'member' ? 'Community Member' : (r.identity === 'visitor' ? '3C Visitor' : '');
+        const starsHtml = r.stars ? '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars) : '';
+        const logos = REVIEW_LOGOS[r.ratedFor] || [];
+        const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
+        return `
+            <div class="rs-card">
+                <div class="rs-title">💝 From Our Visitors</div>
+                ${emojiHtml ? `<div class="rs-emojis${emojiOnly ? ' rs-emoji-only' : ''}">${emojiHtml}</div>` : ''}
+                ${hasNote ? `<div class="rs-note">${escapeHtml(r.note)}</div>` : (fallbackQuote ? `<div class="rs-note">${escapeHtml(fallbackQuote)}</div>` : '')}
+                ${(identityLabel || starsHtml) ? `<div class="rs-meta">${identityLabel}${identityLabel && starsHtml ? ' · ' : ''}${starsHtml}</div>` : ''}
+                ${logoHtml ? `<div class="rs-logos">${logoHtml}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    const dotsHtml = embedReviews.map((_, i) => `<div class="rs-dot ${i === 0 ? 'active' : ''}"></div>`).join('');
+
     container.innerHTML = `
-        <div class="rs-card">
-            <div class="rs-title">💝 From Our Visitors</div>
-            ${emojiHtml ? `<div class="rs-emojis${emojiOnly ? ' rs-emoji-only' : ''}">${emojiHtml}</div>` : ''}
-            ${hasNote ? `<div class="rs-note">${escapeHtml(r.note)}</div>` : (fallbackQuote ? `<div class="rs-note">${escapeHtml(fallbackQuote)}</div>` : '')}
-            ${(identityLabel || starsHtml) ? `<div class="rs-meta">${identityLabel}${identityLabel && starsHtml ? ' · ' : ''}${starsHtml}</div>` : ''}
-            ${logoHtml ? `<div class="rs-logos">${logoHtml}</div>` : ''}
-            <div class="rs-dots">${dotsHtml}</div>
-        </div>
+        <div class="rs-track" id="rsTrack">${cardsHtml}</div>
+        <div class="rs-dots" id="rsDots">${dotsHtml}</div>
     `;
+}
+
+function updateEmbedPosition() {
+    const track = document.getElementById('rsTrack');
+    const dots = document.getElementById('rsDots');
+    if (!track) return;
+    track.style.transform = `translateX(-${embedIndex * 100}%)`;
+    if (dots) {
+        dots.querySelectorAll('.rs-dot').forEach((d, i) => d.classList.toggle('active', i === embedIndex));
+    }
 }
 
 // ==================== COPY SERIES LINK ====================
