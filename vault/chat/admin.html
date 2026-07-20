@@ -143,7 +143,14 @@
     }
     .detail-id-row button:hover { color: var(--teal); border-color: var(--teal); }
 
-    .detail-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+    .detail-messages {
+        flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px;
+        scrollbar-width: thin; scrollbar-color: var(--purple-medium) transparent;
+    }
+    .detail-messages::-webkit-scrollbar { width: 8px; }
+    .detail-messages::-webkit-scrollbar-track { background: transparent; }
+    .detail-messages::-webkit-scrollbar-thumb { background: var(--purple-medium); border-radius: 8px; }
+    .detail-messages::-webkit-scrollbar-thumb:hover { background: var(--purple-light); }
     .msg { max-width: 65%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; }
     .msg.visitor { align-self: flex-start; background: var(--bg-chat); border: 1px solid var(--border); color: #f0eaf8; border-bottom-left-radius: 4px; }
     .msg.persona { align-self: flex-end; background: linear-gradient(135deg, var(--purple-medium), var(--accent)); color: #fff; border-bottom-right-radius: 4px; }
@@ -155,8 +162,8 @@
     }
     .detail-composer textarea {
         flex: 1; background: var(--bg-chat); border: 1px solid var(--border);
-        border-radius: 10px; padding: 10px 12px; color: #fff; font-size: 14px;
-        font-family: inherit; resize: none; min-height: 22px; max-height: 120px;
+        border-radius: 10px; padding: 12px 14px; color: #fff; font-size: 14px;
+        font-family: inherit; resize: none; min-height: 56px; max-height: 180px;
     }
     .detail-composer textarea:focus { outline: none; border-color: var(--accent); }
     .detail-composer .icon-btn { background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); border: none; color: #fff; }
@@ -617,7 +624,17 @@ document.getElementById('settingsSave').onclick = async () => {
 };
 
 loadList();
-setInterval(loadList, 30000);
+setInterval(loadList, 10000);
+
+// Browsers throttle background-tab timers to save battery — the 10s
+// interval above can silently stretch out much longer while this tab
+// isn't the active one. Refetching the instant it becomes active again
+// (switching back from Telegram, another window, etc.) closes that gap
+// immediately instead of waiting on a slowed-down timer to catch up.
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') loadList();
+});
+window.addEventListener('focus', loadList);
 </script>
 </body>
 </html>
