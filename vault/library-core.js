@@ -503,11 +503,19 @@ function openSeriesMedia(item, kind) {
     } else if (kind === 'iframe') {
         // No border, no radius, no background — the app itself already
         // has its own bezel/frame/background designed in. This iframe
-        // is just an invisible window behind it, sized to nearly the
-        // full viewport so nothing of the app's own screen gets cut off.
-        container.style.maxWidth = '100vw';
-        container.style.maxHeight = '100vh';
-        container.innerHTML = '<iframe src="' + (item.url || item.external_url) + '" style="width:98vw; height:96vh; border:none; background:transparent; display:block;" allow="autoplay; fullscreen"></iframe>';
+        // is just an invisible window behind it.
+        // Sized by percentage (100% of its parent), not vh — vh measures
+        // against the full viewport including space a mobile browser's
+        // address bar hasn't collapsed out of yet, which was pushing
+        // content (like the app's own header) up out of view on phones.
+        // #mediaModal is already correctly sized via fixed positioning,
+        // so cascading percentage height down from it tracks the real
+        // visible area correctly on every device.
+        container.style.maxWidth = '100%';
+        container.style.maxHeight = '100%';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.innerHTML = '<iframe src="' + (item.url || item.external_url) + '" style="width:100%; height:100%; border:none; background:transparent; display:block;" allow="autoplay; fullscreen"></iframe>';
     }
 
     modal.style.display = 'flex';
