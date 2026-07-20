@@ -380,6 +380,10 @@
                 <p>As soon as you send your message, Drop In creates a private link just for your conversation.<br>This device will remember that link automatically, but we recommend saving it yourself or using the Copy Link button. That way you'll always have an easy way to return whenever you like.</p>
             </div>
             <div class="qa-block">
+                <h3>Will I be notified when there's a reply?</h3>
+                <p>Not automatically — Drop In doesn't send notifications the way email might.<br>If you leave this page open, it checks for a reply on its own, even if you switch away and come back later. If you close it, just return using your saved link or the resume option whenever you're ready, and any reply will be there waiting.</p>
+            </div>
+            <div class="qa-block">
                 <h3>I lost my link. What should I do?</h3>
                 <p>No problem.<br>Simply get in touch with us again and let us know roughly what you asked about and when you sent your message. We'll do our best to locate your conversation and send the link back to you.</p>
             </div>
@@ -607,6 +611,17 @@ async function init() {
         localStorage.setItem('dropin_last_thread', token);
         await loadThread(token);
         pollTimer = setInterval(() => loadThread(token), 20000);
+
+        // Browsers throttle background-tab timers to save battery — the
+        // 20s interval above can silently stretch out much longer while
+        // this tab isn't the active one. Refetching the instant it
+        // becomes active again closes that gap immediately, so leaving
+        // the tab open and switching away never means missing a reply
+        // that's actually already there.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') loadThread(token);
+        });
+        window.addEventListener('focus', () => loadThread(token));
     } else {
         renderPersonaGrid();
         await checkForResumableThread();
