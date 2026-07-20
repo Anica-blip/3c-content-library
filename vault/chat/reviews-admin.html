@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reviews — Admin</title>
+<link rel="icon" type="image/png" href="../../favicon1.png">
+<style>
+    :root {
+        --bg-primary: #0a0416; --bg-chat: rgba(26, 26, 26, 0.95);
+        --purple-light: #9b59b6; --purple-medium: #8e44ad; --accent: #7b3fe4; --teal: #00d4c8;
+        --text-dim: rgba(240, 234, 248, 0.55); --border: rgba(155, 89, 182, 0.25); --cream: #f5f0dc;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: var(--bg-primary); color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; overflow: hidden; }
+    .header {
+        background: linear-gradient(135deg, #2d1b69 0%, #4a2c8f 50%, #3b1f7a 100%);
+        padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 1px solid var(--border); box-shadow: 0 2px 20px rgba(74, 44, 143, 0.4);
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-left img { height: 32px; width: 32px; border-radius: 50%; object-fit: cover; background: white; padding: 3px; }
+    .header-left h1 { font-size: 16px; font-weight: 800; color: #c084fc; text-shadow: 0 0 16px rgba(192, 132, 252, 0.55); }
+    .icon-btn {
+        background: rgba(155, 89, 182, 0.15); border: 1px solid rgba(155, 89, 182, 0.35); color: #c084fc;
+        width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: all 0.2s;
+    }
+    .icon-btn:hover { background: rgba(155, 89, 182, 0.3); }
+    .icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .layout { display: flex; height: calc(100vh - 61px); }
+    .list-pane { width: 340px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: rgba(10,4,22,0.5); }
+    .dashboard { display: flex; gap: 8px; padding: 12px; border-bottom: 1px solid var(--border); }
+    .dash-tile { flex: 1; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+    .dash-tile.active-filter { border-color: currentColor; }
+    .dash-tile .dash-count { font-size: 20px; font-weight: 800; }
+    .dash-tile .dash-label { font-size: 9px; margin-top: 3px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; }
+    .dash-tile.pending { background: rgba(240,173,78,0.12); color: #f0ad4e; }
+    .dash-tile.pending.has-new { animation: pulse 1.8s ease-in-out infinite; }
+    .dash-tile.approved { background: rgba(39,174,96,0.12); color: #27ae60; }
+    .dash-tile.rejected { background: rgba(231,76,60,0.12); color: #e74c3c; }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(240,173,78,0.45);} 50%{box-shadow:0 0 0 7px rgba(240,173,78,0);} }
+
+    .review-list { flex: 1; overflow-y: auto; }
+    .review-item { padding: 12px 14px; border-bottom: 1px solid rgba(155,89,182,0.1); cursor: pointer; transition: background 0.15s; }
+    .review-item:hover { background: rgba(155,89,182,0.08); }
+    .review-item.selected { background: rgba(123,63,228,0.15); border-left: 3px solid var(--accent); }
+    .review-item .ri-top { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+    .review-item .ri-emojis { font-size: 16px; }
+    .review-item .ri-snippet { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; }
+    .empty-list { padding: 40px 20px; text-align: center; color: var(--text-dim); font-size: 12px; }
+
+    .detail-pane { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; }
+    .detail-empty { color: var(--text-dim); font-size: 13px; }
+
+    .preview-card {
+        background: var(--cream); border-radius: 16px; padding: 24px; max-width: 420px; width: 100%;
+        display: flex; flex-direction: column; align-items: center; gap: 12px; color: #3a2a55;
+    }
+    .preview-card .pc-logos img { height: 28px; width: 28px; border-radius: 50%; object-fit: cover; margin: 0 4px; }
+    .preview-card .pc-emojis { font-size: 24px; letter-spacing: 5px; }
+    .preview-card .pc-note { font-size: 14px; text-align: center; line-height: 1.6; }
+    .preview-card .pc-meta { font-size: 12px; color: #6a5a80; font-weight: 600; }
+    .preview-card .pc-stars { color: #d4a017; font-size: 16px; }
+    .preview-card .pc-timestamp { font-size: 10px; color: #9a8aa5; }
+
+    .action-row { display: flex; gap: 10px; margin-top: 20px; }
+    .action-row button { padding: 10px 22px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; }
+    .btn-approve { background: linear-gradient(135deg, #27ae60, #219150); color: #fff; }
+    .btn-reject { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4) !important; color: #e74c3c; }
+    .btn-restore { background: linear-gradient(135deg, var(--teal), #00a89e); color: #0a0416; }
+    .btn-purge { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4) !important; color: #e74c3c; }
+
+    #watermark { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(10,14,39,0.9); border-top: 1px solid rgba(155,89,182,0.15);
+        padding: 3px 16px; text-align: right; font-size: 9px; color: rgba(155,89,182,0.6); }
+    #watermark a { color: rgba(192,132,252,0.7); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <img src="../../3C Thread To Success logo.png" alt="3C Logo">
+        <h1>Reviews — Admin</h1>
+    </div>
+    <button class="icon-btn" id="exitBtn" title="Back to Drop In">
+        <svg viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 16l5-5-5-5M20 11H9"/></svg>
+    </button>
+</div>
+
+<div class="layout">
+    <div class="list-pane">
+        <div class="dashboard">
+            <div class="dash-tile pending" data-filter="pending"><div class="dash-count" id="countPending">0</div><div class="dash-label">Pending</div></div>
+            <div class="dash-tile approved" data-filter="approved"><div class="dash-count" id="countApproved">0</div><div class="dash-label">Approved</div></div>
+            <div class="dash-tile rejected" data-filter="rejected"><div class="dash-count" id="countRejected">0</div><div class="dash-label">Rejected</div></div>
+        </div>
+        <div class="review-list" id="reviewList"></div>
+    </div>
+
+    <div class="detail-pane" id="detailPane">
+        <div class="detail-empty" id="detailEmpty">Select a review to view it</div>
+        <div id="detailContent" style="display:none; flex-direction:column; align-items:center;">
+            <div class="preview-card" id="previewCard"></div>
+            <div class="action-row" id="actionRow"></div>
+        </div>
+    </div>
+</div>
+
+<div id="watermark">
+    Designed &amp; built with ❤️ by <a href="https://www.anthropic.com" target="_blank" rel="noopener">Claude</a> (Anthropic) × Chef Anica · <span style="opacity:0.7;">3C Thread To Success Cooking Lab 🧪👨‍🍳</span>
+</div>
+
+<script>
+const WORKER_URL = 'https://dropin-chat.3c-innertherapy.workers.dev';
+
+const LOGOS = {
+    library: ['../../3C Thread To Success logo.png'],
+    vault: ['../../Clubhouse logo.png'],
+    both: ['../../3C Thread To Success logo.png', '../../Clubhouse logo.png'],
+};
+const RATED_LABEL = { library: 'Public Library', vault: 'Aurion Vault', both: 'Public Library & Aurion Vault' };
+
+let ADMIN_KEY = sessionStorage.getItem('dropin_admin_key');
+if (!ADMIN_KEY) {
+    ADMIN_KEY = prompt('Enter the Drop In admin key:');
+    if (ADMIN_KEY) sessionStorage.setItem('dropin_admin_key', ADMIN_KEY);
+}
+
+async function adminFetch(path, options = {}) {
+    const res = await fetch(`${WORKER_URL}${path}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_KEY || '', ...(options.headers || {}) },
+    });
+    if (res.status === 401) {
+        sessionStorage.removeItem('dropin_admin_key');
+        alert('Incorrect admin key. Please refresh and try again.');
+        throw new Error('Unauthorized');
+    }
+    return res.json();
+}
+
+document.getElementById('exitBtn').onclick = () => {
+    window.location.href = 'admin.html';
+};
+
+let allReviews = [];
+let currentFilter = 'pending';
+let selectedId = null;
+
+function fmtTime(ts) {
+    return new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+document.querySelectorAll('.dash-tile').forEach(tile => {
+    tile.onclick = () => {
+        currentFilter = tile.dataset.filter;
+        document.querySelectorAll('.dash-tile').forEach(t => t.classList.remove('active-filter'));
+        tile.classList.add('active-filter');
+        renderList();
+    };
+});
+document.querySelector('[data-filter="pending"]').classList.add('active-filter');
+
+async function loadAll() {
+    try {
+        const data = await adminFetch('/api/admin/reviews');
+        allReviews = data.reviews || [];
+        updateCounts();
+        renderList();
+    } catch (e) { /* handled */ }
+}
+
+function updateCounts() {
+    const counts = { pending: 0, approved: 0, rejected: 0 };
+    allReviews.forEach(r => { counts[r.status]++; });
+    document.getElementById('countPending').textContent = counts.pending;
+    document.getElementById('countApproved').textContent = counts.approved;
+    document.getElementById('countRejected').textContent = counts.rejected;
+    document.querySelector('.dash-tile.pending').classList.toggle('has-new', counts.pending > 0);
+}
+
+function renderList() {
+    const listEl = document.getElementById('reviewList');
+    const filtered = allReviews.filter(r => r.status === currentFilter).sort((a, b) => b.createdAt - a.createdAt);
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="empty-list">Nothing here right now.</div>`;
+        return;
+    }
+
+    listEl.innerHTML = filtered.map(r => `
+        <div class="review-item ${r.id === selectedId ? 'selected' : ''}" data-id="${r.id}">
+            <div class="ri-top"><span>${RATED_LABEL[r.ratedFor] || r.ratedFor}</span><span>${fmtTime(r.createdAt)}</span></div>
+            <div class="ri-emojis">${(r.emojis || []).join(' ')}</div>
+            ${r.note ? `<div class="ri-snippet">${escapeHtml(r.note)}</div>` : ''}
+        </div>
+    `).join('');
+
+    listEl.querySelectorAll('.review-item').forEach(item => {
+        item.onclick = () => openReview(item.dataset.id);
+    });
+}
+
+function openReview(id) {
+    selectedId = id;
+    renderList();
+    const review = allReviews.find(r => r.id === id);
+    if (!review) return;
+
+    document.getElementById('detailEmpty').style.display = 'none';
+    document.getElementById('detailContent').style.display = 'flex';
+
+    const logos = LOGOS[review.ratedFor] || [];
+    const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
+    const identityLabel = review.identity === 'member' ? 'Community Member' : (review.identity === 'visitor' ? '3C Visitor' : 'Not specified');
+    const starsHtml = review.stars ? '★'.repeat(review.stars) + '☆'.repeat(5 - review.stars) : 'No rating given';
+
+    document.getElementById('previewCard').innerHTML = `
+        <div class="pc-logos">${logoHtml}</div>
+        ${review.emojis && review.emojis.length ? `<div class="pc-emojis">${review.emojis.join(' ')}</div>` : ''}
+        ${review.note ? `<div class="pc-note">${escapeHtml(review.note)}</div>` : ''}
+        <div class="pc-meta">${identityLabel}</div>
+        <div class="pc-stars">${starsHtml}</div>
+        <div class="pc-timestamp">Submitted ${fmtTime(review.createdAt)} — rated for ${RATED_LABEL[review.ratedFor] || review.ratedFor}</div>
+    `;
+
+    const actions = document.getElementById('actionRow');
+    if (review.status === 'pending') {
+        actions.innerHTML = `<button class="btn-approve" id="approveBtn">✓ Approve</button><button class="btn-reject" id="rejectBtn">✕ Reject</button>`;
+        document.getElementById('approveBtn').onclick = () => actOnReview(id, 'approve');
+        document.getElementById('rejectBtn').onclick = () => actOnReview(id, 'reject');
+    } else if (review.status === 'approved') {
+        actions.innerHTML = `<button class="btn-reject" id="rejectBtn">Remove from public view</button>`;
+        document.getElementById('rejectBtn').onclick = () => actOnReview(id, 'reject');
+    } else {
+        actions.innerHTML = `<button class="btn-restore" id="restoreBtn">Restore</button><button class="btn-purge" id="purgeBtn">Delete forever</button>`;
+        document.getElementById('restoreBtn').onclick = () => actOnReview(id, 'approve');
+        document.getElementById('purgeBtn').onclick = () => purgeReview(id);
+    }
+}
+
+async function actOnReview(id, action) {
+    try {
+        await adminFetch(`/api/admin/reviews/${id}/${action}`, { method: 'POST' });
+        selectedId = null;
+        document.getElementById('detailEmpty').style.display = 'block';
+        document.getElementById('detailContent').style.display = 'none';
+        await loadAll();
+    } catch (e) { /* handled */ }
+}
+
+async function purgeReview(id) {
+    if (!confirm('Permanently delete this review? This cannot be undone.')) return;
+    try {
+        await adminFetch(`/api/admin/reviews/${id}/purge`, { method: 'POST' });
+        selectedId = null;
+        document.getElementById('detailEmpty').style.display = 'block';
+        document.getElementById('detailContent').style.display = 'none';
+        await loadAll();
+    } catch (e) { /* handled */ }
+}
+
+loadAll();
+setInterval(loadAll, 10000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadAll(); });
+window.addEventListener('focus', loadAll);
+</script>
+</body>
+</html>
