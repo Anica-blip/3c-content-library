@@ -396,6 +396,83 @@ async function displayCollectionGrid(folder, highlightSlug) {
             console.warn('Highlight target not found in this folder:', highlightSlug);
         }
     }
+
+    // Live review slider — only on the Drop In folder specifically,
+    // not repeated on every Collection folder. Quiet, dim, "community
+    // share" styling matching reviews.html exactly, sized modestly so
+    // it never competes with the actual thumbnails above it.
+    if (folder.tableName === 'drop_in') {
+        await renderReviewSliderEmbed();
+    }
+}
+
+// ==================== LIVE REVIEW SLIDER (Drop In folder only) ====================
+let embedReviews = [];
+let embedIndex = 0;
+let embedTimer = null;
+
+async function renderReviewSliderEmbed() {
+    const viewer = document.getElementById('viewer');
+    if (!viewer || document.getElementById('reviewSliderEmbed')) return;
+
+    if (!document.getElementById('reviewSliderStyle')) {
+        const style = document.createElement('style');
+        style.id = 'reviewSliderStyle';
+        style.textContent = `
+            #reviewSliderEmbed { margin-top: 36px; border-top: 1px solid rgba(155,89,182,0.15); padding-top: 18px; max-width: 480px; }
+            #reviewSliderEmbed .rs-card { padding: 4px 2px; display: flex; flex-direction: column; gap: 6px; }
+            #reviewSliderEmbed .rs-title { font-size: 10px; font-weight: 700; color: #c084fc; text-shadow: 0 0 8px rgba(192,132,252,0.35); }
+            #reviewSliderEmbed .rs-emojis { font-size: 15px; letter-spacing: 2px; opacity: 0.85; }
+            #reviewSliderEmbed .rs-note { font-size: 11px; color: #9a8fb0; line-height: 1.5; font-style: italic; max-width: 420px; }
+            #reviewSliderEmbed .rs-meta { font-size: 9px; color: rgba(240,234,248,0.3); }
+            #reviewSliderEmbed .rs-dots { display: flex; gap: 5px; margin-top: 8px; }
+            #reviewSliderEmbed .rs-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+            #reviewSliderEmbed .rs-dot.active { background: rgba(0,212,200,0.6); }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const container = document.createElement('div');
+    container.id = 'reviewSliderEmbed';
+    container.innerHTML = '<div class="rs-card"><div class="rs-title">Loading reviews...</div></div>';
+    viewer.appendChild(container);
+
+    try {
+        const res = await fetch('https://dropin-chat.3c-innertherapy.workers.dev/api/reviews/approved?for=vault');
+        const data = await res.json();
+        embedReviews = data.reviews || [];
+    } catch (e) {
+        container.remove();
+        return;
+    }
+
+    if (embedReviews.length === 0) { container.remove(); return; }
+
+    renderEmbedCard();
+    if (embedTimer) clearInterval(embedTimer);
+    embedTimer = setInterval(() => {
+        embedIndex = (embedIndex + 1) % embedReviews.length;
+        renderEmbedCard();
+    }, 6000);
+}
+
+function renderEmbedCard() {
+    const container = document.getElementById('reviewSliderEmbed');
+    if (!container) return;
+    const r = embedReviews[embedIndex];
+    const emojiHtml = (r.emojis || []).join(' ');
+    const identityLabel = r.identity === 'member' ? 'Community Member' : (r.identity === 'visitor' ? '3C Visitor' : '');
+    const starsHtml = r.stars ? '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars) : '';
+    const dotsHtml = embedReviews.map((_, i) => `<div class="rs-dot ${i === embedIndex ? 'active' : ''}"></div>`).join('');
+    container.innerHTML = `
+        <div class="rs-card">
+            <div class="rs-title">💝 From Our Visitors</div>
+            ${emojiHtml ? `<div class="rs-emojis">${emojiHtml}</div>` : ''}
+            ${r.note ? `<div class="rs-note">${escapeHtml(r.note)}</div>` : ''}
+            ${(identityLabel || starsHtml) ? `<div class="rs-meta">${identityLabel}${identityLabel && starsHtml ? ' · ' : ''}${starsHtml}</div>` : ''}
+            <div class="rs-dots">${dotsHtml}</div>
+        </div>
+    `;
 }
 
 // ==================== COPY SERIES LINK ====================
