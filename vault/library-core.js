@@ -439,7 +439,7 @@ async function renderReviewSliderEmbed() {
         style.textContent = `
             /* Outer layer — the full-width glass strip */
             #reviewSliderEmbed:not(:empty) {
-                margin-top: 28px; width: 100%; border-radius: 16px; overflow: hidden;
+                margin-top: 52px; width: 100%; border-radius: 16px; overflow: hidden;
                 background: rgba(255, 255, 255, 0.03);
                 backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
                 border: 1px solid rgba(255, 255, 255, 0.08);
@@ -447,16 +447,18 @@ async function renderReviewSliderEmbed() {
                 padding: 26px 20px;
             }
             #reviewSliderEmbed .rs-track { display: flex; transition: transform 0.6s ease; }
-            /* Inner layer — the muted beige card, centered within the glass strip */
+            /* Inner layer — the actual review card. The outer strip above
+               stays a subtle glass panel; this card itself needs to be
+               genuinely legible, not part of that translucency. */
             #reviewSliderEmbed .rs-slide { flex: 0 0 100%; display: flex; justify-content: center; }
             #reviewSliderEmbed .rs-card {
                 width: 230px; height: 230px; box-sizing: border-box;
-                background: rgba(245, 240, 220, 0.16);
-                border: 1px solid rgba(245, 240, 220, 0.22);
+                background: rgba(245, 240, 220, 0.94);
+                border: 1px solid rgba(245, 240, 220, 0.6);
                 border-radius: 14px; padding: 18px 20px;
                 display: flex; flex-direction: column; align-items: center; justify-content: center;
                 text-align: center; gap: 6px; overflow: hidden;
-                box-shadow: 0 8px 22px rgba(0,0,0,0.22);
+                box-shadow: 0 8px 22px rgba(0,0,0,0.3);
             }
             #reviewSliderEmbed .rs-title { font-size: 10px; font-weight: 700; color: #6d28d9; }
             #reviewSliderEmbed .rs-emojis { font-size: 16px; letter-spacing: 3px; }
@@ -480,7 +482,7 @@ async function renderReviewSliderEmbed() {
                slightly less blur on the outer strip so text stays crisp. */
             @media (max-width: 480px) {
                 #reviewSliderEmbed:not(:empty) { padding: 20px 14px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-                #reviewSliderEmbed .rs-card { width: 200px; height: 200px; background: rgba(245, 240, 220, 0.28); border-color: rgba(245, 240, 220, 0.35); }
+                #reviewSliderEmbed .rs-card { width: 200px; height: 200px; background: rgba(245, 240, 220, 0.97); border-color: rgba(245, 240, 220, 0.7); }
                 #reviewSliderEmbed .rs-note { color: #2a1f3d; font-size: 10.5px; }
                 #reviewSliderEmbed .rs-title { color: #5b21b6; }
             }
