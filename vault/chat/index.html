@@ -82,7 +82,7 @@
     .persona-card:hover .persona-avatar { transform: translateY(-2px); box-shadow: 0 0 0 2px var(--persona-color, var(--purple-light)); }
     .persona-card.selected .persona-avatar { box-shadow: 0 0 0 2px var(--persona-color, var(--purple-light)), 0 0 12px rgba(123,63,228,0.5); }
     .persona-avatar {
-        width: 20px; height: 20px; border-radius: 50%;
+        width: 32px; height: 32px; border-radius: 50%;
         background-size: cover; background-position: center;
         background-color: var(--persona-color, var(--purple-light));
         transition: all 0.2s;
@@ -212,6 +212,10 @@
         background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); color: #fff; border: none;
         font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 20px; cursor: pointer;
     }
+    #resumeBanner #startFreshBtn {
+        background: none; border: 1px solid var(--border); color: var(--text-dim); font-weight: 500;
+    }
+    #resumeBanner #startFreshBtn:hover { color: #fff; border-color: var(--purple-light); }
 
     /* MANUAL CODE ENTRY */
     .resume-code-link { text-align: center; margin-top: 24px; font-size: 11px; color: var(--text-dim); }
@@ -604,11 +608,21 @@ async function checkForResumableThread() {
         const banner = document.getElementById('resumeBanner');
         banner.innerHTML = `
             <span>Resume your last conversation with ${p ? p.name : data.thread.persona}?</span>
-            <button id="resumeLastBtn">Resume</button>
+            <div style="display:flex; gap:8px;">
+                <button id="resumeLastBtn">Resume</button>
+                <button id="startFreshBtn">Start a new chat</button>
+            </div>
         `;
         banner.style.display = 'flex';
         document.getElementById('resumeLastBtn').onclick = () => {
             window.location.href = `${window.location.pathname}?t=${lastId}`;
+        };
+        // Always their choice — dismisses the banner and simply forgets
+        // this device's memory of the old thread. The old conversation
+        // itself isn't touched or deleted, just no longer offered here.
+        document.getElementById('startFreshBtn').onclick = () => {
+            localStorage.removeItem('dropin_last_thread');
+            banner.style.display = 'none';
         };
     } catch (e) { /* non-critical */ }
 }
