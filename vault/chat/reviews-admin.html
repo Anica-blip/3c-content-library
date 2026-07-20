@@ -59,6 +59,7 @@
         background: var(--cream); border-radius: 16px; padding: 24px; max-width: 420px; width: 100%;
         display: flex; flex-direction: column; align-items: center; gap: 12px; color: #3a2a55;
     }
+    .preview-card .pc-title { align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; color: #6d28d9; }
     .preview-card .pc-logos img { height: 28px; width: 28px; border-radius: 50%; object-fit: cover; margin: 0 4px; }
     .preview-card .pc-emojis { font-size: 24px; letter-spacing: 5px; }
     .preview-card .pc-note { font-size: 14px; text-align: center; line-height: 1.6; }
@@ -85,9 +86,14 @@
         <img src="../../3C Thread To Success logo.png" alt="3C Logo">
         <h1>Reviews — Admin</h1>
     </div>
-    <button class="icon-btn" id="exitBtn" title="Back to Drop In">
-        <svg viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 16l5-5-5-5M20 11H9"/></svg>
-    </button>
+    <div style="display:flex; align-items:center; gap:8px;">
+        <a class="icon-btn" href="admin.html" title="Back to Drop In chat">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </a>
+        <button class="icon-btn" id="exitBtn" title="Exit">
+            <svg viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 16l5-5-5-5M20 11H9"/></svg>
+        </button>
+    </div>
 </div>
 
 <div class="layout">
@@ -143,7 +149,12 @@ async function adminFetch(path, options = {}) {
 }
 
 document.getElementById('exitBtn').onclick = () => {
-    window.location.href = 'admin.html';
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'vault-close-modal' }, '*');
+        return;
+    }
+    if (document.referrer) { window.location.href = document.referrer; }
+    else { window.location.href = '../vault.html'; }
 };
 
 let allReviews = [];
@@ -224,11 +235,12 @@ function openReview(id) {
     const starsHtml = review.stars ? '★'.repeat(review.stars) + '☆'.repeat(5 - review.stars) : 'No rating given';
 
     document.getElementById('previewCard').innerHTML = `
-        <div class="pc-logos">${logoHtml}</div>
+        <div class="pc-title">💝 From Our Visitors</div>
         ${review.emojis && review.emojis.length ? `<div class="pc-emojis">${review.emojis.join(' ')}</div>` : ''}
         ${review.note ? `<div class="pc-note">${escapeHtml(review.note)}</div>` : ''}
         <div class="pc-meta">${identityLabel}</div>
         <div class="pc-stars">${starsHtml}</div>
+        <div class="pc-logos">${logoHtml}</div>
         <div class="pc-timestamp">Submitted ${fmtTime(review.createdAt)} — rated for ${RATED_LABEL[review.ratedFor] || review.ratedFor}</div>
     `;
 
