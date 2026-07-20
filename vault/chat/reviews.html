@@ -121,19 +121,23 @@
        dimmed text, so it reads as a tribute to whoever wrote it, not
        a testimonial pitch. */
     .slider-section { margin-top: 40px; border-top: 1px solid var(--border); padding-top: 24px; }
-    .slider-title { text-align: center; font-size: 13px; color: var(--text-dim); margin-bottom: 16px; font-weight: 500; }
     .slider-viewport { overflow: hidden; }
-    .slider-track { display: flex; transition: transform 0.5s ease; }
+    .slider-track { display: flex; transition: transform 0.5s ease; align-items: stretch; }
     .review-card {
-        flex: 0 0 100%; padding: 18px 20px; border-top: 1px solid rgba(255,255,255,0.06);
-        display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 100px; justify-content: center;
+        flex: 0 0 100%; padding: 16px 4px; border-top: 1px solid rgba(255,255,255,0.06);
+        display: flex; flex-direction: column; gap: 8px;
     }
-    .review-card .card-logos { display: flex; gap: 8px; align-items: center; opacity: 0.6; }
-    .review-card .card-logos img { height: 20px; width: 20px; border-radius: 50%; object-fit: cover; }
+    .review-card .card-title {
+        font-size: 11px; font-weight: 700; letter-spacing: 0.3px; text-align: left;
+        color: #c084fc; text-shadow: 0 0 10px rgba(192,132,252,0.4); margin-bottom: 2px;
+    }
     .review-card .card-emojis { font-size: 18px; letter-spacing: 3px; opacity: 0.85; }
-    .review-card .card-note { font-size: 12px; color: var(--text-dim); text-align: center; line-height: 1.5; max-width: 420px; font-style: italic; }
+    .review-card .card-emojis.emoji-only { font-size: 34px; letter-spacing: 6px; margin: 6px 0; }
+    .review-card .card-note { font-size: 12px; color: var(--text-dim); line-height: 1.5; max-width: 420px; font-style: italic; }
     .review-card .card-meta { font-size: 10px; color: rgba(240,234,248,0.35); font-weight: 500; letter-spacing: 0.3px; }
     .review-card .card-stars { color: rgba(212,160,23,0.55); font-size: 11px; }
+    .review-card .card-logos { display: flex; gap: 8px; align-items: center; opacity: 0.5; margin-top: 4px; }
+    .review-card .card-logos img { height: 18px; width: 18px; border-radius: 50%; object-fit: cover; }
     .slider-dots { display: flex; justify-content: center; gap: 6px; margin-top: 12px; }
     .slider-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.15); cursor: pointer; }
     .slider-dot.active { background: rgba(0,212,200,0.6); }
@@ -162,6 +166,7 @@
 <div class="main">
     <div id="formView">
         <h2 class="section-title">⭐ How was your visit?</h2>
+        <p class="section-sub" style="color:var(--teal); font-weight:600; margin-bottom:2px;">Choose any of these options — emoji, your own words, or both. However you'd like to share is fine.</p>
         <p class="section-sub">Pick one or more emoji that best matches your experience today.</p>
         <div class="emoji-row" id="emojiRow"></div>
 
@@ -209,7 +214,6 @@
     </div>
 
     <div class="slider-section">
-        <h2 class="slider-title">💝 From Our Visitors</h2>
         <div class="slider-viewport">
             <div class="slider-track" id="sliderTrack"></div>
         </div>
@@ -384,15 +388,17 @@ function renderSlider() {
         const logos = LOGOS[r.ratedFor] || [];
         const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
         const emojiHtml = (r.emojis || []).join(' ');
+        const emojiOnly = emojiHtml && !r.note;
         const identityLabel = r.identity === 'member' ? 'Community Member' : (r.identity === 'visitor' ? '3C Visitor' : '');
         const starsHtml = r.stars ? '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars) : '';
         return `
             <div class="review-card">
-                <div class="card-logos">${logoHtml}</div>
-                ${emojiHtml ? `<div class="card-emojis">${emojiHtml}</div>` : ''}
+                <div class="card-title">💝 From Our Visitors</div>
+                ${emojiHtml ? `<div class="card-emojis${emojiOnly ? ' emoji-only' : ''}">${emojiHtml}</div>` : ''}
                 ${r.note ? `<div class="card-note">${escapeHtml(r.note)}</div>` : ''}
                 ${identityLabel ? `<div class="card-meta">${identityLabel}</div>` : ''}
                 ${starsHtml ? `<div class="card-stars">${starsHtml}</div>` : ''}
+                ${logoHtml ? `<div class="card-logos">${logoHtml}</div>` : ''}
             </div>
         `;
     }).join('');
