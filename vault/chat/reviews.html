@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reviews — Aurion's Vault</title>
+<link rel="icon" type="image/png" href="../../favicon1.png">
+<style>
+    :root {
+        --bg-primary: #0a0416;
+        --bg-chat: rgba(26, 26, 26, 0.95);
+        --purple-light: #9b59b6;
+        --purple-medium: #8e44ad;
+        --accent: #7b3fe4;
+        --teal: #00d4c8;
+        --text-primary: #ffffff;
+        --text-dim: rgba(240, 234, 248, 0.55);
+        --border: rgba(155, 89, 182, 0.25);
+        --cream: #f5f0dc;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+        width: 100%; height: 100%;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        overflow: hidden;
+    }
+    body { display: flex; flex-direction: column; }
+    .header {
+        background: linear-gradient(135deg, #2d1b69 0%, #4a2c8f 50%, #3b1f7a 100%);
+        padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 1px solid var(--border); box-shadow: 0 2px 20px rgba(74, 44, 143, 0.4);
+        flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-left img { height: 36px; width: 36px; border-radius: 50%; object-fit: cover; background: white; padding: 3px; }
+    .header-left h1 { font-size: 18px; font-weight: 800; color: #c084fc; text-shadow: 0 0 16px rgba(192, 132, 252, 0.55); }
+    .icon-btn {
+        background: rgba(155, 89, 182, 0.15); border: 1px solid rgba(155, 89, 182, 0.35); color: #c084fc;
+        width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: all 0.2s;
+    }
+    .icon-btn:hover { background: rgba(155, 89, 182, 0.3); border-color: rgba(155,89,182,0.6); }
+    .icon-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .main { flex: 1; min-height: 0; overflow-y: auto; max-width: 640px; width: 100%; margin: 0 auto; padding: 24px 16px 40px;
+        scrollbar-width: thin; scrollbar-color: var(--purple-medium) transparent; }
+    .main::-webkit-scrollbar { width: 8px; }
+    .main::-webkit-scrollbar-thumb { background: var(--purple-medium); border-radius: 8px; }
+
+    h2.section-title { font-size: 15px; color: #fff; margin-bottom: 4px; text-align: center; }
+    p.section-sub { font-size: 12px; color: var(--text-dim); text-align: center; margin-bottom: 16px; }
+
+    /* EMOJI PICKER */
+    .emoji-row { display: flex; justify-content: center; gap: 14px; margin-bottom: 16px; }
+    .emoji-btn {
+        font-size: 30px; background: var(--bg-chat); border: 1px solid var(--border);
+        border-radius: 12px; width: 54px; height: 54px; cursor: pointer; position: relative;
+        display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+    }
+    .emoji-btn:hover { border-color: var(--purple-light); transform: translateY(-2px); }
+    .emoji-btn.selected { background: rgba(123,63,228,0.2); border-color: var(--accent); box-shadow: 0 0 12px rgba(123,63,228,0.4); }
+    .emoji-tooltip {
+        position: absolute; bottom: 62px; left: 50%; transform: translateX(-50%);
+        background: #1a1a1a; border: 1px solid var(--border); color: #fff; font-size: 11px;
+        padding: 6px 10px; border-radius: 8px; white-space: nowrap; display: none; pointer-events: none;
+    }
+    .emoji-btn:hover .emoji-tooltip { display: block; }
+
+    /* LIVE PREVIEW OF SELECTED LINES */
+    .preview-lines { margin-bottom: 20px; min-height: 4px; }
+    .preview-line {
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        background: var(--bg-chat); border: 1px solid var(--border); border-radius: 8px;
+        padding: 8px 12px; margin-bottom: 6px; font-size: 13px;
+    }
+    .preview-line .del-line { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 14px; padding: 0 4px; }
+    .preview-line .del-line:hover { color: #e74c3c; }
+
+    /* RATED FOR */
+    .pill-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .pill {
+        background: var(--bg-chat); border: 1px solid var(--border); color: var(--text-dim);
+        font-size: 12px; padding: 7px 16px; border-radius: 20px; cursor: pointer; transition: all 0.2s;
+    }
+    .pill.selected { background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); color: #fff; border-color: transparent; }
+
+    /* NOTE */
+    textarea.note-input {
+        width: 100%; min-height: 80px; resize: vertical; background: var(--bg-chat); border: 1px solid var(--border);
+        border-radius: 10px; padding: 12px; color: #fff; font-size: 13px; font-family: inherit; margin-bottom: 20px;
+    }
+    textarea.note-input:focus { outline: none; border-color: var(--accent); }
+
+    /* STARS */
+    .stars-row { display: flex; justify-content: center; gap: 6px; margin-bottom: 24px; }
+    .star-btn { font-size: 26px; background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.25); transition: color 0.15s; }
+    .star-btn.active, .star-btn:hover, .star-btn:hover ~ .star-btn { color: #f0ad4e; }
+
+    /* SUBMIT ROW */
+    .submit-row { display: flex; gap: 10px; }
+    .btn-cancel {
+        flex: 1; background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-dim);
+        padding: 12px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-share {
+        flex: 2; background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); border: none; color: #fff;
+        padding: 12px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-share:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .thanks-msg { text-align: center; padding: 40px 20px; display: none; }
+    .thanks-msg h2 { color: var(--teal); font-size: 18px; margin-bottom: 8px; }
+    .thanks-msg p { color: var(--text-dim); font-size: 13px; }
+
+    /* SLIDER */
+    .slider-section { margin-top: 40px; border-top: 1px solid var(--border); padding-top: 24px; }
+    .slider-title { text-align: center; font-size: 15px; color: #fff; margin-bottom: 16px; }
+    .slider-viewport { overflow: hidden; border-radius: 16px; }
+    .slider-track { display: flex; transition: transform 0.5s ease; }
+    .review-card {
+        flex: 0 0 100%; background: var(--cream); border-radius: 16px; padding: 20px;
+        display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 160px; justify-content: center;
+    }
+    .review-card .card-logos { display: flex; gap: 10px; align-items: center; }
+    .review-card .card-logos img { height: 28px; width: 28px; border-radius: 50%; object-fit: cover; }
+    .review-card .card-emojis { font-size: 22px; letter-spacing: 4px; }
+    .review-card .card-note { font-size: 13px; color: #3a2a55; text-align: center; line-height: 1.5; max-width: 420px; }
+    .review-card .card-meta { font-size: 11px; color: #6a5a80; font-weight: 600; }
+    .review-card .card-stars { color: #d4a017; font-size: 14px; }
+    .slider-dots { display: flex; justify-content: center; gap: 6px; margin-top: 12px; }
+    .slider-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); cursor: pointer; }
+    .slider-dot.active { background: var(--teal); }
+    .slider-empty { text-align: center; color: var(--text-dim); font-size: 12px; padding: 30px; }
+
+    #watermark {
+        position: fixed; bottom: 0; left: 0; right: 0; background: rgba(10, 14, 39, 0.85);
+        border-top: 1px solid rgba(155, 89, 182, 0.15); padding: 4px 16px; text-align: right;
+        font-size: 10px; color: rgba(155, 89, 182, 0.6); z-index: 50;
+    }
+    #watermark a { color: rgba(192, 132, 252, 0.7); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <img src="../../3C Thread To Success logo.png" alt="3C Logo">
+        <h1>Reviews</h1>
+    </div>
+    <button class="icon-btn" id="exitBtn" title="Exit">
+        <svg viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 16l5-5-5-5M20 11H9"/></svg>
+    </button>
+</div>
+
+<div class="main">
+    <div id="formView">
+        <h2 class="section-title">⭐ How was your visit?</h2>
+        <p class="section-sub">Pick one or more emoji that best matches your experience today.</p>
+        <div class="emoji-row" id="emojiRow"></div>
+
+        <div class="preview-lines" id="previewLines"></div>
+
+        <h2 class="section-title">⭐ Where were you rating today?</h2>
+        <div class="pill-row" id="ratedForRow">
+            <div class="pill" data-value="library">Public Library</div>
+            <div class="pill" data-value="vault">Aurion Vault</div>
+            <div class="pill" data-value="both">Both</div>
+        </div>
+
+        <h2 class="section-title">⭐ Tell us a little more (optional)</h2>
+        <p class="section-sub">We'd love to hear what stood out for you, what you enjoyed, or any ideas you'd like to share.</p>
+        <textarea class="note-input" id="noteInput" placeholder="Your own words, if you'd like..."></textarea>
+
+        <h2 class="section-title">⭐ Simply to remain anonymous, choose one</h2>
+        <p class="section-sub">Optional — a small nudge that you're a real part of this community.</p>
+        <div class="pill-row" id="identityRow">
+            <div class="pill" data-value="visitor">3C Visitor</div>
+            <div class="pill" data-value="member">Community Member</div>
+        </div>
+
+        <h2 class="section-title">⭐ Overall Rating, if you'd like to add</h2>
+        <div class="stars-row" id="starsRow">
+            <button class="star-btn" data-star="1">★</button>
+            <button class="star-btn" data-star="2">★</button>
+            <button class="star-btn" data-star="3">★</button>
+            <button class="star-btn" data-star="4">★</button>
+            <button class="star-btn" data-star="5">★</button>
+        </div>
+
+        <div class="submit-row">
+            <button class="btn-cancel" id="cancelBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 5l14 14M19 5L5 19"/></svg>
+                Cancel
+            </button>
+            <button class="btn-share" id="shareBtn" disabled>✨ Share My Review</button>
+        </div>
+    </div>
+
+    <div class="thanks-msg" id="thanksMsg">
+        <h2>Thank you 💜</h2>
+        <p>Your review has been sent for a quick check before it goes live. We really appreciate you taking the time.</p>
+    </div>
+
+    <div class="slider-section">
+        <h2 class="slider-title">💝 From Our Visitors</h2>
+        <div class="slider-viewport">
+            <div class="slider-track" id="sliderTrack"></div>
+        </div>
+        <div class="slider-dots" id="sliderDots"></div>
+    </div>
+</div>
+
+<div id="watermark">
+    Designed &amp; built with ❤️ by <a href="https://www.anthropic.com" target="_blank" rel="noopener">Claude</a> (Anthropic) × Chef Anica · <span style="opacity:0.7;">3C Thread To Success Cooking Lab 🧪👨‍🍳</span>
+</div>
+
+<script>
+const WORKER_URL = 'https://dropin-chat.3c-innertherapy.workers.dev';
+
+const EMOJIS = [
+    { emoji: '🥳', line: 'Loved it!' },
+    { emoji: '😊', line: 'Really enjoyed it.' },
+    { emoji: '🙂', line: 'Nice experience.' },
+    { emoji: '🤔', line: 'Some ideas to improve.' },
+    { emoji: '🌱', line: "I'll visit again another time." },
+];
+
+const LOGOS = {
+    library: ['../../3C Thread To Success logo.png'],
+    vault: ['../../Clubhouse logo.png'],
+    both: ['../../3C Thread To Success logo.png', '../../Clubhouse logo.png'],
+};
+
+let selectedEmojis = [];
+let ratedFor = null;
+let identity = null;
+let stars = 0;
+
+document.getElementById('exitBtn').onclick = () => {
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'vault-close-modal' }, '*');
+        return;
+    }
+    if (document.referrer) { window.location.href = document.referrer; }
+    else { window.location.href = '../vault.html'; }
+};
+
+function renderEmojiRow() {
+    const row = document.getElementById('emojiRow');
+    row.innerHTML = EMOJIS.map(e => `
+        <div class="emoji-btn" data-emoji="${e.emoji}">
+            ${e.emoji}
+            <div class="emoji-tooltip">${e.line}</div>
+        </div>
+    `).join('');
+    row.querySelectorAll('.emoji-btn').forEach(btn => {
+        btn.onclick = () => {
+            const emoji = btn.dataset.emoji;
+            const idx = selectedEmojis.indexOf(emoji);
+            if (idx === -1) { selectedEmojis.push(emoji); btn.classList.add('selected'); }
+            else { selectedEmojis.splice(idx, 1); btn.classList.remove('selected'); }
+            renderPreview();
+            updateShareButton();
+        };
+    });
+}
+
+function renderPreview() {
+    const container = document.getElementById('previewLines');
+    container.innerHTML = selectedEmojis.map(emoji => {
+        const line = EMOJIS.find(e => e.emoji === emoji).line;
+        return `<div class="preview-line"><span>${emoji} ${line}</span><button class="del-line" data-emoji="${emoji}">✕</button></div>`;
+    }).join('');
+    container.querySelectorAll('.del-line').forEach(btn => {
+        btn.onclick = () => {
+            const emoji = btn.dataset.emoji;
+            selectedEmojis = selectedEmojis.filter(e => e !== emoji);
+            document.querySelector(`.emoji-btn[data-emoji="${emoji}"]`).classList.remove('selected');
+            renderPreview();
+            updateShareButton();
+        };
+    });
+}
+
+document.querySelectorAll('#ratedForRow .pill').forEach(pill => {
+    pill.onclick = () => {
+        document.querySelectorAll('#ratedForRow .pill').forEach(p => p.classList.remove('selected'));
+        pill.classList.add('selected');
+        ratedFor = pill.dataset.value;
+        updateShareButton();
+    };
+});
+
+document.querySelectorAll('#identityRow .pill').forEach(pill => {
+    pill.onclick = () => {
+        const already = pill.classList.contains('selected');
+        document.querySelectorAll('#identityRow .pill').forEach(p => p.classList.remove('selected'));
+        if (!already) { pill.classList.add('selected'); identity = pill.dataset.value; }
+        else { identity = null; }
+    };
+});
+
+document.querySelectorAll('.star-btn').forEach(btn => {
+    btn.onclick = () => {
+        const val = parseInt(btn.dataset.star);
+        stars = (stars === val) ? 0 : val;
+        document.querySelectorAll('.star-btn').forEach(b => {
+            b.classList.toggle('active', parseInt(b.dataset.star) <= stars);
+        });
+    };
+});
+
+function updateShareButton() {
+    const noteHasText = document.getElementById('noteInput').value.trim().length > 0;
+    const hasContent = selectedEmojis.length > 0 || noteHasText;
+    document.getElementById('shareBtn').disabled = !(hasContent && ratedFor);
+}
+document.getElementById('noteInput').addEventListener('input', updateShareButton);
+
+document.getElementById('cancelBtn').onclick = () => {
+    selectedEmojis = []; ratedFor = null; identity = null; stars = 0;
+    document.querySelectorAll('.emoji-btn.selected, .pill.selected, .star-btn.active').forEach(el => el.classList.remove('selected', 'active'));
+    document.getElementById('noteInput').value = '';
+    renderPreview();
+    updateShareButton();
+};
+
+document.getElementById('shareBtn').onclick = async () => {
+    const btn = document.getElementById('shareBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    try {
+        const res = await fetch(`${WORKER_URL}/api/reviews/submit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                emojis: selectedEmojis,
+                ratedFor,
+                note: document.getElementById('noteInput').value.trim(),
+                identity,
+                stars: stars || null,
+            }),
+        });
+        if (!res.ok) throw new Error('Could not send review');
+        document.getElementById('formView').style.display = 'none';
+        document.getElementById('thanksMsg').style.display = 'block';
+    } catch (e) {
+        alert('Something went wrong sending that — please try again.');
+        btn.disabled = false;
+        btn.textContent = '✨ Share My Review';
+    }
+};
+
+// ── SLIDER ──
+let sliderReviews = [];
+let sliderIndex = 0;
+let sliderTimer = null;
+
+async function loadSlider() {
+    try {
+        const res = await fetch(`${WORKER_URL}/api/reviews/approved?for=vault`);
+        const data = await res.json();
+        sliderReviews = data.reviews || [];
+        renderSlider();
+    } catch (e) { console.error('Could not load reviews:', e); }
+}
+
+function renderSlider() {
+    const track = document.getElementById('sliderTrack');
+    const dots = document.getElementById('sliderDots');
+    if (sliderReviews.length === 0) {
+        track.innerHTML = '<div class="review-card"><div class="slider-empty" style="color:#6a5a80;">Be the first to leave a review!</div></div>';
+        dots.innerHTML = '';
+        return;
+    }
+    track.innerHTML = sliderReviews.map(r => {
+        const logos = LOGOS[r.ratedFor] || [];
+        const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
+        const emojiHtml = (r.emojis || []).join(' ');
+        const identityLabel = r.identity === 'member' ? 'Community Member' : (r.identity === 'visitor' ? '3C Visitor' : '');
+        const starsHtml = r.stars ? '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars) : '';
+        return `
+            <div class="review-card">
+                <div class="card-logos">${logoHtml}</div>
+                ${emojiHtml ? `<div class="card-emojis">${emojiHtml}</div>` : ''}
+                ${r.note ? `<div class="card-note">${escapeHtml(r.note)}</div>` : ''}
+                ${identityLabel ? `<div class="card-meta">${identityLabel}</div>` : ''}
+                ${starsHtml ? `<div class="card-stars">${starsHtml}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+    dots.innerHTML = sliderReviews.map((_, i) => `<div class="slider-dot ${i === sliderIndex ? 'active' : ''}" data-i="${i}"></div>`).join('');
+    dots.querySelectorAll('.slider-dot').forEach(dot => {
+        dot.onclick = () => { sliderIndex = parseInt(dot.dataset.i); updateSliderPosition(); resetSliderTimer(); };
+    });
+    updateSliderPosition();
+}
+
+function updateSliderPosition() {
+    document.getElementById('sliderTrack').style.transform = `translateX(-${sliderIndex * 100}%)`;
+    document.querySelectorAll('.slider-dot').forEach((d, i) => d.classList.toggle('active', i === sliderIndex));
+}
+
+function resetSliderTimer() {
+    if (sliderTimer) clearInterval(sliderTimer);
+    sliderTimer = setInterval(() => {
+        if (sliderReviews.length === 0) return;
+        sliderIndex = (sliderIndex + 1) % sliderReviews.length;
+        updateSliderPosition();
+    }, 5000);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+renderEmojiRow();
+loadSlider();
+resetSliderTimer();
+</script>
+</body>
+</html>
