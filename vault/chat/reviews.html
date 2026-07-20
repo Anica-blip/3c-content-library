@@ -116,33 +116,6 @@
     .thanks-msg h2 { color: var(--teal); font-size: 18px; margin-bottom: 8px; }
     .thanks-msg p { color: var(--text-dim); font-size: 13px; }
 
-    /* SLIDER — deliberately quiet, "community share" not "proof wall".
-       No card block, no bright background — just a thin divider and
-       dimmed text, so it reads as a tribute to whoever wrote it, not
-       a testimonial pitch. */
-    .slider-section { margin-top: 40px; border-top: 1px solid var(--border); padding-top: 24px; }
-    .slider-viewport { overflow: hidden; }
-    .slider-track { display: flex; transition: transform 0.5s ease; align-items: stretch; }
-    .review-card {
-        flex: 0 0 100%; padding: 16px 4px; border-top: 1px solid rgba(255,255,255,0.06);
-        display: flex; flex-direction: column; gap: 8px;
-    }
-    .review-card .card-title {
-        font-size: 11px; font-weight: 700; letter-spacing: 0.3px; text-align: left;
-        color: #c084fc; text-shadow: 0 0 10px rgba(192,132,252,0.4); margin-bottom: 2px;
-    }
-    .review-card .card-emojis { font-size: 18px; letter-spacing: 3px; opacity: 0.85; }
-    .review-card .card-emojis.emoji-only { font-size: 34px; letter-spacing: 6px; margin: 6px 0; }
-    .review-card .card-note { font-size: 12px; color: var(--text-dim); line-height: 1.5; max-width: 420px; font-style: italic; }
-    .review-card .card-meta { font-size: 10px; color: rgba(240,234,248,0.35); font-weight: 500; letter-spacing: 0.3px; }
-    .review-card .card-stars { color: rgba(212,160,23,0.55); font-size: 11px; }
-    .review-card .card-logos { display: flex; gap: 8px; align-items: center; opacity: 0.5; margin-top: 4px; }
-    .review-card .card-logos img { height: 18px; width: 18px; border-radius: 50%; object-fit: cover; }
-    .slider-dots { display: flex; justify-content: center; gap: 6px; margin-top: 12px; }
-    .slider-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.15); cursor: pointer; }
-    .slider-dot.active { background: rgba(0,212,200,0.6); }
-    .slider-empty { text-align: center; color: var(--text-dim); font-size: 12px; padding: 30px; }
-
     #watermark {
         position: fixed; bottom: 0; left: 0; right: 0; background: rgba(10, 14, 39, 0.85);
         border-top: 1px solid rgba(155, 89, 182, 0.15); padding: 4px 16px; text-align: right;
@@ -211,13 +184,6 @@
     <div class="thanks-msg" id="thanksMsg">
         <h2>Thank you 💜</h2>
         <p>Your review has been sent for a quick check before it goes live. We really appreciate you taking the time.</p>
-    </div>
-
-    <div class="slider-section">
-        <div class="slider-viewport">
-            <div class="slider-track" id="sliderTrack"></div>
-        </div>
-        <div class="slider-dots" id="sliderDots"></div>
     </div>
 </div>
 
@@ -318,12 +284,13 @@ document.querySelectorAll('.star-btn').forEach(btn => {
         document.querySelectorAll('.star-btn').forEach(b => {
             b.classList.toggle('active', parseInt(b.dataset.star) <= stars);
         });
+        updateShareButton();
     };
 });
 
 function updateShareButton() {
     const noteHasText = document.getElementById('noteInput').value.trim().length > 0;
-    const hasContent = selectedEmojis.length > 0 || noteHasText;
+    const hasContent = selectedEmojis.length > 0 || noteHasText || stars > 0;
     document.getElementById('shareBtn').disabled = !(hasContent && ratedFor);
 }
 document.getElementById('noteInput').addEventListener('input', updateShareButton);
@@ -362,67 +329,6 @@ document.getElementById('shareBtn').onclick = async () => {
     }
 };
 
-// ── SLIDER ──
-let sliderReviews = [];
-let sliderIndex = 0;
-let sliderTimer = null;
-
-async function loadSlider() {
-    try {
-        const res = await fetch(`${WORKER_URL}/api/reviews/approved?for=vault`);
-        const data = await res.json();
-        sliderReviews = data.reviews || [];
-        renderSlider();
-    } catch (e) { console.error('Could not load reviews:', e); }
-}
-
-function renderSlider() {
-    const track = document.getElementById('sliderTrack');
-    const dots = document.getElementById('sliderDots');
-    if (sliderReviews.length === 0) {
-        track.innerHTML = '<div class="review-card"><div class="slider-empty">Be the first to leave a review!</div></div>';
-        dots.innerHTML = '';
-        return;
-    }
-    track.innerHTML = sliderReviews.map(r => {
-        const logos = LOGOS[r.ratedFor] || [];
-        const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
-        const emojiHtml = (r.emojis || []).join(' ');
-        const emojiOnly = emojiHtml && !r.note;
-        const identityLabel = r.identity === 'member' ? 'Community Member' : (r.identity === 'visitor' ? '3C Visitor' : '');
-        const starsHtml = r.stars ? '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars) : '';
-        return `
-            <div class="review-card">
-                <div class="card-title">💝 From Our Visitors</div>
-                ${emojiHtml ? `<div class="card-emojis${emojiOnly ? ' emoji-only' : ''}">${emojiHtml}</div>` : ''}
-                ${r.note ? `<div class="card-note">${escapeHtml(r.note)}</div>` : ''}
-                ${identityLabel ? `<div class="card-meta">${identityLabel}</div>` : ''}
-                ${starsHtml ? `<div class="card-stars">${starsHtml}</div>` : ''}
-                ${logoHtml ? `<div class="card-logos">${logoHtml}</div>` : ''}
-            </div>
-        `;
-    }).join('');
-    dots.innerHTML = sliderReviews.map((_, i) => `<div class="slider-dot ${i === sliderIndex ? 'active' : ''}" data-i="${i}"></div>`).join('');
-    dots.querySelectorAll('.slider-dot').forEach(dot => {
-        dot.onclick = () => { sliderIndex = parseInt(dot.dataset.i); updateSliderPosition(); resetSliderTimer(); };
-    });
-    updateSliderPosition();
-}
-
-function updateSliderPosition() {
-    document.getElementById('sliderTrack').style.transform = `translateX(-${sliderIndex * 100}%)`;
-    document.querySelectorAll('.slider-dot').forEach((d, i) => d.classList.toggle('active', i === sliderIndex));
-}
-
-function resetSliderTimer() {
-    if (sliderTimer) clearInterval(sliderTimer);
-    sliderTimer = setInterval(() => {
-        if (sliderReviews.length === 0) return;
-        sliderIndex = (sliderIndex + 1) % sliderReviews.length;
-        updateSliderPosition();
-    }, 5000);
-}
-
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -430,8 +336,6 @@ function escapeHtml(text) {
 }
 
 renderEmojiRow();
-loadSlider();
-resetSliderTimer();
 </script>
 </body>
 </html>
