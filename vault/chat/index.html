@@ -23,8 +23,9 @@
         background: var(--bg-primary);
         color: var(--text-primary);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-        overflow-x: hidden;
+        overflow: hidden;
     }
+    body { display: flex; flex-direction: column; }
     .header {
         background: linear-gradient(135deg, #2d1b69 0%, #4a2c8f 50%, #3b1f7a 100%);
         padding: 14px 20px;
@@ -33,6 +34,7 @@
         justify-content: space-between;
         border-bottom: 1px solid var(--border);
         box-shadow: 0 2px 20px rgba(74, 44, 143, 0.4);
+        flex-shrink: 0;
     }
     .header-left { display: flex; align-items: center; gap: 12px; }
     .header-left img {
@@ -61,12 +63,19 @@
 
     .main {
         max-width: 640px;
+        width: 100%;
         margin: 0 auto;
-        padding: 24px 16px 100px;
-        min-height: calc(100vh - 64px);
+        padding: 24px 16px 30px;
+        flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
     }
+
+    /* The persona picker screen can still scroll internally if content
+       ever exceeds a small screen's height (e.g. keyboard open) */
+    #introView { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
 
     /* PERSONA PICKER — compact row, sits close to the header */
     .intro-hint { text-align: center; font-size: 12px; color: var(--text-dim); margin: 14px 0 10px; }
@@ -139,11 +148,12 @@
     .email-copy-row button:hover { background: rgba(0,212,200,0.1); }
 
     /* CHAT VIEW */
-    .chat-view { display: none; flex-direction: column; flex: 1; }
+    .chat-view { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
     .chat-top {
         display: flex; align-items: center; gap: 10px;
         background: var(--bg-chat); border: 1px solid var(--border);
         border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;
+        flex-shrink: 0;
     }
     .chat-top .persona-avatar { width: 38px; height: 38px; font-size: 14px; margin: 0; flex-shrink: 0; }
     .chat-top .chat-top-info { flex: 1; }
@@ -154,7 +164,18 @@
     .status-dot.replied { background: #27ae60; }
     .status-dot.active { background: #00d4c8; }
 
-    .messages { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; flex: 1; }
+    /* The actual scrolling region — everything else in chat-view is
+       fixed in place, only this scrolls, same as any normal chat app */
+    .messages {
+        display: flex; flex-direction: column; gap: 10px;
+        flex: 1; min-height: 0; overflow-y: auto;
+        padding-right: 4px; margin-bottom: 12px;
+        scrollbar-width: thin; scrollbar-color: var(--purple-medium) transparent;
+    }
+    .messages::-webkit-scrollbar { width: 8px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--purple-medium); border-radius: 8px; }
+    .messages::-webkit-scrollbar-thumb:hover { background: var(--purple-light); }
     .msg { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; }
     .msg.visitor { align-self: flex-end; background: linear-gradient(135deg, var(--purple-medium), var(--accent)); color: #fff; border-bottom-right-radius: 4px; }
     .msg.persona { align-self: flex-start; background: var(--bg-chat); border: 1px solid var(--border); color: #f0eaf8; border-bottom-left-radius: 4px; }
@@ -164,7 +185,7 @@
         display: flex; gap: 8px; align-items: flex-end;
         background: var(--bg-chat); border: 1px solid var(--border);
         border-radius: 12px; padding: 10px;
-        position: sticky; bottom: 16px;
+        flex-shrink: 0;
     }
     .composer textarea {
         flex: 1; background: transparent; border: none; color: #fff;
@@ -177,6 +198,7 @@
         font-size: 11px; color: var(--text-dim); text-align: center; margin-bottom: 14px;
         display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
         animation: noticeFlash 1.6s ease-in-out 4;
+        flex-shrink: 0;
     }
     @keyframes noticeFlash {
         0%, 100% { color: var(--text-dim); }
@@ -187,7 +209,7 @@
         font-size: 11px; padding: 3px 10px; border-radius: 20px; cursor: pointer;
     }
 
-    .new-chat-link { text-align: center; margin-top: 10px; }
+    .new-chat-link { text-align: center; margin-top: 10px; flex-shrink: 0; }
     .new-chat-link a { font-size: 12px; color: var(--text-dim); text-decoration: underline; cursor: pointer; }
 
     #watermark {
@@ -257,7 +279,7 @@
     @media (max-width: 480px) {
         .persona-grid { gap: 8px; }
         .persona-card { padding: 14px 6px; }
-        .main { padding: 18px 12px 100px; }
+        .main { padding: 18px 12px 30px; }
         .resume-code-box { flex-direction: column; align-items: center; }
         .resume-code-box input { width: 100%; max-width: 280px; }
     }
