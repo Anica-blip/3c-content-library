@@ -321,6 +321,7 @@ async function displayCollectionGrid(folder, highlightSlug) {
         <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 4px;">${escapeHtml(folder.title)}</h2>
         ${folder.description ? '<div style="color:#9a8fb0; font-size:13px; margin-bottom:20px;">' + escapeHtml(folder.description) + '</div>' : '<div style="margin-bottom:20px;"></div>'}
         <div class="series-grid" id="seriesGrid"></div>
+        <div id="reviewSliderEmbed"></div>
     `;
 
     // One-time responsive rule for the series grid — desktop wraps
@@ -397,56 +398,76 @@ async function displayCollectionGrid(folder, highlightSlug) {
         }
     }
 
-    // Live review slider — only on the Drop In folder specifically,
-    // not repeated on every Collection folder. Quiet, dim, "community
-    // share" styling matching reviews.html exactly, sized modestly so
-    // it never competes with the actual thumbnails above it.
+    // Live review banner — only on the Drop In folder specifically,
+    // not repeated on every Collection folder. Sits ABOVE the folder's
+    // own title and thumbnails, as its own distinct section — not
+    // blended into the folder content itself.
     if (folder.tableName === 'drop_in') {
         await renderReviewSliderEmbed();
     }
 }
 
-// ==================== LIVE REVIEW SLIDER (Drop In folder only) ====================
+// ==================== LIVE REVIEW BANNER (Drop In folder only) ====================
+// Matches each emoji to its own line — same wording as reviews.html —
+// so an emoji-only review still shows a readable quote instead of
+// looking bare or showing a placeholder like "No rating given".
+const REVIEW_EMOJI_LINES = {
+    '🥳': 'Loved it!',
+    '😊': 'Really enjoyed it.',
+    '🙂': 'Nice experience.',
+    '🤔': 'Some ideas to improve.',
+    '🌱': "I'll visit again another time.",
+};
+const REVIEW_LOGOS = {
+    library: ['../3C Thread To Success logo.png'],
+    vault: ['../Clubhouse logo.png'],
+    both: ['../3C Thread To Success logo.png', '../Clubhouse logo.png'],
+};
+
 let embedReviews = [];
 let embedIndex = 0;
 let embedTimer = null;
 
 async function renderReviewSliderEmbed() {
-    const viewer = document.getElementById('viewer');
-    if (!viewer || document.getElementById('reviewSliderEmbed')) return;
+    const container = document.getElementById('reviewSliderEmbed');
+    if (!container) return;
 
     if (!document.getElementById('reviewSliderStyle')) {
         const style = document.createElement('style');
         style.id = 'reviewSliderStyle';
         style.textContent = `
-            #reviewSliderEmbed { margin-top: 36px; border-top: 1px solid rgba(155,89,182,0.15); padding-top: 18px; max-width: 480px; }
-            #reviewSliderEmbed .rs-card { padding: 4px 2px; display: flex; flex-direction: column; gap: 6px; }
+            #reviewSliderEmbed:not(:empty) { margin-top: 28px; padding-top: 4px; max-width: 420px; }
+            #reviewSliderEmbed .rs-card {
+                background: rgba(245, 240, 220, 0.10);
+                backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+                border: 1px solid rgba(245, 240, 220, 0.15);
+                border-radius: 14px; padding: 14px 16px;
+                display: flex; flex-direction: column; gap: 6px;
+            }
             #reviewSliderEmbed .rs-title { font-size: 10px; font-weight: 700; color: #c084fc; text-shadow: 0 0 8px rgba(192,132,252,0.35); }
-            #reviewSliderEmbed .rs-emojis { font-size: 15px; letter-spacing: 2px; opacity: 0.85; }
-            #reviewSliderEmbed .rs-note { font-size: 11px; color: #9a8fb0; line-height: 1.5; font-style: italic; max-width: 420px; }
-            #reviewSliderEmbed .rs-meta { font-size: 9px; color: rgba(240,234,248,0.3); }
-            #reviewSliderEmbed .rs-dots { display: flex; gap: 5px; margin-top: 8px; }
+            #reviewSliderEmbed .rs-emojis { font-size: 16px; letter-spacing: 3px; opacity: 0.9; }
+            #reviewSliderEmbed .rs-emojis.rs-emoji-only { font-size: 24px; letter-spacing: 5px; margin: 2px 0; }
+            #reviewSliderEmbed .rs-note { font-size: 11px; color: rgba(232,224,245,0.7); line-height: 1.5; font-style: italic; }
+            #reviewSliderEmbed .rs-meta { font-size: 9px; color: rgba(240,234,248,0.4); }
+            #reviewSliderEmbed .rs-logos { display: flex; gap: 6px; align-items: center; opacity: 0.55; margin-top: 2px; }
+            #reviewSliderEmbed .rs-logos img { height: 16px; width: 16px; border-radius: 50%; object-fit: cover; }
+            #reviewSliderEmbed .rs-dots { display: flex; gap: 5px; margin-top: 6px; }
             #reviewSliderEmbed .rs-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.15); }
             #reviewSliderEmbed .rs-dot.active { background: rgba(0,212,200,0.6); }
         `;
         document.head.appendChild(style);
     }
 
-    const container = document.createElement('div');
-    container.id = 'reviewSliderEmbed';
-    container.innerHTML = '<div class="rs-card"><div class="rs-title">Loading reviews...</div></div>';
-    viewer.appendChild(container);
-
     try {
         const res = await fetch('https://dropin-chat.3c-innertherapy.workers.dev/api/reviews/approved?for=vault');
         const data = await res.json();
         embedReviews = data.reviews || [];
     } catch (e) {
-        container.remove();
+        console.warn('Could not load reviews for banner:', e);
         return;
     }
 
-    if (embedReviews.length === 0) { container.remove(); return; }
+    if (embedReviews.length === 0) return;
 
     renderEmbedCard();
     if (embedTimer) clearInterval(embedTimer);
@@ -461,15 +482,25 @@ function renderEmbedCard() {
     if (!container) return;
     const r = embedReviews[embedIndex];
     const emojiHtml = (r.emojis || []).join(' ');
+    const hasNote = r.note && r.note.trim();
+    // No written note but emoji were picked — use the emoji's own
+    // line(s) as a readable quote instead of leaving that space bare
+    const fallbackQuote = (!hasNote && r.emojis && r.emojis.length)
+        ? r.emojis.map(e => REVIEW_EMOJI_LINES[e]).filter(Boolean).join(' ')
+        : '';
+    const emojiOnly = emojiHtml && !hasNote;
     const identityLabel = r.identity === 'member' ? 'Community Member' : (r.identity === 'visitor' ? '3C Visitor' : '');
     const starsHtml = r.stars ? '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars) : '';
+    const logos = REVIEW_LOGOS[r.ratedFor] || [];
+    const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
     const dotsHtml = embedReviews.map((_, i) => `<div class="rs-dot ${i === embedIndex ? 'active' : ''}"></div>`).join('');
     container.innerHTML = `
         <div class="rs-card">
             <div class="rs-title">💝 From Our Visitors</div>
-            ${emojiHtml ? `<div class="rs-emojis">${emojiHtml}</div>` : ''}
-            ${r.note ? `<div class="rs-note">${escapeHtml(r.note)}</div>` : ''}
+            ${emojiHtml ? `<div class="rs-emojis${emojiOnly ? ' rs-emoji-only' : ''}">${emojiHtml}</div>` : ''}
+            ${hasNote ? `<div class="rs-note">${escapeHtml(r.note)}</div>` : (fallbackQuote ? `<div class="rs-note">${escapeHtml(fallbackQuote)}</div>` : '')}
             ${(identityLabel || starsHtml) ? `<div class="rs-meta">${identityLabel}${identityLabel && starsHtml ? ' · ' : ''}${starsHtml}</div>` : ''}
+            ${logoHtml ? `<div class="rs-logos">${logoHtml}</div>` : ''}
             <div class="rs-dots">${dotsHtml}</div>
         </div>
     `;
