@@ -437,25 +437,50 @@ async function renderReviewSliderEmbed() {
         const style = document.createElement('style');
         style.id = 'reviewSliderStyle';
         style.textContent = `
+            /* Outer layer — the full-width glass strip */
             #reviewSliderEmbed:not(:empty) {
-                margin-top: 28px; max-width: 420px; border-radius: 16px; overflow: hidden;
-                background: rgba(245, 240, 220, 0.05);
-                backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-                border: 1px solid rgba(245, 240, 220, 0.12);
-                box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.15);
+                margin-top: 28px; width: 100%; border-radius: 16px; overflow: hidden;
+                background: rgba(255, 255, 255, 0.03);
+                backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.12);
+                padding: 26px 20px;
             }
             #reviewSliderEmbed .rs-track { display: flex; transition: transform 0.6s ease; }
-            #reviewSliderEmbed .rs-card { flex: 0 0 100%; padding: 16px 18px 12px; display: flex; flex-direction: column; gap: 6px; }
-            #reviewSliderEmbed .rs-title { font-size: 10px; font-weight: 700; color: #c084fc; text-shadow: 0 0 8px rgba(192,132,252,0.35); }
-            #reviewSliderEmbed .rs-emojis { font-size: 16px; letter-spacing: 3px; opacity: 0.9; }
+            /* Inner layer — the muted beige card, centered within the glass strip */
+            #reviewSliderEmbed .rs-slide { flex: 0 0 100%; display: flex; justify-content: center; }
+            #reviewSliderEmbed .rs-card {
+                width: 230px; height: 230px; box-sizing: border-box;
+                background: rgba(245, 240, 220, 0.16);
+                border: 1px solid rgba(245, 240, 220, 0.22);
+                border-radius: 14px; padding: 18px 20px;
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                text-align: center; gap: 6px; overflow: hidden;
+                box-shadow: 0 8px 22px rgba(0,0,0,0.22);
+            }
+            #reviewSliderEmbed .rs-title { font-size: 10px; font-weight: 700; color: #6d28d9; }
+            #reviewSliderEmbed .rs-emojis { font-size: 16px; letter-spacing: 3px; }
             #reviewSliderEmbed .rs-emojis.rs-emoji-only { font-size: 24px; letter-spacing: 5px; margin: 2px 0; }
-            #reviewSliderEmbed .rs-note { font-size: 11px; color: rgba(232,224,245,0.7); line-height: 1.5; font-style: italic; }
-            #reviewSliderEmbed .rs-meta { font-size: 9px; color: rgba(240,234,248,0.4); }
-            #reviewSliderEmbed .rs-logos { display: flex; gap: 6px; align-items: center; opacity: 0.55; margin-top: 2px; }
+            #reviewSliderEmbed .rs-note {
+                font-size: 11px; color: #4a3a5a; line-height: 1.5; font-style: italic;
+                overflow-y: auto; max-height: 78px; word-wrap: break-word;
+            }
+            #reviewSliderEmbed .rs-meta { font-size: 9px; color: #6a5a80; }
+            #reviewSliderEmbed .rs-logos { display: flex; gap: 6px; align-items: center; justify-content: center; opacity: 0.7; margin-top: 2px; }
             #reviewSliderEmbed .rs-logos img { height: 16px; width: 16px; border-radius: 50%; object-fit: cover; }
-            #reviewSliderEmbed .rs-dots { display: flex; gap: 5px; justify-content: center; padding: 0 0 12px; }
+            #reviewSliderEmbed .rs-dots { display: flex; gap: 5px; justify-content: center; padding-top: 16px; }
             #reviewSliderEmbed .rs-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.15); }
             #reviewSliderEmbed .rs-dot.active { background: rgba(0,212,200,0.6); }
+
+            /* Mobile — keep the glass feel but make it genuinely readable
+               on a small, bright-daylight screen: less see-through card,
+               slightly less blur on the outer strip so text stays crisp. */
+            @media (max-width: 480px) {
+                #reviewSliderEmbed:not(:empty) { padding: 20px 14px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+                #reviewSliderEmbed .rs-card { width: 200px; height: 200px; background: rgba(245, 240, 220, 0.28); border-color: rgba(245, 240, 220, 0.35); }
+                #reviewSliderEmbed .rs-note { color: #2a1f3d; font-size: 10.5px; }
+                #reviewSliderEmbed .rs-title { color: #5b21b6; }
+            }
         `;
         document.head.appendChild(style);
     }
@@ -499,12 +524,14 @@ function buildEmbedTrack() {
         const logos = REVIEW_LOGOS[r.ratedFor] || [];
         const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
         return `
-            <div class="rs-card">
-                <div class="rs-title">💝 From Our Visitors</div>
-                ${emojiHtml ? `<div class="rs-emojis${emojiOnly ? ' rs-emoji-only' : ''}">${emojiHtml}</div>` : ''}
-                ${hasNote ? `<div class="rs-note">${escapeHtml(r.note)}</div>` : (fallbackQuote ? `<div class="rs-note">${escapeHtml(fallbackQuote)}</div>` : '')}
-                ${(identityLabel || starsHtml) ? `<div class="rs-meta">${identityLabel}${identityLabel && starsHtml ? ' · ' : ''}${starsHtml}</div>` : ''}
-                ${logoHtml ? `<div class="rs-logos">${logoHtml}</div>` : ''}
+            <div class="rs-slide">
+                <div class="rs-card">
+                    <div class="rs-title">💝 From Our Visitors</div>
+                    ${emojiHtml ? `<div class="rs-emojis${emojiOnly ? ' rs-emoji-only' : ''}">${emojiHtml}</div>` : ''}
+                    ${hasNote ? `<div class="rs-note">${escapeHtml(r.note)}</div>` : (fallbackQuote ? `<div class="rs-note">${escapeHtml(fallbackQuote)}</div>` : '')}
+                    ${(identityLabel || starsHtml) ? `<div class="rs-meta">${identityLabel}${identityLabel && starsHtml ? ' · ' : ''}${starsHtml}</div>` : ''}
+                    ${logoHtml ? `<div class="rs-logos">${logoHtml}</div>` : ''}
+                </div>
             </div>
         `;
     }).join('');
