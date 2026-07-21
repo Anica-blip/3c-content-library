@@ -443,9 +443,12 @@ export default {
                     if (!BUILDKIT_SECTIONS.includes(section)) {
                         return json({ error: 'Invalid section' }, 400);
                     }
-                    if (!title || !title.trim() || !url || !url.trim()) {
-                        return json({ error: 'Title and URL are required' }, 400);
+                    if (!title || !title.trim()) {
+                        return json({ error: 'Title is required' }, 400);
                     }
+                    // URL is optional — a title-only entry is a valid,
+                    // honest way to mention something (e.g. an internal
+                    // tool behind a login) without offering a broken link
 
                     // New entries go to the end of their section
                     const list = await env.BUILDKIT_KV.list({ prefix: 'entry:' });
@@ -459,7 +462,7 @@ export default {
 
                     const id = randomToken();
                     const entry = {
-                        id, section, title: title.trim(), url: url.trim(),
+                        id, section, title: title.trim(), url: (url || '').trim(),
                         order: maxOrder + 1,
                         createdAt: Date.now(), updatedAt: Date.now(),
                     };
