@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Kit — Admin</title>
+<link rel="icon" type="image/png" href="../favicon1.png">
+<style>
+    :root {
+        --bg-primary: #0a0416; --bg-chat: rgba(26, 26, 26, 0.95);
+        --purple-light: #9b59b6; --purple-medium: #8e44ad; --accent: #7b3fe4; --teal: #00d4c8;
+        --text-dim: rgba(240, 234, 248, 0.55); --border: rgba(155, 89, 182, 0.25);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100%; background: var(--bg-primary); color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; }
+    .header {
+        background: linear-gradient(135deg, #2d1b69 0%, #4a2c8f 50%, #3b1f7a 100%);
+        padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 1px solid var(--border); box-shadow: 0 2px 20px rgba(74, 44, 143, 0.4);
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-left img { height: 32px; width: 32px; border-radius: 50%; object-fit: cover; background: white; padding: 3px; }
+    .header-left h1 { font-size: 16px; font-weight: 800; color: #c084fc; text-shadow: 0 0 16px rgba(192, 132, 252, 0.55); }
+    .icon-btn {
+        background: rgba(155, 89, 182, 0.15); border: 1px solid rgba(155, 89, 182, 0.35); color: #c084fc;
+        width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: all 0.2s; text-decoration: none;
+    }
+    .icon-btn:hover { background: rgba(155, 89, 182, 0.3); }
+    .icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .main { max-width: 640px; margin: 0 auto; padding: 30px 20px 60px; }
+
+    .add-form {
+        background: var(--bg-chat); border: 1px solid var(--border); border-radius: 12px;
+        padding: 18px; margin-bottom: 30px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .add-form h3 { font-size: 13px; color: #c084fc; margin-bottom: 4px; }
+    .add-form select, .add-form input {
+        background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px;
+        padding: 10px 12px; color: #fff; font-size: 13px;
+    }
+    .add-form select:focus, .add-form input:focus { outline: none; border-color: var(--accent); }
+    .add-form button {
+        background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); color: #fff;
+        border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;
+    }
+
+    .bk-section-block { margin-bottom: 26px; }
+    .bk-section-block h2 { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--teal); margin-bottom: 10px; }
+    .bk-entry-row {
+        display: flex; align-items: center; gap: 10px; background: var(--bg-chat); border: 1px solid var(--border);
+        border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+    }
+    .bk-entry-row .bk-info { flex: 1; min-width: 0; }
+    .bk-entry-row .bk-title-text { font-size: 13px; font-weight: 600; color: #fff; }
+    .bk-entry-row .bk-url-text { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bk-entry-row .bk-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .bk-entry-row .bk-actions button {
+        background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-dim);
+        width: 26px; height: 26px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .bk-entry-row .bk-actions button:hover { color: #fff; border-color: var(--purple-light); }
+    .bk-entry-row .bk-actions button.danger:hover { color: #e74c3c; border-color: rgba(231,76,60,0.5); }
+    .bk-empty { font-size: 12px; color: var(--text-dim); font-style: italic; padding: 6px 0; }
+
+    .edit-modal-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+        z-index: 200; align-items: center; justify-content: center; padding: 20px;
+    }
+    .edit-modal-overlay.active { display: flex; }
+    .edit-modal-box { background: var(--bg-chat); border: 1px solid var(--border); border-radius: 14px; padding: 22px; width: 100%; max-width: 380px; }
+    .edit-modal-box h3 { font-size: 14px; margin-bottom: 14px; }
+    .edit-modal-box input {
+        width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+        border-radius: 8px; padding: 10px; color: #fff; font-size: 13px; margin-bottom: 12px;
+    }
+    .edit-modal-box .modal-actions { display: flex; gap: 8px; }
+    .edit-modal-box button { flex: 1; padding: 9px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .modal-save { background: linear-gradient(135deg, var(--purple-light), var(--purple-medium)); color: #fff; }
+    .modal-cancel { background: rgba(255,255,255,0.08); color: var(--text-dim); }
+
+    #watermark { text-align: center; padding: 12px; font-size: 9px; color: rgba(155, 89, 182, 0.6); }
+    #watermark a { color: rgba(192, 132, 252, 0.7); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <img src="../3C Thread To Success logo.png" alt="3C Logo">
+        <h1>Build Kit — Admin</h1>
+    </div>
+    <button class="icon-btn" id="exitBtn" title="Exit">
+        <svg viewBox="0 0 24 24"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4M15 16l5-5-5-5M20 11H9"/></svg>
+    </button>
+</div>
+
+<div class="main">
+    <div class="add-form">
+        <h3>+ Add a link</h3>
+        <select id="newSection">
+            <option value="subscribe">Subscribe</option>
+            <option value="referrals">Referrals</option>
+            <option value="tools">Tools</option>
+            <option value="credits">Credits</option>
+            <option value="brand_tools">3C Brand Tools</option>
+        </select>
+        <input type="text" id="newTitle" placeholder="Title (e.g. TikTok)">
+        <input type="url" id="newUrl" placeholder="https://...">
+        <button id="addBtn">Add Link</button>
+    </div>
+
+    <div id="sectionsList"></div>
+</div>
+
+<div class="edit-modal-overlay" id="editModal">
+    <div class="edit-modal-box">
+        <h3>Edit link</h3>
+        <input type="text" id="editTitle" placeholder="Title">
+        <input type="url" id="editUrl" placeholder="https://...">
+        <div class="modal-actions">
+            <button class="modal-cancel" id="editCancel">Cancel</button>
+            <button class="modal-save" id="editSave">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="watermark">
+    Designed &amp; built with ❤️ by <a href="https://www.anthropic.com" target="_blank" rel="noopener">Claude</a> (Anthropic) × Chef Anica · 3C Thread To Success Cooking Lab 🧪👨‍🍳
+</div>
+
+<script>
+const WORKER_URL = 'https://dropin-chat.3c-innertherapy.workers.dev';
+const SECTION_LABELS = {
+    subscribe: 'Subscribe', referrals: 'Referrals', tools: 'Tools',
+    credits: 'Credits', brand_tools: '3C Brand Tools',
+};
+const SECTION_ORDER = ['subscribe', 'referrals', 'tools', 'credits', 'brand_tools'];
+
+let ADMIN_KEY = sessionStorage.getItem('dropin_admin_key');
+if (!ADMIN_KEY) {
+    ADMIN_KEY = prompt('Enter the admin key:');
+    if (ADMIN_KEY) sessionStorage.setItem('dropin_admin_key', ADMIN_KEY);
+}
+
+async function adminFetch(path, options = {}) {
+    const res = await fetch(`${WORKER_URL}${path}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_KEY || '', ...(options.headers || {}) },
+    });
+    if (res.status === 401) {
+        sessionStorage.removeItem('dropin_admin_key');
+        alert('Incorrect admin key. Please refresh and try again.');
+        throw new Error('Unauthorized');
+    }
+    return res.json();
+}
+
+document.getElementById('exitBtn').onclick = () => {
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'vault-close-modal' }, '*');
+        return;
+    }
+    if (document.referrer) { window.location.href = document.referrer; }
+    else { window.location.href = '../vault/vault.html'; }
+};
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+let allEntries = [];
+let editingId = null;
+
+async function loadEntries() {
+    try {
+        const data = await adminFetch('/api/admin/buildkit');
+        allEntries = data.entries || [];
+        renderSections();
+    } catch (e) { /* handled */ }
+}
+
+function renderSections() {
+    const container = document.getElementById('sectionsList');
+    container.innerHTML = SECTION_ORDER.map(section => {
+        const sectionEntries = allEntries.filter(e => e.section === section).sort((a, b) => a.order - b.order);
+        const rows = sectionEntries.length > 0
+            ? sectionEntries.map((e, i) => `
+                <div class="bk-entry-row">
+                    <div class="bk-info">
+                        <div class="bk-title-text">${escapeHtml(e.title)}</div>
+                        <div class="bk-url-text">${escapeHtml(e.url)}</div>
+                    </div>
+                    <div class="bk-actions">
+                        <button data-action="up" data-id="${e.id}" data-section="${section}" title="Move up" ${i === 0 ? 'style="opacity:0.3; pointer-events:none;"' : ''}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+                        </button>
+                        <button data-action="down" data-id="${e.id}" data-section="${section}" title="Move down" ${i === sectionEntries.length - 1 ? 'style="opacity:0.3; pointer-events:none;"' : ''}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                        </button>
+                        <button data-action="edit" data-id="${e.id}" title="Edit">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16.5V20h3.5L18 9.5l-3.5-3.5L4 16.5Z"/></svg>
+                        </button>
+                        <button class="danger" data-action="delete" data-id="${e.id}" title="Delete">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h14M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M7 7l1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"/></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('')
+            : `<div class="bk-empty">Nothing here yet.</div>`;
+        return `<div class="bk-section-block"><h2>${SECTION_LABELS[section]}</h2>${rows}</div>`;
+    }).join('');
+
+    container.querySelectorAll('[data-action]').forEach(btn => {
+        btn.onclick = () => {
+            const action = btn.dataset.action;
+            const id = btn.dataset.id;
+            if (action === 'edit') openEditModal(id);
+            else if (action === 'delete') deleteEntry(id);
+            else if (action === 'up' || action === 'down') moveEntry(id, btn.dataset.section, action);
+        };
+    });
+}
+
+document.getElementById('addBtn').onclick = async () => {
+    const section = document.getElementById('newSection').value;
+    const title = document.getElementById('newTitle').value.trim();
+    const url = document.getElementById('newUrl').value.trim();
+    if (!title || !url) { alert('Please fill in both title and URL.'); return; }
+    try {
+        new URL(url);
+    } catch (e) {
+        alert('That URL doesn\'t look valid — please include https://');
+        return;
+    }
+    try {
+        await adminFetch('/api/admin/buildkit', {
+            method: 'POST',
+            body: JSON.stringify({ section, title, url }),
+        });
+        document.getElementById('newTitle').value = '';
+        document.getElementById('newUrl').value = '';
+        await loadEntries();
+    } catch (e) { /* handled */ }
+};
+
+function openEditModal(id) {
+    const entry = allEntries.find(e => e.id === id);
+    if (!entry) return;
+    editingId = id;
+    document.getElementById('editTitle').value = entry.title;
+    document.getElementById('editUrl').value = entry.url;
+    document.getElementById('editModal').classList.add('active');
+}
+document.getElementById('editCancel').onclick = () => {
+    document.getElementById('editModal').classList.remove('active');
+    editingId = null;
+};
+document.getElementById('editSave').onclick = async () => {
+    if (!editingId) return;
+    const title = document.getElementById('editTitle').value.trim();
+    const url = document.getElementById('editUrl').value.trim();
+    if (!title || !url) { alert('Please fill in both fields.'); return; }
+    try {
+        await adminFetch(`/api/admin/buildkit/${editingId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ title, url }),
+        });
+        document.getElementById('editModal').classList.remove('active');
+        editingId = null;
+        await loadEntries();
+    } catch (e) { /* handled */ }
+};
+
+async function deleteEntry(id) {
+    if (!confirm('Delete this link?')) return;
+    try {
+        await adminFetch(`/api/admin/buildkit/${id}`, { method: 'DELETE' });
+        await loadEntries();
+    } catch (e) { /* handled */ }
+}
+
+async function moveEntry(id, section, direction) {
+    const sectionEntries = allEntries.filter(e => e.section === section).sort((a, b) => a.order - b.order);
+    const idx = sectionEntries.findIndex(e => e.id === id);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= sectionEntries.length) return;
+    try {
+        await adminFetch('/api/admin/buildkit/swap', {
+            method: 'POST',
+            body: JSON.stringify({ idA: sectionEntries[idx].id, idB: sectionEntries[swapIdx].id }),
+        });
+        await loadEntries();
+    } catch (e) { /* handled */ }
+}
+
+loadEntries();
+</script>
+</body>
+</html>
