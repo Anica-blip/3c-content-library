@@ -108,7 +108,7 @@
             <option value="brand_tools">3C Brand Tools</option>
         </select>
         <input type="text" id="newTitle" placeholder="Title (e.g. TikTok)">
-        <input type="url" id="newUrl" placeholder="https://...">
+        <input type="url" id="newUrl" placeholder="https://... (leave blank for a title-only mention)">
         <button id="addBtn">Add Link</button>
     </div>
 
@@ -119,7 +119,7 @@
     <div class="edit-modal-box">
         <h3>Edit link</h3>
         <input type="text" id="editTitle" placeholder="Title">
-        <input type="url" id="editUrl" placeholder="https://...">
+        <input type="url" id="editUrl" placeholder="https://... (leave blank for a title-only mention)">
         <div class="modal-actions">
             <button class="modal-cancel" id="editCancel">Cancel</button>
             <button class="modal-save" id="editSave">Save</button>
@@ -193,7 +193,7 @@ function renderSections() {
                 <div class="bk-entry-row">
                     <div class="bk-info">
                         <div class="bk-title-text">${escapeHtml(e.title)}</div>
-                        <div class="bk-url-text">${escapeHtml(e.url)}</div>
+                        <div class="bk-url-text">${e.url ? escapeHtml(e.url) : '<em style="opacity:0.6;">Title only — no link</em>'}</div>
                     </div>
                     <div class="bk-actions">
                         <button data-action="up" data-id="${e.id}" data-section="${section}" title="Move up" ${i === 0 ? 'style="opacity:0.3; pointer-events:none;"' : ''}>
@@ -230,12 +230,14 @@ document.getElementById('addBtn').onclick = async () => {
     const section = document.getElementById('newSection').value;
     const title = document.getElementById('newTitle').value.trim();
     const url = document.getElementById('newUrl').value.trim();
-    if (!title || !url) { alert('Please fill in both title and URL.'); return; }
-    try {
-        new URL(url);
-    } catch (e) {
-        alert('That URL doesn\'t look valid — please include https://');
-        return;
+    if (!title) { alert('Please enter a title.'); return; }
+    if (url) {
+        try {
+            new URL(url);
+        } catch (e) {
+            alert('That URL doesn\'t look valid — please include https://, or leave it blank for a title-only mention.');
+            return;
+        }
     }
     try {
         await adminFetch('/api/admin/buildkit', {
@@ -264,7 +266,15 @@ document.getElementById('editSave').onclick = async () => {
     if (!editingId) return;
     const title = document.getElementById('editTitle').value.trim();
     const url = document.getElementById('editUrl').value.trim();
-    if (!title || !url) { alert('Please fill in both fields.'); return; }
+    if (!title) { alert('Please enter a title.'); return; }
+    if (url) {
+        try {
+            new URL(url);
+        } catch (e) {
+            alert('That URL doesn\'t look valid — please include https://, or leave it blank for a title-only mention.');
+            return;
+        }
+    }
     try {
         await adminFetch(`/api/admin/buildkit/${editingId}`, {
             method: 'PUT',
