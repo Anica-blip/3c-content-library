@@ -139,10 +139,10 @@ const SECTION_LABELS = {
 };
 const SECTION_ORDER = ['subscribe', 'referrals', 'tools', 'credits', 'brand_tools'];
 
-let ADMIN_KEY = sessionStorage.getItem('dropin_admin_key');
+let ADMIN_KEY = localStorage.getItem('dropin_admin_key');
 if (!ADMIN_KEY) {
     ADMIN_KEY = prompt('Enter the admin key:');
-    if (ADMIN_KEY) sessionStorage.setItem('dropin_admin_key', ADMIN_KEY);
+    if (ADMIN_KEY) localStorage.setItem('dropin_admin_key', ADMIN_KEY);
 }
 
 async function adminFetch(path, options = {}) {
@@ -151,7 +151,7 @@ async function adminFetch(path, options = {}) {
         headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_KEY || '', ...(options.headers || {}) },
     });
     if (res.status === 401) {
-        sessionStorage.removeItem('dropin_admin_key');
+        localStorage.removeItem('dropin_admin_key');
         alert('Incorrect admin key. Please refresh and try again.');
         throw new Error('Unauthorized');
     }
