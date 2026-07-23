@@ -1,38 +1,15 @@
 /**
- * Drop In — 3C Aurion's Vault chat + reviews Worker
- * Handles: public chat (start/send/read), admin (list/reply/delete/restore),
- * public reviews (submit/approved), admin review moderation (approve/reject),
+ * Drop In — 3C Aurion's Vault chat + reviews + Build Kit + Share Preview Worker
+ * Handles: public chat, admin chat moderation, public reviews, admin review
+ * moderation, public Build Kit links, admin Build Kit management, social
+ * share previews (/share/...) for both the Public Library and Aurion Vault,
  * Telegram notifications, and the daily purge of soft-deleted/rejected items.
  *
  * Bindings required (Settings → Bindings):
  *   CHAT_KV          — KV namespace (chat threads)
- *   REVIEWS_KV       — KV namespace (reviews) — separate storage, same Worker
- *
- * Variables required (Settings → Variables, encrypted):
- *   TELEGRAM_BOT_TOKEN
- *   TELEGRAM_CHAT_ID
- *   ADMIN_KEY          — any long random string you choose. The admin
- *                        page sends this back on every admin request.
- *                        Treat it like a password — do not share it,
- *                        do not commit it anywhere.
- *
- * Cron Trigger required: 0 14 * * *  (daily purge — deleted chats AND
- *                                     rejected reviews, both after 7 days)
- *
- * Built with ❤️ by Claude (Anthropic) × Chef Anica · 3C Thread To Success Cooking Lab 🧪👨‍🍳
- */
-
-/**
- * Drop In — 3C Aurion's Vault chat + reviews + Build Kit Worker
- * Handles: public chat, admin chat moderation, public reviews, admin review
- * moderation, public Build Kit links, admin Build Kit management, Telegram
- * notifications, and the daily purge of soft-deleted/rejected items.
- *
- * Bindings required (Settings → Bindings):
- *   CHAT_KV          — KV namespace (chat threads)
  *   REVIEWS_KV       — KV namespace (reviews)
- *   BUILDKIT_KV      — KV namespace (Build Kit links) — separate storage,
- *                      same Worker
+ *   BUILDKIT_KV      — KV namespace (Build Kit links)
+ *   SHARE_CACHE_KV   — KV namespace (cached share-preview responses, 1hr TTL)
  *
  * Variables required (Settings → Variables, encrypted):
  *   TELEGRAM_BOT_TOKEN
@@ -44,6 +21,12 @@
  *
  * Cron Trigger required: 0 14 * * *  (daily purge — deleted chats AND
  *                                     rejected reviews, both after 7 days)
+ *
+ * Cloudflare Route required (Settings → Domains & Routes, on the
+ * dropin-chat Worker): 3c-public-library.org/share/*
+ * This is a narrow, dedicated path — every other URL on the real site
+ * never touches this Worker at all, keeping the live site's own traffic
+ * completely isolated from this feature.
  *
  * Built with ❤️ by Claude (Anthropic) × Chef Anica · 3C Thread To Success Cooking Lab 🧪👨‍🍳
  */
@@ -52,6 +35,14 @@ const PERSONAS = ['aurion', 'caelum', 'anica'];
 const RATED_FOR_OPTIONS = ['library', 'vault', 'both'];
 const BUILDKIT_SECTIONS = ['subscribe', 'referrals', 'tools', 'credits', 'brand_tools'];
 const DELETE_GRACE_DAYS = 7;
+
+// ── Share preview config ──
+const SITE_URL = 'https://3c-public-library.org';
+const SUPABASE_URL = 'https://cgxjqsbrditbteqhdyus.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneGpxc2JyZGl0YnRlcWhkeXVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTY1ODEsImV4cCI6MjA2NjY5MjU4MX0.xUDy5ic-r52kmRtocdcW8Np9-lczjMZ6YKPXc03rIG4';
+const FALLBACK_DESCRIPTION = 'Think it. Do it. Own it.';
+const FALLBACK_IMAGE = 'https://files.3c-public-library.org/3C%20Thread%20To%20Success%20logo.png';
+const SHARE_CACHE_TTL = 3600; // 1 hour
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -110,6 +101,153 @@ async function saveThread(env, thread) {
     await env.CHAT_KV.put(`thread:${thread.id}`, JSON.stringify(thread));
 }
 
+// ==================== SHARE PREVIEW HELPERS ====================
+
+// Sharing platforms all honestly identify themselves in their User-Agent —
+// this is how every "unfurl a link" bot works, nothing sneaky about it.
+const BOT_USER_AGENT_PATTERNS = [
+    'telegrambot', 'whatsapp', 'facebookexternalhit', 'facebot',
+    'twitterbot', 'linkedinbot', 'slackbot', 'discordbot', 'skypeuripreview',
+    'pinterest', 'redditbot', 'vkshare', 'w3c_validator', 'embedly',
+    'quora link preview', 'outlook', 'iframely', 'google-structured-data',
+];
+
+function isBotRequest(userAgent) {
+    if (!userAgent) return false;
+    const ua = userAgent.toLowerCase();
+    return BOT_USER_AGENT_PATTERNS.some(pattern => ua.includes(pattern));
+}
+
+function escapeHtmlServer(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// One shared helper for every Supabase REST read this feature needs —
+// same URL + anon key pattern the pages themselves already use client-side.
+async function supabaseGet(path) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+    });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+async function findFolder(table, slugOrName) {
+    const encoded = encodeURIComponent(slugOrName);
+    const rows = await supabaseGet(
+        `${table}?select=id,title,display_style,custom_url,slug,table_name&or=(custom_url.eq.${encoded},slug.eq.${encoded},table_name.eq.${encoded})&limit=1`
+    );
+    return rows[0] || null;
+}
+
+async function findItem(table, folderId, slugOrId) {
+    const encoded = encodeURIComponent(slugOrId);
+    const rows = await supabaseGet(
+        `${table}?select=id,title,type,url,thumbnail_url,description,custom_url,slug&folder_id=eq.${folderId}&or=(custom_url.eq.${encoded},slug.eq.${encoded},id.eq.${encoded})&limit=1`
+    );
+    return rows[0] || null;
+}
+
+function buildSharePageHtml({ title, description, image, realUrl }) {
+    const safeTitle = escapeHtmlServer(title);
+    const rawDescription = (description && description.trim()) ? description.trim() : FALLBACK_DESCRIPTION;
+    const safeDescription = escapeHtmlServer(rawDescription.slice(0, 155));
+    const safeImage = image || FALLBACK_IMAGE;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${safeTitle} — 3C Thread To Success</title>
+<meta property="og:type" content="website">
+<meta property="og:title" content="${safeTitle}">
+<meta property="og:description" content="${safeDescription}">
+<meta property="og:image" content="${safeImage}">
+<meta property="og:url" content="${realUrl}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${safeTitle}">
+<meta name="twitter:description" content="${safeDescription}">
+<meta name="twitter:image" content="${safeImage}">
+<meta http-equiv="refresh" content="0; url=${realUrl}">
+</head>
+<body>
+<p>Redirecting to <a href="${realUrl}">${safeTitle}</a>…</p>
+</body>
+</html>`;
+}
+
+// Handles GET /share/library/:folderSlug/:itemSlug and
+// GET /share/vault/:folderSlug/:itemSlug
+async function handleShareRequest(request, env, ctx, side, folderSlug, itemSlug) {
+    const userAgent = request.headers.get('User-Agent') || '';
+    const bot = isBotRequest(userAgent);
+
+    const isLibrary = side === 'library';
+    const folderTable = isLibrary ? 'folders' : 'vault_folders';
+    const defaultTable = isLibrary ? 'content_public' : 'vault_content';
+    const seriesTable = isLibrary ? 'content_public_series' : 'content_series';
+    const realPage = isLibrary ? 'library.html' : 'vault/vault.html';
+
+    const cacheKey = `share:${side}:${folderSlug}:${itemSlug}`;
+
+    // Only bots benefit from a cached preview — real visitors always
+    // get a fresh, instant redirect regardless of cache state.
+    if (bot) {
+        const cached = await env.SHARE_CACHE_KV.get(cacheKey);
+        if (cached) {
+            return new Response(cached, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+        }
+    }
+
+    const folder = await findFolder(folderTable, folderSlug);
+    if (!folder) {
+        return Response.redirect(`${SITE_URL}/${realPage}`, 302);
+    }
+
+    const isCollection = folder.display_style === 'collection';
+    const contentTable = isCollection ? seriesTable : defaultTable;
+    const item = await findItem(contentTable, folder.id, itemSlug);
+
+    const folderRealSlug = folder.custom_url || folder.slug || folder.table_name;
+
+    if (!item) {
+        // Item not found — still send a real visitor somewhere useful
+        // (the folder itself) rather than a dead end.
+        return Response.redirect(`${SITE_URL}/${realPage}?folder=${encodeURIComponent(folderRealSlug)}`, 302);
+    }
+
+    const itemRealSlug = item.custom_url || item.slug || item.id;
+    const realUrl = isCollection
+        ? `${SITE_URL}/${realPage}?folder=${encodeURIComponent(folderRealSlug)}&highlight=${encodeURIComponent(itemRealSlug)}`
+        : (isLibrary
+            ? `${SITE_URL}/${realPage}?folder=${encodeURIComponent(folderRealSlug)}&content=${encodeURIComponent(itemRealSlug)}`
+            : `${SITE_URL}/${realPage}?folder=${encodeURIComponent(folderRealSlug)}`);
+
+    if (!bot) {
+        return Response.redirect(realUrl, 302);
+    }
+
+    const html = buildSharePageHtml({
+        title: item.title,
+        description: item.description,
+        image: item.thumbnail_url,
+        realUrl,
+    });
+
+    ctx.waitUntil(env.SHARE_CACHE_KV.put(cacheKey, html, { expirationTtl: SHARE_CACHE_TTL }));
+
+    return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+}
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -118,6 +256,21 @@ export default {
 
         if (method === 'OPTIONS') {
             return new Response(null, { headers: corsHeaders });
+        }
+
+        // ── SHARE PREVIEW: /share/library/:folder/:item or /share/vault/:folder/:item ──
+        // Checked before anything else — this is the one narrow path this
+        // Worker was given a Route for on the real domain. Every other URL
+        // on the live site never reaches this Worker at all.
+        const shareMatch = path.match(/^\/share\/(library|vault)\/([^/]+)\/([^/]+)\/?$/);
+        if (shareMatch) {
+            try {
+                return await handleShareRequest(request, env, ctx, shareMatch[1], shareMatch[2], shareMatch[3]);
+            } catch (error) {
+                console.error('Share preview error:', error);
+                const isLibrary = shareMatch[1] === 'library';
+                return Response.redirect(`${SITE_URL}/${isLibrary ? 'library.html' : 'vault/vault.html'}`, 302);
+            }
         }
 
         try {
