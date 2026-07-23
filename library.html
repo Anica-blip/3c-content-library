@@ -1966,6 +1966,13 @@
                 return a.title.localeCompare(b.title); // neither pinned — alphabetical
             });
             
+            const BADGE_WATERMARKS = {
+                falcon_seeker: 'https://files.3c-public-library.org/badges/FALCON.png',
+                panther_discoverer: 'https://files.3c-public-library.org/badges/PANTHER.png',
+                wolf_builder: 'https://files.3c-public-library.org/badges/WOLF.png',
+                lion_leader: 'https://files.3c-public-library.org/badges/LION.png',
+            };
+
             let html = '';
             rootFolders.forEach(folder => {
                 const subfolders = library.folders.filter(f => f.parentId === folder.id);
@@ -1980,9 +1987,16 @@
                 } else {
                     countLabel = `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
                 }
+
+                const badgeUrl = BADGE_WATERMARKS[folder.tableName];
+                const badgeWatermark = badgeUrl
+                    ? `<img src="${badgeUrl}" alt="" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:78%; max-width:180px; opacity:0.1; pointer-events:none; z-index:0;">`
+                    : '';
                 
                 html += `
                     <div class="folder-card-item" onclick="openFolderSidebar('${folder.id}')">
+                        ${badgeWatermark}
+                        <div style="position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:12px;">
                         <div class="folder-icon">
                             <svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M4 18 L4 11 Q4 9 6 9 L24 9 Q27 9 29 13 L31 18 Z" fill="#7c3aed"/>
@@ -1994,6 +2008,7 @@
                         <div class="folder-title" style="${folder.tableName === 'bulletin_board' ? 'color:#c77dff;text-shadow:0 0 8px rgba(199,125,255,0.5);' : ''}">${folder.title}</div>
                         <div class="folder-details">${countLabel}</div>
                         <div class="folder-slug">${folder.tableName}</div>
+                        </div>
                     </div>
                 `;
             });
@@ -2023,20 +2038,13 @@
             
             // Load content from Supabase for this folder
             let folderContent = [];
-            try {
-                const { data, error } = await supabaseClient.client
-                    .from('content_public')
-                    .select('id, folder_id, title, type, url, thumbnail_url, description, slug, display_order')
-                    .eq('folder_id', folderId)
-                    .order('display_order', { ascending: true });
-                
-                console.log('📦 Supabase query result:', { data, error, count: data?.length || 0 });
-                
-                if (!error && data) {
-                    folderContent = data.map(item => ({
+            if (folder.displayStyle === 'collection') {
+                try {
+                    const items = await supabaseClient.getContentPublicSeries(folderId);
+                    folderContent = items.map(item => ({
                         id: item.id,
                         title: item.title,
-                        slug: item.slug,
+                        slug: item.custom_url || item.slug,
                         type: item.type,
                         folderId: item.folder_id,
                         url: item.url,
@@ -2044,12 +2052,39 @@
                         description: item.description,
                         order: item.display_order
                     }));
-                    console.log('✅ Loaded folder content:', folderContent.length, 'items');
-                } else if (error) {
-                    console.error('❌ Supabase error:', error);
+                    console.log('✅ Loaded series folder content:', folderContent.length, 'items');
+                } catch (err) {
+                    console.error('❌ Error loading series folder content:', err);
                 }
-            } catch (err) {
-                console.error('❌ Error loading folder content:', err);
+            } else {
+                try {
+                    const { data, error } = await supabaseClient.client
+                        .from('content_public')
+                        .select('id, folder_id, title, type, url, thumbnail_url, description, slug, display_order')
+                        .eq('folder_id', folderId)
+                        .order('display_order', { ascending: true });
+                    
+                    console.log('📦 Supabase query result:', { data, error, count: data?.length || 0 });
+                    
+                    if (!error && data) {
+                        folderContent = data.map(item => ({
+                            id: item.id,
+                            title: item.title,
+                            slug: item.slug,
+                            type: item.type,
+                            folderId: item.folder_id,
+                            url: item.url,
+                            thumbnail: item.thumbnail_url,
+                            description: item.description,
+                            order: item.display_order
+                        }));
+                        console.log('✅ Loaded folder content:', folderContent.length, 'items');
+                    } else if (error) {
+                        console.error('❌ Supabase error:', error);
+                    }
+                } catch (err) {
+                    console.error('❌ Error loading folder content:', err);
+                }
             }
             
             document.getElementById('sidebarFolderTitle').innerHTML = `
