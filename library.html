@@ -2123,7 +2123,7 @@
                     contentHtml += '<hr style="border: none; border-top: 1px solid rgba(155, 89, 182, 0.3); margin: 20px 0;">';
                 }
                 contentHtml += `<p style="color: #9b59b6; margin-top: 15px; font-size: 14px;">📄 This folder has ${itemCount} content item${itemCount !== 1 ? 's' : ''}. Click to view:</p>`;
-                contentHtml += `<button onclick="window.location.href='?folder=${folder.tableName || folder.slug}'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(155, 89, 182, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(155, 89, 182, 0.3)'">📂 View Content (${itemCount})</button>`;
+                contentHtml += `<button onclick="window.location.href='?folder=${folder.slug || folder.tableName}'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(155, 89, 182, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(155, 89, 182, 0.3)'">📂 View Content (${itemCount})</button>`;
             }
             
             if (folderContent.length === 0 && subfolders.length === 0) {
