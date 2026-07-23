@@ -1822,7 +1822,6 @@
 
             const viewer = document.getElementById('viewer');
             viewer.innerHTML = `
-                <button onclick="window.location.href='library.html'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>
                 <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 4px;">${escapeHtml(folder.title)}</h2>
                 ${folder.description ? '<div style="color:#9a8fb0; font-size:13px; margin-bottom:20px;">' + escapeHtml(folder.description) + '</div>' : '<div style="margin-bottom:20px;"></div>'}
                 <div class="series-grid" id="librarySeriesGrid"></div>
@@ -1909,19 +1908,6 @@
             const folder = library.folders.find(f => f.id === item.folderId) || currentFolder;
             currentFolder = folder;
             showViewer(item, true);
-
-            // showViewer's pdfOnlyMode suppresses its own back button —
-            // add our own that returns to this grid specifically, not
-            // the library root, since that's what pdfOnlyMode's normal
-            // back button would otherwise do.
-            const container = document.getElementById('viewerContent') || document.getElementById('viewer');
-            if (container) {
-                const backBtn = document.createElement('button');
-                backBtn.textContent = '← Back to Grid';
-                backBtn.style.cssText = 'background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); display: block;';
-                backBtn.onclick = () => displayLibraryCollectionGrid(folder);
-                container.insertBefore(backBtn, container.firstChild);
-            }
         }
 
         function displayAllFolders() {
@@ -2248,7 +2234,7 @@
                     viewerHtml = `<iframe src="${content.url}" style="width: 100%; height: auto; aspect-ratio: 16/9; max-height: 80vh; border: none; display: block; border-radius: 16px;" allowfullscreen></iframe>`;
                 }
             } else if (content.type === 'image') {
-                viewerHtml = `<div style="display: flex; justify-content: center; padding: 20px;"><img src="${content.url}" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>`;
+                viewerHtml = `<div style="display: flex; justify-content: center; padding: 20px;"><img src="${content.url}" style="max-width: 440px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>`;
             } else if (content.type === 'audio') {
                 viewerHtml = `<div style="display: flex; justify-content: center; padding: 40px;"><audio controls style="width: 100%; max-width: 600px; height: 54px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"><source src="${content.url}"></audio></div>`;
             } else if (content.type === 'quiz' || content.type === 'card-game' || content.type === 'spin-wheel' || content.type === 'landing-page' || content.type === 'virtual-slideshow' || content.type === 'link') {
