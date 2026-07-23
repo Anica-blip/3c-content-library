@@ -64,7 +64,51 @@ class SupabaseClient {
             .order('created_at', { ascending: false });
         
         if (error) throw error;
-        return data || [];
+        const foldersList = data || [];
+
+        if (foldersList.length > 0) {
+            // Merge display_style directly from folders table — bypasses
+            // any gap in the folders_with_stats view not knowing about
+            // the newer column yet.
+            try {
+                const { data: styles, error: styleError } = await this.client
+                    .from('folders')
+                    .select('id, display_style');
+                if (!styleError && styles) {
+                    const styleMap = {};
+                    styles.forEach(s => { styleMap[s.id] = s.display_style; });
+                    foldersList.forEach(f => { f.display_style = styleMap[f.id] || f.display_style || 'default'; });
+                }
+            } catch (e) {
+                console.warn('Could not merge display_style from folders:', e);
+            }
+
+            // Item counts for Collection folders — the stats view only
+            // counts content_public/content_private, so it always shows
+            // 0 here. Compute the real count from content_public_series.
+            const collectionFolderIds = foldersList.filter(f => f.display_style === 'collection').map(f => f.id);
+            if (collectionFolderIds.length > 0) {
+                try {
+                    const { data: seriesRows, error: seriesError } = await this.client
+                        .from('content_public_series')
+                        .select('folder_id')
+                        .in('folder_id', collectionFolderIds);
+                    if (!seriesError && seriesRows) {
+                        const countMap = {};
+                        seriesRows.forEach(r => { countMap[r.folder_id] = (countMap[r.folder_id] || 0) + 1; });
+                        foldersList.forEach(f => {
+                            if (f.display_style === 'collection') {
+                                f.actual_item_count = countMap[f.id] || 0;
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Could not compute content_public_series item counts:', e);
+                }
+            }
+        }
+
+        return foldersList;
     }
 
     /**
@@ -86,9 +130,9 @@ class SupabaseClient {
     /**
      * Create new folder
      */
-    async createFolder(title, description = '', tableName = '', isPublic = true, parentId = null, folderType = 'root', customUrl = null) {
+    async createFolder(title, description = '', tableName = '', isPublic = true, parentId = null, folderType = 'root', customUrl = null, displayStyle = 'default') {
         try {
-            console.log('📁 Creating folder with params:', { title, tableName, isPublic, parentId, folderType, customUrl });
+            console.log('📁 Creating folder with params:', { title, tableName, isPublic, parentId, folderType, customUrl, displayStyle });
             
             // Generate slug from title (or use custom URL)
             const { data: slugData, error: slugError } = await this.client
@@ -113,7 +157,8 @@ class SupabaseClient {
                 description: description,
                 is_public: isPublic,
                 parent_id: parentId,
-                folder_type: folderType
+                folder_type: folderType,
+                display_style: displayStyle
             };
             
             console.log('📤 Inserting folder data:', folderData);
@@ -378,6 +423,90 @@ class SupabaseClient {
         }
         
         return await this.getContent(contentId);
+    }
+
+    // ==================== SERIES CONTENT OPERATIONS ====================
+    // For Collection-style folders — content_public_series, a separate
+    // table from content_public/content_private so nothing about the
+    // existing tables (or their triggers/RPCs) is touched.
+
+    /**
+     * Get all series content for a Collection-style folder
+     */
+    async getContentPublicSeries(folderId) {
+        const { data, error } = await this.client
+            .from('content_public_series')
+            .select('*')
+            .eq('folder_id', folderId)
+            .order('display_order', { ascending: true });
+        
+        if (error) throw error;
+        return data || [];
+    }
+
+    /**
+     * Create new series content item
+     */
+    async createSeriesContent(contentData) {
+        // Simple client-side slug — content_public_series has no slug
+        // RPC of its own (unlike content_public), so this keeps it
+        // self-contained rather than depending on a function built for
+        // a different table.
+        const slugBase = (contentData.custom_url || contentData.title || 'item')
+            .toString().toLowerCase().trim()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '');
+        const slug = contentData.custom_url || (slugBase + '-' + Date.now().toString(36).slice(-5));
+
+        const { data: maxOrder } = await this.client
+            .from('content_public_series')
+            .select('display_order')
+            .eq('folder_id', contentData.folder_id)
+            .order('display_order', { ascending: false })
+            .limit(1)
+            .single();
+        const displayOrder = maxOrder ? maxOrder.display_order + 1 : 0;
+
+        const { data, error } = await this.client
+            .from('content_public_series')
+            .insert([{
+                ...contentData,
+                slug: slug,
+                display_order: displayOrder
+            }])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    }
+
+    /**
+     * Update series content item
+     */
+    async updateSeriesContent(id, updates) {
+        const { data, error } = await this.client
+            .from('content_public_series')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        return data;
+    }
+
+    /**
+     * Delete series content item
+     */
+    async deleteSeriesContent(id) {
+        const { error } = await this.client
+            .from('content_public_series')
+            .delete()
+            .eq('id', id);
+        
+        if (error) throw error;
+        return true;
     }
 
     // ==================== ANALYTICS OPERATIONS ====================
