@@ -9,6 +9,7 @@ let currentThumbnail = null;
 let debugMode = false;
 let folders = [];
 let allContent = [];
+let allSeriesContent = [];
 let editingSeriesContent = false; // true when the content form is editing a content_series item
 let vaultFolders = []; // Vault folders — separate from library folders
 
@@ -370,19 +371,27 @@ async function loadContent() {
         console.log('📥 Loading content for', folders.length, 'folders...');
         // Load all content from all folders
         allContent = [];
+        allSeriesContent = [];
         for (const folder of folders) {
             try {
-                console.log('Loading content for folder:', folder.title, '(ID:', folder.id, ')');
-                const content = await supabaseClient.getContentByFolder(folder.id);
-                console.log('  → Found', content.length, 'items in', folder.title);
-                allContent.push(...content);
+                if (folder.display_style === 'collection') {
+                    console.log('Loading SERIES content for folder:', folder.title, '(ID:', folder.id, ')');
+                    const seriesItems = await supabaseClient.getContentPublicSeries(folder.id);
+                    console.log('  → Found', seriesItems.length, 'series items in', folder.title);
+                    allSeriesContent.push(...seriesItems);
+                } else {
+                    console.log('Loading content for folder:', folder.title, '(ID:', folder.id, ')');
+                    const content = await supabaseClient.getContentByFolder(folder.id);
+                    console.log('  → Found', content.length, 'items in', folder.title);
+                    allContent.push(...content);
+                }
             } catch (folderError) {
                 console.error('Error loading content for folder', folder.title, ':', folderError);
                 // Continue with other folders even if one fails
             }
         }
         
-        console.log('✅ Total content loaded:', allContent.length);
+        console.log('✅ Total content loaded:', allContent.length, '(+', allSeriesContent.length, 'series items)');
         displayContent();
     } catch (error) {
         debugLog('Error loading content: ' + error.message);
@@ -536,10 +545,10 @@ async function createFolder() {
             const displayURL = folder.custom_url || folder.slug;
             showAlert('success', `✅ Vault folder created: ${displayURL} → vault_folders${displayStyle === 'collection' ? ' (Collection style)' : ''}`);
         } else {
-            folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL);
+            folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL, displayStyle);
             const folderTypeLabel = folderType === 'sub_root' ? 'Sub-root folder' : 'Root folder';
             const displayURL = folder.custom_url || folder.slug;
-            showAlert('success', `✅ ${folderTypeLabel} created: ${displayURL} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}`);
+            showAlert('success', `✅ ${folderTypeLabel} created: ${displayURL} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}${displayStyle === 'collection' ? ' (Collection style)' : ''}`);
         }
         
         // Reset form
@@ -909,8 +918,14 @@ async function saveContent(event) {
         
         if (editMode) {
             if (editingSeriesContent) {
-                debugLog('✏️ Updating series content: ' + contentId);
-                await vaultClient.updateSeriesContent(contentId, contentData);
+                const isVaultFolder = vaultFolders.some(f => f.id === folderId);
+                if (isVaultFolder) {
+                    debugLog('✏️ Updating vault series content: ' + contentId);
+                    await vaultClient.updateSeriesContent(contentId, contentData);
+                } else {
+                    debugLog('✏️ Updating library series content: ' + contentId);
+                    await supabaseClient.updateSeriesContent(contentId, contentData);
+                }
                 showAlert('success', `✅ Series content updated`);
             } else {
                 // Detect if this is a vault content item by checking folder ownership
@@ -948,10 +963,18 @@ async function saveContent(event) {
                     showAlert('success', `✅ Content saved (URL: ${displayURL})`);
                 }
             } else {
-                debugLog('➕ Creating library content: ' + title);
-                result = await supabaseClient.createContent(contentData);
-                const displayURL = result.custom_url || result.slug;
-                showAlert('success', `✅ Content saved (URL: ${displayURL})`);
+                const targetFolder = folders.find(f => f.id === folderId);
+                const isSeriesFolder = targetFolder && targetFolder.display_style === 'collection';
+                if (isSeriesFolder) {
+                    debugLog('🎬 Creating library series content: ' + title);
+                    result = await supabaseClient.createSeriesContent(contentData);
+                    showAlert('success', `✅ Series content saved to "${targetFolder.title}"`);
+                } else {
+                    debugLog('➕ Creating library content: ' + title);
+                    result = await supabaseClient.createContent(contentData);
+                    const displayURL = result.custom_url || result.slug;
+                    showAlert('success', `✅ Content saved (URL: ${displayURL})`);
+                }
             }
         }
         
@@ -1186,17 +1209,23 @@ function displayFoldersGrid() {
     } else {
         let publicHtml = '<div class="folders-grid">';
         publicRootFolders.forEach(folder => {
-            const contentCount = allContent.filter(c => c.folder_id === folder.id).length;
+            const contentCount = folder.display_style === 'collection'
+                ? allSeriesContent.filter(c => c.folder_id === folder.id).length
+                : allContent.filter(c => c.folder_id === folder.id).length;
             const subfolders = folders.filter(f => f.parent_id === folder.id);
             const subfoldersCount = subfolders.length;
             const displayURL = folder.table_name;
+            const styleBadge = folder.display_style === 'collection'
+                ? '<div style="position:absolute; top:8px; right:8px; background:rgba(0,212,200,0.2); color:#00d4c8; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:600;">🎬 Collection</div>'
+                : '';
             
             let countLabel = subfoldersCount > 0 
                 ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`
                 : `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
             
             publicHtml += `
-                <div class="folder-grid-card" onclick="openFolderSidebar('${folder.id}')">
+                <div class="folder-grid-card" onclick="openFolderSidebar('${folder.id}')" style="position:relative;">
+                    ${styleBadge}
                     <div class="folder-icon">📁</div>
                     <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
                     <div class="folder-grid-meta">${countLabel}</div>
@@ -1596,7 +1625,12 @@ async function moveVaultContentDown(contentId, folderId) {
 
 // ==================== SERIES CONTENT — EDIT / DELETE ====================
 function editSeriesContentItem(contentId, folderId) {
-    vaultClient.getSeriesContentItem(contentId).then(item => {
+    // Check library's in-memory series content first (already loaded),
+    // fall back to a fresh vault fetch if not found there.
+    const libraryItem = allSeriesContent.find(c => c.id === contentId);
+    const itemPromise = libraryItem ? Promise.resolve(libraryItem) : vaultClient.getSeriesContentItem(contentId);
+
+    itemPromise.then(item => {
         if (!item) { showAlert('error', 'Series content item not found'); return; }
 
         document.getElementById('editMode').value = 'true';
@@ -1604,6 +1638,14 @@ function editSeriesContentItem(contentId, folderId) {
         document.getElementById('contentFormTitle').textContent = '✏️ Edit Series Content';
         document.getElementById('saveButton').textContent = '💾 Update Series Content';
         editingSeriesContent = true;
+
+        // Point the content destination at the right system so the
+        // eventual update call routes correctly
+        const contentDest = document.getElementById('contentDestination');
+        if (contentDest) {
+            contentDest.value = libraryItem ? 'library' : 'vault';
+            updateContentDestinationUI();
+        }
 
         document.getElementById('contentFolder').value = item.folder_id;
         document.getElementById('contentTitle').value = item.title;
@@ -1631,11 +1673,20 @@ function editSeriesContentItem(contentId, folderId) {
 async function deleteSeriesContentItem(contentId, folderId) {
     if (!confirm('Delete this series content item?')) return;
 
+    const isLibraryItem = allSeriesContent.some(c => c.id === contentId);
+
     try {
-        await vaultClient.deleteSeriesContent(contentId);
+        if (isLibraryItem) {
+            await supabaseClient.deleteSeriesContent(contentId);
+        } else {
+            await vaultClient.deleteSeriesContent(contentId);
+        }
         showAlert('success', '✅ Series content deleted');
         await loadAllData();
-        if (folderId) openVaultFolderSidebar(folderId);
+        if (folderId) {
+            if (isLibraryItem) openFolderSidebar(folderId);
+            else openVaultFolderSidebar(folderId);
+        }
     } catch (error) {
         showAlert('error', 'Error deleting series content: ' + error.message);
     }
@@ -1689,6 +1740,17 @@ async function setVaultFolderDisplayStyle(folderId, style) {
         showAlert('success', `✅ Landing style set to "${style === 'collection' ? 'Collection / Series' : 'Default'}"`);
         await loadAllData();
         openVaultFolderSidebar(folderId);
+    } catch (error) {
+        showAlert('error', 'Error updating landing style: ' + error.message);
+    }
+}
+
+async function setLibraryFolderDisplayStyle(folderId, style) {
+    try {
+        await supabaseClient.updateFolder(folderId, { display_style: style });
+        showAlert('success', `✅ Landing style set to "${style === 'collection' ? 'Collection / Series' : 'Default'}"`);
+        await loadAllData();
+        openFolderSidebar(folderId);
     } catch (error) {
         showAlert('error', 'Error updating landing style: ' + error.message);
     }
@@ -1764,6 +1826,13 @@ function openFolderSidebar(folderId) {
             <h3 style="margin: 0; color: #a78bfa; font-size: 18px;">${escapeHtml(folder.title)} <span style="font-size: 12px; color: #999;">${folderTypeLabel}</span></h3>
             <div style="font-size: 12px; color: #808080; margin-top: 4px;">URL: <strong style="color: #8b5cf6;">${displayURL}</strong></div>
             ${folder.description ? `<div style="font-size: 12px; color: #999; margin-top: 2px;">${escapeHtml(folder.description)}</div>` : ''}
+            <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 11px; color: #808080;">Landing Style:</label>
+                <select onchange="setLibraryFolderDisplayStyle('${folder.id}', this.value)" style="font-size: 12px; padding: 4px 8px; background: rgba(139,92,246,0.15); color: #c084fc; border: 1px solid rgba(139,92,246,0.4); border-radius: 4px;">
+                    <option value="default" ${folder.display_style !== 'collection' ? 'selected' : ''}>Default</option>
+                    <option value="collection" ${folder.display_style === 'collection' ? 'selected' : ''}>Collection / Series</option>
+                </select>
+            </div>
         </div>
         <div style="display: flex; gap: 8px;">
             <button onclick="editFolder('${folder.id}')" style="padding: 6px 12px; font-size: 12px;">✏️ Edit</button>
@@ -1798,6 +1867,40 @@ function openFolderSidebar(folderId) {
         });
         
         contentHtml += '</div>';
+    }
+    
+    // Collection-style folders show series content instead of the
+    // regular content items list — a simpler card set since series
+    // items are more homogeneous (mostly links/quizzes/apps).
+    if (folder.display_style === 'collection') {
+        const seriesItems = allSeriesContent.filter(c => c.folder_id === folderId).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        contentHtml += '<div><h4 style="color: #00d4c8; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(0, 212, 200, 0.2); padding-bottom: 8px;">🎬 Series Content (' + seriesItems.length + ')</h4>';
+        if (seriesItems.length === 0) {
+            contentHtml += '<p style="color: #999; font-size: 13px;">No content yet. Add some using the form above.</p>';
+        } else {
+            seriesItems.forEach(item => {
+                const thumb = item.thumbnail_url
+                    ? `<img src="${item.thumbnail_url}" style="width: 60px; height: 80px; border-radius: 6px; object-fit: cover;" alt="">`
+                    : `<div style="width: 60px; height: 80px; background: #ddd; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 24px;">🎬</div>`;
+                contentHtml += `
+                    <div class="content-card" style="margin-bottom: 10px; display: flex; gap: 12px; align-items: center; padding: 10px;">
+                        ${thumb}
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 600; color: #fff; font-size: 13px;">${escapeHtml(item.title)}</div>
+                            <div style="font-size: 11px; color: #999;">Type: ${item.type.toUpperCase()} | Views: ${item.view_count || 0}</div>
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                            <button onclick="editSeriesContentItem('${item.id}', '${folderId}')" style="padding: 4px 10px; font-size: 11px;">✏️</button>
+                            <button class="delete" onclick="deleteSeriesContentItem('${item.id}', '${folderId}')" style="padding: 4px 10px; font-size: 11px;">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        contentHtml += '</div>';
+        sidebarContent.innerHTML = contentHtml;
+        sidebar.classList.add('active');
+        return;
     }
     
     // Show content items (always show if they exist, regardless of subfolders)
