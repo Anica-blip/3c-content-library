@@ -375,6 +375,7 @@ async function displayCollectionGrid(folder, highlightSlug) {
         return `
             <div class="series-card" data-item-id="${item.id}" data-custom-url="${item.custom_url || item.slug || ''}" onclick="openSeriesItem('${item.id}')" style="cursor: pointer; display: flex; flex-direction: column; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
                 <div class="series-thumb" style="position: relative; aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background-image: url('${thumb}'); background-size: cover; background-position: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(155,89,182,0.2);">
+                    <button onclick="event.stopPropagation(); nativeShareSeriesItem('${item.id}')" title="Share" style="position: absolute; top: 8px; right: 44px; width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(10,4,22,0.65); backdrop-filter: blur(4px); color: #00d4c8; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(0,212,200,0.35)'" onmouseout="this.style.background='rgba(10,4,22,0.65)'">↗</button>
                     <button onclick="event.stopPropagation(); copySeriesLink('${item.id}')" title="Copy link" style="position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(10,4,22,0.65); backdrop-filter: blur(4px); color: #c084fc; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(123,63,228,0.55)'" onmouseout="this.style.background='rgba(10,4,22,0.65)'">🔗</button>
                 </div>
                 <div class="series-title" style="margin-top: 8px; font-size: 13px; color: #ffffff; text-align: center; line-height: 1.3;">${escapeHtml(item.title)}</div>
@@ -576,16 +577,34 @@ function copySeriesLink(itemId) {
     const item = seriesItemsCache.find(i => i.id === itemId);
     if (!item) return;
 
-    const baseUrl = window.location.origin + window.location.pathname;
-    const folderSlug = currentFolder ? (currentFolder.tableName || currentFolder.slug) : '';
+    const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+    const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
     const itemSlug = item.custom_url || item.slug || item.id;
-    const link = baseUrl + '?folder=' + encodeURIComponent(folderSlug) + '&highlight=' + encodeURIComponent(itemSlug);
+    const link = `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
 
     navigator.clipboard.writeText(link).then(() => {
-        alert('✅ Library link copied!\n\n' + item.title + '\n' + link);
+        alert('✅ Link copied!\n\n' + item.title + '\n' + link);
     }).catch(() => {
         prompt('Copy this link:', link);
     });
+}
+
+function nativeShareSeriesItem(itemId) {
+    const item = seriesItemsCache.find(i => i.id === itemId);
+    if (!item) return;
+    const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+    const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
+    const itemSlug = item.custom_url || item.slug || item.id;
+    const link = `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
+    if (navigator.share) {
+        navigator.share({
+            title: item.title,
+            text: item.description || 'Think it. Do it. Own it.',
+            url: link,
+        }).catch(() => { /* cancelled */ });
+    } else {
+        copySeriesLink(itemId);
+    }
 }
 
 // ==================== OPEN SERIES ITEM ====================
@@ -829,9 +848,10 @@ function sharePDFLink(contentId) {
     }
     
     if (currentContent && currentFolder) {
-        const folderTableName  = currentFolder.tableName;
-        const contentCustomUrl = currentContent.customUrl || currentContent.slug;
-        return baseUrl + '?folder=' + folderTableName + '&url=' + contentCustomUrl + '&view=' + viewType;
+        const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+        const folderSlug = currentFolder.slug || currentFolder.tableName;
+        const itemSlug = currentContent.customUrl || currentContent.slug || currentContent.id;
+        return `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
     }
     return baseUrl + '?content=' + contentId + '&view=' + viewType;
 }
@@ -842,7 +862,7 @@ function showViewer(content, pdfOnlyMode) {
     currentContent = content;
     let viewerHtml = '';
 
-    const shareButton = pdfOnlyMode ? '' : '<button onclick="copyShareLink()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);" title="Copy Link">&#8853;</button>';
+    const shareButton = pdfOnlyMode ? '' : '<button onclick="nativeShareContent()" style="background: linear-gradient(135deg, #00d4c8, #00a89e); color: #0a0416; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,212,200,0.3);" title="Share">&#8599;</button><button onclick="copyShareLink()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 6px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);" title="Copy Link">&#8853;</button>';
 
     if (content.type === 'pdf') {
         let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%84%3C/text%3E%3C/svg%3E';
@@ -932,6 +952,20 @@ function copyShareLink() {
     if (!currentContent) return;
     const shareLink = sharePDFLink(currentContent.id);
     navigator.clipboard.writeText(shareLink).then(() => { alert('✅ Link copied to clipboard!\n\n' + shareLink); }).catch(err => { prompt('Copy this link:', shareLink); });
+}
+
+function nativeShareContent() {
+    if (!currentContent) return;
+    const shareLink = sharePDFLink(currentContent.id);
+    if (navigator.share) {
+        navigator.share({
+            title: currentContent.title,
+            text: currentContent.description || 'Think it. Do it. Own it.',
+            url: shareLink,
+        }).catch(() => { /* cancelled */ });
+    } else {
+        copyShareLink();
+    }
 }
 
 // ==================== PDF MODAL ====================
