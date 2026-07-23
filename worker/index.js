@@ -141,6 +141,21 @@ async function supabaseGet(path) {
     return res.json();
 }
 
+// Same as supabaseGet, but throws on a non-ok response instead of
+// silently returning an empty array — needed anywhere the caller must
+// distinguish "genuinely no match" from "the query itself was invalid"
+// (e.g. requesting a column that doesn't exist on a given table).
+async function supabaseGetStrict(path) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+    });
+    if (!res.ok) throw new Error(`Supabase query failed: ${res.status}`);
+    return res.json();
+}
+
 async function findFolder(table, slugOrName) {
     const encoded = encodeURIComponent(slugOrName);
     const rows = await supabaseGet(
@@ -151,10 +166,24 @@ async function findFolder(table, slugOrName) {
 
 async function findItem(table, folderId, slugOrId) {
     const encoded = encodeURIComponent(slugOrId);
-    const rows = await supabaseGet(
-        `${table}?select=id,title,type,url,thumbnail_url,description,custom_url,slug&folder_id=eq.${folderId}&or=(custom_url.eq.${encoded},slug.eq.${encoded},id.eq.${encoded})&limit=1`
-    );
-    return rows[0] || null;
+
+    // Try including path in the match — but path doesn't exist on
+    // every table yet, so if Supabase rejects the query for that
+    // reason, fall back to the original match without it rather than
+    // failing the whole lookup.
+    try {
+        const rows = await supabaseGetStrict(
+            `${table}?select=id,title,type,url,thumbnail_url,description,custom_url,slug,path,project_json,external_url&folder_id=eq.${folderId}&or=(custom_url.eq.${encoded},slug.eq.${encoded},id.eq.${encoded},path.eq.${encoded})&limit=1`
+        );
+        return rows[0] || null;
+    } catch (e) {
+        // path column doesn't exist on this table (or some other
+        // transient issue) — fall back to the safe, original match.
+        const rows = await supabaseGet(
+            `${table}?select=id,title,type,url,thumbnail_url,description,custom_url,slug&folder_id=eq.${folderId}&or=(custom_url.eq.${encoded},slug.eq.${encoded},id.eq.${encoded})&limit=1`
+        );
+        return rows[0] || null;
+    }
 }
 
 function buildSharePageHtml({ title, description, image, realUrl }) {
@@ -288,6 +317,34 @@ export default {
                 console.error('Share preview error:', error);
                 const isLibrary = shareMatch[1] === 'library';
                 return Response.redirect(`${SITE_URL}/${isLibrary ? 'library.html' : 'vault/vault.html'}`, 302);
+            }
+        }
+
+        // ── TEMPORARY DIAGNOSTIC — remove once the share bug is confirmed
+        // fixed. Same lookup as /share/ but returns raw JSON instead of
+        // redirecting, so the actual folder/item data can be inspected
+        // directly rather than relayed back and forth through screenshots. ──
+        const debugMatch = path.match(/^\/share-debug\/(library|vault)\/([^/]+)\/([^/]+)\/?$/);
+        if (debugMatch) {
+            try {
+                const [, side, folderSlug, itemSlug] = debugMatch;
+                const isLibrary = side === 'library';
+                const folderTable = isLibrary ? 'folders' : 'vault_folders';
+                const defaultTable = isLibrary ? 'content_public' : 'vault_content';
+                const seriesTable = isLibrary ? 'content_public_series' : 'content_series';
+
+                const folder = await findFolder(folderTable, folderSlug);
+                const itemInDefault = folder ? await findItem(defaultTable, folder.id, itemSlug) : null;
+                const itemInSeries = folder ? await findItem(seriesTable, folder.id, itemSlug) : null;
+
+                return json({
+                    searched: { side, folderSlug, itemSlug },
+                    folder_found: folder,
+                    item_found_in_default_table: itemInDefault,
+                    item_found_in_series_table: itemInSeries,
+                });
+            } catch (error) {
+                return json({ error: error.message }, 500);
             }
         }
 
