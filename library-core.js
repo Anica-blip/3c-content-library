@@ -1,790 +1,1107 @@
 /**
- * 3C Public Library - Core JavaScript
- * Read-only viewer with enhanced features
+ * Aurion's Vault - Core JavaScript
+ * CLONE of library.html inline JS.
+ * Vault-only substitutions:
+ *   supabaseClient -> vaultClient
+ *   content_public -> vault_content
+ *   folder_passwords -> vault_folder_passwords
+ *   flipbook-viewer.html -> ../flipbook-viewer.html
+ *   presentation-viewer.html -> ../presentation-viewer.html
+ *   library.html -> vault.html  (hideContentViewer desktop redirect)
+ *   getComments/addComment -> vault_comments direct queries
+ *   getTypeIcon extended with vault types
+ *   displayAllFolders alphabetical (no pinned order)
+ *   init block adds initVaultSupabase + updateVaultNav
+ *   openPDFModal activates vault pdfModal + pdf-viewer-enhanced.js
  */
 
 // ==================== GLOBAL STATE ====================
-let currentFolder = null;
-let currentContentId = null;
-let folders = [];
-let allContent = [];
-let viewMode = 'grid';
-let darkMode = false;
-let currentUser = null;
+let library        = { folders: [], content: [] };
+let currentFolder  = null;
+let currentContent = null;
+let currentUser    = null;
+let pendingPrivateFolder = null;
+let contentCache   = {};
+let libraryCache   = null;
+let cacheTimestamp = null;
+const CACHE_DURATION = 2 * 60 * 1000;
 
-// ==================== INITIALIZATION ====================
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🚀 Library initializing...');
-    
-    // Load dark mode preference
-    darkMode = localStorage.getItem('darkMode') === 'true';
-    if (darkMode) {
-        document.body.classList.add('dark-mode');
-    }
-    
-    // Check URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const folderId = urlParams.get('folder');
-    const contentId = urlParams.get('content');
-    
-    // Initialize Supabase
-    await initSupabase();
-    
-    // Check if user is logged in (for owner bypass)
-    await checkCurrentUser();
-    
-    // Load data
-    await loadFolders();
-    
-    if (contentId) {
-        // Direct content link - show only this item
-        await loadSingleContent(contentId);
-    } else if (folderId) {
-        // Folder link - show folder content
-        await loadFolderContent(folderId);
-    } else {
-        // Show all content
-        await loadAllContent();
-    }
-});
-
-// ==================== SUPABASE INITIALIZATION ====================
-async function initSupabase() {
-    if (!CONFIG || !CONFIG.supabase || !CONFIG.supabase.url) {
-        console.error('Supabase configuration not found');
+// ==================== INIT ====================
+(async () => {
+    try {
+        await initVaultSupabase();
+        await checkCurrentUser();
+        const urlParams = new URLSearchParams(window.location.search);
+        updateVaultNav(!!(urlParams.get('folder') || urlParams.get('content') || urlParams.get('url')));
+        await loadData();
+        await displayContent();
+    } catch (error) {
+        console.error('Failed to load vault:', error);
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.innerHTML = '<div style="text-align:center;color:var(--text-primary);"><div style="font-size:48px;margin-bottom:20px;">&#9888;</div><div style="font-size:18px;font-weight:600;margin-bottom:10px;">Failed to load Aurion\'s Vault</div><div style="font-size:14px;color:var(--text-secondary);">Please refresh the page to try again</div></div>';
         return;
+    } finally {
+        setTimeout(() => {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) { overlay.classList.add('hidden'); setTimeout(() => overlay.remove(), 300); }
+        }, 100);
     }
-    
-    try {
-        await supabaseClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey);
-        console.log('✅ Supabase connected');
-    } catch (error) {
-        console.error('❌ Supabase connection failed:', error);
-    }
+})();
+
+// ==================== VAULT NAV ====================
+function updateVaultNav(isInsideFolder) {
+    const folderBtn = document.getElementById('folderIconBtn');
+    const publicBtn = document.getElementById('publicLibBtn');
+    if (folderBtn) folderBtn.style.display = isInsideFolder ? 'flex' : 'none';
+    if (publicBtn) publicBtn.style.display  = 'flex';
 }
 
-// ==================== DATA LOADING ====================
-async function loadFolders() {
-    try {
-        folders = await supabaseClient.getFolders();
-        displayFolders();
-        console.log('📁 Loaded', folders.length, 'folders');
-    } catch (error) {
-        console.error('Error loading folders:', error);
-        document.getElementById('folderList').innerHTML = '<p class="loading">Error loading folders</p>';
-    }
+// ==================== VAULT SUPABASE INIT ====================
+async function initVaultSupabase() {
+    if (!CONFIG || !CONFIG.supabase || !CONFIG.supabase.url) { console.error('Supabase configuration not found'); return; }
+    try { await vaultClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey); console.log('Vault Supabase connected'); }
+    catch (error) { console.error('Vault Supabase connection failed:', error); }
 }
 
-async function loadAllContent() {
+// ==================== LOAD DATA ====================
+async function loadData() {
+    console.log('Loading vault data from Supabase...');
+    const now = Date.now();
+    if (libraryCache && cacheTimestamp && (now - cacheTimestamp) < CACHE_DURATION) { console.log('Using cached data'); library = libraryCache; return; }
     try {
-        allContent = [];
-        for (const folder of folders) {
-            // CRITICAL: Skip private folders unless user has access
-            if (isFolderPrivate(folder)) {
-                // Owner bypass
-                if (!isOwner()) {
-                    // Check if user has unlocked this folder
-                    if (!checkPrivateFolderAccess(folder)) {
-                        console.log('🔒 Skipping private folder:', folder.title);
-                        continue; // Skip this folder
-                    }
-                }
-            }
-            
-            const content = await supabaseClient.getContentByFolder(folder.id);
-            allContent.push(...content);
-        }
-        
-        currentFolder = null;
-        document.getElementById('contentTitle').textContent = 'All Content';
-        displayContent(allContent);
-        console.log('📄 Loaded', allContent.length, 'content items');
-    } catch (error) {
-        console.error('Error loading content:', error);
-        document.getElementById('contentGrid').innerHTML = '<p class="loading">Error loading content</p>';
-    }
+        if (!vaultClient.isConnected) { await vaultClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey); }
+        const folders = await vaultClient.getFolders();
+        library.folders = folders.map(f => ({
+            id: f.id, title: f.title, name: f.title, slug: f.custom_url || f.slug,
+            customUrl: f.custom_url, tableName: f.table_name, description: f.description,
+            folderType: f.folder_type, parentId: f.parent_id, depth: f.depth || 0,
+            path: f.path, actualItemCount: f.actual_item_count || 0, isPublic: f.is_public,
+            displayStyle: f.display_style || 'default'
+        }));
+        library.content = [];
+        libraryCache = library; cacheTimestamp = now;
+        console.log('Vault loaded and cached:', library);
+        console.log('Folders:', library.folders.length, 'Content:', library.content.length);
+    } catch (error) { console.error('Error loading vault data:', error); library = { folders: [], content: [] }; }
 }
 
-async function loadFolderContent(folderId) {
-    try {
-        const folder = folders.find(f => f.id === folderId || f.slug === folderId);
+// ==================== URL PARAMS ====================
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return { folder: params.get('folder'), content: params.get('content'), url: params.get('url'), view: params.get('view'), highlight: params.get('highlight') };
+}
+
+// ==================== FIND HELPERS ====================
+function findFolderBySlug(slug) {
+    return library.folders.find(f => f.slug === slug || f.id === slug || f.tableName === slug);
+}
+function findContentBySlug(slug, folderId) {
+    if (folderId) return library.content.find(c => (c.slug === slug || c.id === slug || c.customUrl === slug) && c.folderId === folderId);
+    return library.content.find(c => c.slug === slug || c.id === slug || c.customUrl === slug);
+}
+
+// ==================== TYPE ICON ====================
+function getTypeIcon(type) {
+    const icons = { pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵', flipbook: '📖', presentation: '📊', gif: '🎞️', link: '🔗', quiz: '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', 'virtual-slideshow': '🎞️', other: '📎' };
+    return icons[type] || icons.other;
+}
+
+// ==================== DISPLAY CONTENT ====================
+async function displayContent() {
+    const params = getUrlParams();
+    const folderSlug = params.folder, contentSlug = params.content, contentUrl = params.url, viewMode = params.view;
+
+    console.log('displayContent called with params:', { folderSlug, contentSlug, contentUrl, viewMode });
+    console.log('Library state:', { folders: library.folders.length, content: library.content.length });
+
+    const folderIconBtn = document.getElementById('folderIconBtn');
+    if (folderIconBtn) {
+        folderIconBtn.style.visibility = (folderSlug || contentSlug || contentUrl) ? 'visible' : 'hidden';
+    }
+
+    // NEW FORMAT: ?folder=X&url=Y&view=pdf-only (any *-only viewMode = standalone, no sidebar)
+    if (viewMode && viewMode.endsWith('-only') && folderSlug && contentUrl) {
+        document.querySelector('.folders-section').style.display = 'none';
+        document.getElementById('contentViewer').style.display = 'block';
+        console.log('Loading content with new URL format:', { folderSlug, contentUrl });
+        const folder = library.folders.find(f => f.tableName === folderSlug || f.slug === folderSlug);
         if (!folder) {
-            console.error('Folder not found:', folderId);
+            console.error('Folder not found:', folderSlug);
+            document.getElementById('viewer').innerHTML = '<div style="padding:40px;text-align:center;"><h2>Folder not found</h2><p>The folder "' + folderSlug + '" does not exist.</p></div>';
             return;
         }
-        
-        // CRITICAL: Check if folder is private and user has access
-        if (isFolderPrivate(folder)) {
-            // Check if user is owner/admin (bypass password)
-            if (!isOwner()) {
-                // Check if user has unlocked this folder
-                if (!checkPrivateFolderAccess(folder)) {
-                    console.warn('🔒 Access denied to private folder:', folder.title);
-                    // Redirect to home and show password prompt
-                    window.location.href = window.location.pathname;
-                    setTimeout(() => {
-                        promptForFolderPassword(folder);
-                    }, 100);
-                    return;
-                }
+        try {
+            const { data, error } = await vaultClient.client.from('vault_content')
+                .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, custom_url, slug, display_order, view_count')
+                .eq('folder_id', folder.id).or('custom_url.eq.' + contentUrl + ',slug.eq.' + contentUrl).single();
+            if (error) throw error;
+            if (data) {
+                const content = { id: data.id, folderId: data.folder_id, title: data.title, type: data.type, url: data.url, slug: data.custom_url || data.slug, customUrl: data.custom_url, thumbnail: data.thumbnail_url, description: data.description, externalUrl: data.external_url };
+                currentFolder = folder; showViewer(content, true); return;
             } else {
-                console.log('👑 Owner access - bypassing password for:', folder.title);
+                console.error('Content not found:', contentUrl);
+                document.getElementById('viewer').innerHTML = '<div style="padding:40px;text-align:center;"><h2>Content not found</h2><p>The content "' + contentUrl + '" does not exist in folder "' + folderSlug + '".</p></div>';
+                return;
             }
+        } catch (err) {
+            console.error('Error loading content:', err);
+            document.getElementById('viewer').innerHTML = '<div style="padding:40px;text-align:center;"><h2>Error loading content</h2><p>' + err.message + '</p></div>';
+            return;
         }
-        
-        currentFolder = folder;
-        const content = await supabaseClient.getContentByFolder(folder.id);
-        
-        document.getElementById('contentTitle').textContent = folder.title;
-        displayContent(content);
-        
-        // Highlight folder in nav
-        document.querySelectorAll('.folder-item').forEach(item => {
-            item.classList.toggle('active', item.dataset.folderId === folder.id);
-        });
-        
-        console.log('📁 Loaded folder:', folder.title, '(' + content.length + ' items)');
-    } catch (error) {
-        console.error('Error loading folder content:', error);
     }
-}
 
-async function loadSingleContent(contentId) {
-    try {
-        const content = await supabaseClient.getContent(contentId);
-        
-        // Hide folder navigation
-        document.getElementById('folderNav').style.display = 'none';
-        
-        document.getElementById('contentTitle').textContent = content.title;
-        displayContent([content]);
-        
-        // Auto-open the content
-        setTimeout(() => openContent(content), 500);
-        
-        console.log('📄 Loaded single content:', content.title);
-    } catch (error) {
-        console.error('Error loading content:', error);
-    }
-}
-
-// ==================== UI DISPLAY ====================
-function displayFolders() {
-    const container = document.getElementById('foldersGrid');
-    
-    if (!container) {
-        console.error('Folders container not found');
-        return;
-    }
-    
-    if (folders.length === 0) {
-        container.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No folders available</p>';
-        return;
-    }
-    
-    // Only show PUBLIC root folders (is_public !== false) and exclude 'Testing' folder
-    const publicRootFolders = folders.filter(f => {
-        const isRoot = !f.parent_id && f.folder_type === 'root';
-        const isPublic = f.is_public !== false; // true or null = public
-        const notTesting = f.title !== 'Testing' && f.slug !== 'intermediary_level.03'; // Exclude Testing folder
-        return isRoot && isPublic && notTesting;
-    }).sort((a, b) => a.title.localeCompare(b.title));
-    
-    console.log('📊 Public folders:', publicRootFolders.length, publicRootFolders.map(f => f.title));
-    
-    // Helper function to count all items recursively (including subfolders)
-    function getTotalItemCount(folderId) {
-        const folder = folders.find(f => f.id === folderId);
-        if (!folder) return 0;
-        
-        // Get direct items in this folder
-        let count = folder.actual_item_count || 0;
-        
-        // Add items from all subfolders recursively
-        const subfolders = folders.filter(f => f.parent_id === folderId);
-        for (const subfolder of subfolders) {
-            count += getTotalItemCount(subfolder.id);
+    // OLD FORMAT: ?content=X&view=pdf-only (any *-only viewMode = standalone)
+    if (viewMode && viewMode.endsWith('-only') && contentSlug) {
+        document.querySelector('.folders-section').style.display = 'none';
+        document.getElementById('contentViewer').style.display = 'block';
+        let content = findContentBySlug(contentSlug);
+        if (!content) {
+            const loadContent = async () => {
+                try {
+                    const { data, error } = await vaultClient.client.from('vault_content')
+                        .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, custom_url, slug, display_order, view_count')
+                        .or('id.eq.' + contentSlug + ',slug.eq.' + contentSlug + ',custom_url.eq.' + contentSlug).single();
+                    if (!error && data) {
+                        content = { id: data.id, title: data.title, slug: data.custom_url || data.slug, customUrl: data.custom_url, type: data.type, folderId: data.folder_id, url: data.url, thumbnail: data.thumbnail_url, description: data.description, externalUrl: data.external_url };
+                        showViewer(content, true);
+                    }
+                } catch (err) { console.error('Error loading content:', err); }
+            };
+            loadContent(); return;
         }
-        
-        return count;
+        if (content) { showViewer(content, true); return; }
     }
-    
-    // Render PUBLIC folders only
-    if (publicRootFolders.length === 0) {
-        container.innerHTML = '<p class="loading" style="grid-column: 1/-1; text-align: center; color: #999;">No public folders available</p>';
+
+    // No folder selected — show all folders
+    if (!folderSlug) { console.log('No folder slug, showing all folders'); displayAllFolders(); return; }
+
+    // Hide folders section, show content viewer with left/right layout
+    document.querySelector('.folders-section').style.display = 'none';
+    document.getElementById('contentViewer').style.display = 'block';
+    document.getElementById('folderSidebar').style.display = 'none';
+
+    currentFolder = findFolderBySlug(folderSlug);
+    if (!currentFolder) { document.getElementById('viewer').innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>'; return; }
+
+    // Collection/Series folders use the grid landing page instead of
+    // the default sidebar + viewer layout
+    console.log('🔍 Folder display style check:', currentFolder.title, '→ displayStyle =', JSON.stringify(currentFolder.displayStyle));
+    if (currentFolder.displayStyle === 'collection') {
+        console.log('🎬 Routing to displayCollectionGrid()');
+        await displayCollectionGrid(currentFolder, params.highlight);
+        return;
     } else {
-        const html = publicRootFolders.map(folder => {
-            const subfolders = folders.filter(f => f.parent_id === folder.id);
-            const subfoldersCount = subfolders.length;
-            const displayURL = folder.table_name;
-            
-            // Use actual_item_count from database view (direct items only)
-            const directItemCount = folder.actual_item_count || 0;
-            
-            let countLabel = subfoldersCount > 0 
-                ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${directItemCount} item${directItemCount !== 1 ? 's' : ''}`
-                : `${directItemCount} item${directItemCount !== 1 ? 's' : ''}`;
-            
-            const viewContentButton = directItemCount > 0
-                ? `<button onclick="event.stopPropagation(); window.location.href='?folder=${folder.slug}';" style="margin-top: 8px; padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">📄 View Content</button>`
-                : '';
-            
-            return `
-                <div class="folder-card-item" onclick="handleFolderClick('${folder.slug}')">
-                    <div class="folder-icon">📁</div>
-                    <div class="folder-title">${escapeHtml(folder.title)}</div>
-                    <div class="folder-details">${countLabel}</div>
-                    <div class="folder-slug">${displayURL}</div>
-                    ${viewContentButton}
-                </div>
-            `;
+        console.log('📋 Routing to default sidebar layout (displayStyle was not "collection")');
+    }
+
+    if (!contentCache[currentFolder.id]) {
+        try {
+            const content = await vaultClient.getContentByFolder(currentFolder.id);
+            const mappedContent = content.map(c => ({ id: c.id, folderId: c.folder_id, title: c.title, type: c.type, url: c.url, slug: c.custom_url || c.slug, customUrl: c.custom_url, thumbnail: c.thumbnail_url, description: c.description, externalUrl: c.external_url, order: c.display_order }));
+            contentCache[currentFolder.id] = mappedContent;
+            library.content = [...library.content, ...mappedContent];
+        } catch (error) { console.error('Error loading folder content:', error); }
+    }
+
+    let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
+    folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
+    const subfolders = library.folders.filter(f => f.parentId === currentFolder.id).sort((a, b) => a.title.localeCompare(b.title));
+
+    // If contentSlug exists, show ONLY content viewer (no left sidebar)
+    if (contentSlug) {
+        const viewer = document.getElementById('viewer');
+        viewer.innerHTML = '<div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; display: block; width: 100%; max-width: 100%;"><div class="no-content"><h2>Loading content...</h2></div></div>';
+        const content = findContentBySlug(contentSlug, currentFolder.id);
+        if (content) { showViewer(content, false); } else { document.getElementById('viewerContent').innerHTML = '<div class="no-content"><h2>Error loading content</h2><p>JSON object requested, multiple (or no) rows returned</p></div>'; }
+        return;
+    }
+
+    // Create left/right layout
+    const viewer = document.getElementById('viewer');
+    viewer.innerHTML = `
+        <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
+            <div class="sidebar" id="leftSidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; width: 100%; max-width: 100%;">
+                <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 15px;">${currentFolder.title}</h2>
+                <div id="subfoldersContainer"></div>
+                <div class="content-grid" id="contentList"></div>
+            </div>
+            <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; display: none; width: 100%; max-width: 100%;">
+                <div class="no-content"><h2>Welcome to Aurion's Universe</h2><p>Select content from the sidebar to view</p></div>
+            </div>
+        </div>
+        <div class="comments-section" id="commentsSection" style="display: none;"></div>
+    `;
+
+    if (folderContent.length === 0 && subfolders.length === 0) { document.getElementById('contentList').innerHTML = '<p style="color: #999;">No subfolders or content</p>'; return; }
+
+    let subfoldersHtml = '';
+    if (subfolders.length > 0) {
+        subfoldersHtml += '<div style="margin-bottom: 20px;">';
+        subfolders.forEach(subfolder => {
+            const itemCount = subfolder.actualItemCount || 0;
+            subfoldersHtml += `<div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'" style="background: rgba(155, 89, 182, 0.1); border: 1px solid rgba(155, 89, 182, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(155, 89, 182, 0.2)'; this.style.borderColor='rgba(155, 89, 182, 0.5)'" onmouseout="this.style.background='rgba(155, 89, 182, 0.1)'; this.style.borderColor='rgba(155, 89, 182, 0.3)'"><div style="display: flex; align-items: center; gap: 10px;"><div style="font-size: 24px;">📂</div><div style="flex: 1;"><div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div><div style="font-size: 11px; color: #808080;">${itemCount} item${itemCount !== 1 ? 's' : ''}</div></div><div style="color: #9b59b6; font-size: 18px;">→</div></div></div>`;
+        });
+        subfoldersHtml += '</div>';
+    }
+    document.getElementById('subfoldersContainer').innerHTML = subfoldersHtml;
+
+    let contentHtml = '';
+    if (folderContent.length > 0) {
+        contentHtml = folderContent.map(item => {
+            let thumbnailAttr = '', thumbnailContent = '';
+            if (item.thumbnail) { thumbnailAttr = `data-bg="${item.thumbnail}"`; } else { thumbnailContent = `<div class="type-icon">${getTypeIcon(item.type)}</div>`; }
+            return `<div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.id}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 25px;"><div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0; margin-bottom: 0;">${thumbnailContent}</div><div class="content-info" style="padding: 12px 10px; text-align: left; min-height: 60px; margin-top: 0;"><div class="content-title" style="font-size: 12px; color: #ffffff; line-height: 1.4; font-weight: 500; word-wrap: break-word; margin: 0;">${item.title}</div></div></div>`;
         }).join('');
-        container.innerHTML = html;
+    }
+    document.getElementById('contentList').innerHTML = contentHtml;
+    observeThumbnails();
+}
+
+// ==================== DISPLAY ALL FOLDERS ====================
+function displayAllFolders() {
+    console.log('displayAllFolders called, folders:', library.folders);
+    document.getElementById('contentViewer').style.display = 'none';
+    document.querySelector('.folders-section').style.display = 'block';
+    const commentsSection = document.getElementById('commentsSection');
+    if (commentsSection) commentsSection.style.display = 'none';
+    if (library.folders.length === 0) { console.log('No folders to display'); return; }
+    console.log('Displaying only root folders');
+
+    const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0).sort((a, b) => {
+        // Pin pop_in first, aurion_gems second, everything else alphabetical
+        const pinOrder = { pop_in: 0, aurion_gems: 1 };
+        const aPin = pinOrder[a.tableName];
+        const bPin = pinOrder[b.tableName];
+        if (aPin !== undefined && bPin !== undefined) return aPin - bPin;
+        if (aPin !== undefined) return -1;
+        if (bPin !== undefined) return 1;
+        return a.title.localeCompare(b.title);
+    });
+
+    let html = '';
+    rootFolders.forEach(folder => {
+        const subfolders = library.folders.filter(f => f.parentId === folder.id);
+        const subfoldersCount = subfolders.length;
+        const contentCount = folder.actualItemCount || 0;
+        let countLabel = subfoldersCount > 0 ? (subfoldersCount + ' subfolder' + (subfoldersCount !== 1 ? 's' : '') + ', ' + contentCount + ' item' + (contentCount !== 1 ? 's' : '')) : (contentCount + ' item' + (contentCount !== 1 ? 's' : ''));
+
+        // Start Here button only on Aurion Gems
+        const startHereBtn = folder.tableName === 'aurion_gems'
+            ? '<button onclick="event.stopPropagation(); openFolderSidebar(\'' + folder.id + '\');" style="margin-top: 8px; padding: 6px 14px; background: linear-gradient(135deg, #7c3aed, #9b59b6); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: 0.3px; box-shadow: 0 2px 8px rgba(124,58,237,0.35); transition: all 0.2s;" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">🚀 Start Here</button>'
+            : '';
+
+        // Pop In gets a neon purple title — visually distinct from library content
+        const titleStyle = folder.tableName === 'pop_in'
+            ? ' style="color:#c084fc; text-shadow:0 0 10px rgba(192,132,252,0.6);"'
+            : '';
+
+        html += '<div class="folder-card-item" onclick="openFolderSidebar(\'' + folder.id + '\')"><div class="folder-icon"><svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 18 L4 11 Q4 9 6 9 L24 9 Q27 9 29 13 L31 18 Z" fill="#7c3aed"/><rect x="2" y="18" width="60" height="32" rx="6" fill="rgba(30, 10, 60, 0.85)"/><rect x="2" y="18" width="60" height="32" rx="6" fill="none" stroke="rgba(124, 58, 237, 0.55)" stroke-width="1.5"/><rect x="2" y="18" width="60" height="8" rx="0" fill="rgba(124, 58, 237, 0.08)"/></svg></div><div class="folder-title"' + titleStyle + '>' + folder.title + '</div><div class="folder-details">' + countLabel + '</div><div class="folder-slug">' + folder.tableName + '</div>' + startHereBtn + '</div>';
+    });
+    document.getElementById('foldersGrid').innerHTML = html;
+}
+
+// ==================== COLLECTION / SERIES GRID ====================
+// Alternate folder landing page: all content shown as a wrapping
+// grid of thumbnail + title cards, instead of the sidebar + viewer
+// layout. Content comes from content_series, not vault_content.
+
+let seriesItemsCache = [];
+
+async function displayCollectionGrid(folder, highlightSlug) {
+    console.log('🎬 displayCollectionGrid() started for folder:', folder.title, folder.id);
+    document.querySelector('.folders-section').style.display = 'none';
+    document.getElementById('contentViewer').style.display = 'block';
+    document.getElementById('folderSidebar').style.display = 'none';
+    const commentsSection = document.getElementById('commentsSection');
+    if (commentsSection) commentsSection.style.display = 'none';
+
+    const viewer = document.getElementById('viewer');
+    viewer.innerHTML = `
+        <button id="collectionBackBtn" onclick="window.location.href='vault.html'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>
+        <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 4px;">${escapeHtml(folder.title)}</h2>
+        ${folder.description ? '<div style="color:#9a8fb0; font-size:13px; margin-bottom:20px;">' + escapeHtml(folder.description) + '</div>' : '<div style="margin-bottom:20px;"></div>'}
+        <div class="series-grid" id="seriesGrid"></div>
+        <div id="reviewSliderEmbed"></div>
+    `;
+
+    // One-time responsive rule for the series grid — desktop wraps
+    // across as many columns as fit, mobile stacks single-column
+    // downward, matching the rest of this site's 768px breakpoint.
+    // Also defines the highlight glow for shared links.
+    if (!document.getElementById('seriesGridStyle')) {
+        const style = document.createElement('style');
+        style.id = 'seriesGridStyle';
+        style.textContent = `
+            .series-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
+            #collectionBackBtn { display: none !important; }
+            @media (max-width: 768px) {
+                .series-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+                .series-grid .series-card { flex-direction: row !important; align-items: center; gap: 14px; }
+                .series-grid .series-thumb { width: 130px !important; flex-shrink: 0; aspect-ratio: 1 !important; }
+                .series-grid .series-title { text-align: left !important; margin-top: 0 !important; }
+            }
+            .series-card.series-highlighted .series-thumb {
+                box-shadow: 0 0 0 3px #00d4c8, 0 0 24px rgba(0,212,200,0.55) !important;
+                animation: seriesHighlightPulse 1.6s ease-in-out 3;
+            }
+            @keyframes seriesHighlightPulse {
+                0%, 100% { box-shadow: 0 0 0 3px #00d4c8, 0 0 22px rgba(0,212,200,0.35); }
+                50%      { box-shadow: 0 0 0 5px #00d4c8, 0 0 34px rgba(0,212,200,0.75); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const grid = document.getElementById('seriesGrid');
+    grid.innerHTML = '<p style="color:#999;">Loading...</p>';
+
+    try {
+        seriesItemsCache = await vaultClient.getContentSeries(folder.id);
+        console.log('🎬 getContentSeries returned', seriesItemsCache.length, 'items for folder', folder.id);
+    } catch (error) {
+        console.error('Error loading series content:', error);
+        grid.innerHTML = '<p style="color:#e74c3c;">Error loading content.</p>';
+        return;
+    }
+
+    if (seriesItemsCache.length === 0) {
+        grid.innerHTML = '<p style="color:#999;">No content yet.</p>';
+        return;
+    }
+
+    grid.innerHTML = seriesItemsCache.map(item => {
+        const thumb = item.thumbnail_url ||
+            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%231a0f2e" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" font-size="80"%3E' + encodeURIComponent(getTypeIcon(item.type)) + '%3C/text%3E%3C/svg%3E';
+        return `
+            <div class="series-card" data-item-id="${item.id}" data-custom-url="${item.custom_url || item.slug || ''}" onclick="openSeriesItem('${item.id}')" style="cursor: pointer; display: flex; flex-direction: column; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
+                <div class="series-thumb" style="position: relative; aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background-image: url('${thumb}'); background-size: cover; background-position: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(155,89,182,0.2);">
+                    <button onclick="event.stopPropagation(); nativeShareSeriesItem('${item.id}')" title="Share" style="position: absolute; top: 8px; right: 44px; width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(10,4,22,0.65); backdrop-filter: blur(4px); color: #00d4c8; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(0,212,200,0.35)'" onmouseout="this.style.background='rgba(10,4,22,0.65)'">↗</button>
+                    <button onclick="event.stopPropagation(); copySeriesLink('${item.id}')" title="Copy link" style="position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(10,4,22,0.65); backdrop-filter: blur(4px); color: #c084fc; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(123,63,228,0.55)'" onmouseout="this.style.background='rgba(10,4,22,0.65)'">🔗</button>
+                </div>
+                <div class="series-title" style="margin-top: 8px; font-size: 13px; color: #ffffff; text-align: center; line-height: 1.3;">${escapeHtml(item.title)}</div>
+            </div>
+        `;
+    }).join('');
+
+    // Shared-link highlight — find the item this link pointed at,
+    // glow it, and scroll it into view, without hiding the rest of
+    // the grid. Matches on custom_url first, falls back to raw id.
+    if (highlightSlug) {
+        const target = seriesItemsCache.find(i => i.custom_url === highlightSlug || i.slug === highlightSlug || i.id === highlightSlug);
+        if (target) {
+            const card = grid.querySelector(`[data-item-id="${target.id}"]`);
+            if (card) {
+                card.classList.add('series-highlighted');
+                setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+            }
+        } else {
+            console.warn('Highlight target not found in this folder:', highlightSlug);
+        }
+    }
+
+    // Live review banner — only on the folder titled "Drop In", whose
+    // table_name is actually still 'pop_in' (display title changed,
+    // technical identity kept so the pinning/purple-title logic above
+    // keeps working). Sits BELOW the folder's own thumbnails, as an
+    // extra floating layer — the folder content itself is untouched.
+    if (folder.tableName === 'pop_in') {
+        await renderReviewSliderEmbed();
     }
 }
 
-function displayContent(content) {
-    const container = document.getElementById('contentGrid');
-    container.className = 'content-grid' + (viewMode === 'list' ? ' list-view' : '');
-    
-    if (content.length === 0) {
-        container.innerHTML = '<p class="loading">No content available</p>';
+// ==================== LIVE REVIEW BANNER (Drop In folder only) ====================
+// Matches each emoji to its own line — same wording as reviews.html —
+// so an emoji-only review still shows a readable quote instead of
+// looking bare or showing a placeholder like "No rating given".
+const REVIEW_EMOJI_LINES = {
+    '🥳': 'Loved it!',
+    '😊': 'Really enjoyed it.',
+    '🙂': 'Nice experience.',
+    '🤔': 'Some ideas to improve.',
+    '🌱': "I'll visit again another time.",
+};
+const REVIEW_LOGOS = {
+    library: ['../3C Thread To Success logo.png'],
+    vault: ['../Clubhouse logo.png'],
+    both: ['../3C Thread To Success logo.png', '../Clubhouse logo.png'],
+};
+
+let embedReviews = [];
+let embedIndex = 0;
+let embedTimer = null;
+
+async function renderReviewSliderEmbed() {
+    const container = document.getElementById('reviewSliderEmbed');
+    if (!container) return;
+
+    if (!document.getElementById('reviewSliderStyle')) {
+        const style = document.createElement('style');
+        style.id = 'reviewSliderStyle';
+        style.textContent = `
+            /* Outer layer — the full-width glass strip */
+            #reviewSliderEmbed:not(:empty) {
+                margin-top: 52px; width: 100%; border-radius: 16px; overflow: hidden;
+                background: rgba(255, 255, 255, 0.03);
+                backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.12);
+                padding: 26px 20px;
+            }
+            #reviewSliderEmbed .rs-track { display: flex; transition: transform 0.6s ease; }
+            /* Inner layer — the actual review card. The outer strip above
+               stays a subtle glass panel; this card itself needs to be
+               genuinely legible, not part of that translucency. */
+            #reviewSliderEmbed .rs-slide { flex: 0 0 100%; display: flex; justify-content: center; }
+            #reviewSliderEmbed .rs-card {
+                width: 230px; height: 230px; box-sizing: border-box;
+                background: rgba(245, 240, 220, 0.94);
+                border: 1px solid rgba(245, 240, 220, 0.6);
+                border-radius: 14px; padding: 18px 20px;
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                text-align: center; gap: 6px; overflow: hidden;
+                box-shadow: 0 8px 22px rgba(0,0,0,0.3);
+            }
+            #reviewSliderEmbed .rs-title { font-size: 10px; font-weight: 700; color: #6d28d9; }
+            #reviewSliderEmbed .rs-emojis { font-size: 16px; letter-spacing: 3px; }
+            #reviewSliderEmbed .rs-emojis.rs-emoji-only { font-size: 24px; letter-spacing: 5px; margin: 2px 0; }
+            #reviewSliderEmbed .rs-note {
+                font-size: 11px; color: #4a3a5a; line-height: 1.5; font-style: italic;
+                overflow-y: auto; max-height: 78px; word-wrap: break-word;
+            }
+            #reviewSliderEmbed .rs-meta { font-size: 9px; color: #6a5a80; }
+            #reviewSliderEmbed .rs-stars { font-size: 13px; letter-spacing: 2px; margin-top: 2px; }
+            #reviewSliderEmbed .rs-star-filled { color: #d4a017; }
+            #reviewSliderEmbed .rs-star-empty { color: rgba(106, 90, 128, 0.35); }
+            #reviewSliderEmbed .rs-logos { display: flex; gap: 6px; align-items: center; justify-content: center; opacity: 0.7; margin-top: 2px; }
+            #reviewSliderEmbed .rs-logos img { height: 16px; width: 16px; border-radius: 50%; object-fit: cover; }
+            #reviewSliderEmbed .rs-dots { display: flex; gap: 5px; justify-content: center; padding-top: 16px; }
+            #reviewSliderEmbed .rs-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+            #reviewSliderEmbed .rs-dot.active { background: rgba(0,212,200,0.6); }
+
+            /* Mobile — keep the glass feel but make it genuinely readable
+               on a small, bright-daylight screen: less see-through card,
+               slightly less blur on the outer strip so text stays crisp. */
+            @media (max-width: 480px) {
+                #reviewSliderEmbed:not(:empty) { padding: 20px 14px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+                #reviewSliderEmbed .rs-card { width: 200px; height: 200px; background: rgba(245, 240, 220, 0.97); border-color: rgba(245, 240, 220, 0.7); }
+                #reviewSliderEmbed .rs-note { color: #2a1f3d; font-size: 10.5px; }
+                #reviewSliderEmbed .rs-title { color: #5b21b6; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    try {
+        const res = await fetch('https://dropin-chat.3c-innertherapy.workers.dev/api/reviews/approved?for=vault');
+        const data = await res.json();
+        embedReviews = data.reviews || [];
+    } catch (e) {
+        console.warn('Could not load reviews for banner:', e);
         return;
     }
-    
-    const html = content.map(item => {
-        const thumbnailHtml = item.thumbnail_url 
-            ? `<img data-src="${item.thumbnail_url}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="content-thumbnail lazy-thumbnail" alt="${escapeHtml(item.title)}" loading="lazy">`
-            : `<div class="content-thumbnail">${getTypeIcon(item.type)}</div>`;
-        
+
+    if (embedReviews.length === 0) return;
+
+    embedIndex = 0;
+    buildEmbedTrack();
+    if (embedTimer) clearInterval(embedTimer);
+    embedTimer = setInterval(() => {
+        embedIndex = (embedIndex + 1) % embedReviews.length;
+        updateEmbedPosition();
+    }, 6000);
+}
+
+// Builds every card once, laid out side by side — sliding between
+// them is then just a transform, giving a real slide-in motion
+// instead of the content instantly replacing itself.
+function buildEmbedTrack() {
+    const container = document.getElementById('reviewSliderEmbed');
+    if (!container) return;
+
+    const cardsHtml = embedReviews.map(r => {
+        const emojiHtml = (r.emojis || []).join(' ');
+        const hasNote = r.note && r.note.trim();
+        const fallbackQuote = (!hasNote && r.emojis && r.emojis.length)
+            ? r.emojis.map(e => REVIEW_EMOJI_LINES[e]).filter(Boolean).join(' ')
+            : '';
+        const emojiOnly = emojiHtml && !hasNote;
+        const identityLabel = r.identity === 'member' ? 'Community Member' : (r.identity === 'visitor' ? '3C Visitor' : '');
+        const starsHtml = r.stars
+            ? '<div class="rs-stars">'
+                + Array.from({ length: 5 }, (_, i) =>
+                    `<span class="${i < r.stars ? 'rs-star-filled' : 'rs-star-empty'}">★</span>`
+                  ).join('')
+              + '</div>'
+            : '';
+        const logos = REVIEW_LOGOS[r.ratedFor] || [];
+        const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
         return `
-            <div class="content-card" onclick="openContent(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                ${thumbnailHtml}
-                <div class="content-info">
-                    <span class="content-type-badge badge-${item.type}">${item.type}</span>
-                    <div class="content-title">${escapeHtml(item.title)}</div>
-                    ${item.description ? `<div class="content-description">${escapeHtml(item.description)}</div>` : ''}
-                    <div class="content-meta">
-                        <span>👁️ ${item.view_count || 0} views</span>
-                        ${item.external_url ? '<span>🔗 Has link</span>' : ''}
-                    </div>
+            <div class="rs-slide">
+                <div class="rs-card">
+                    <div class="rs-title">💝 From Our Visitors</div>
+                    ${emojiHtml ? `<div class="rs-emojis${emojiOnly ? ' rs-emoji-only' : ''}">${emojiHtml}</div>` : ''}
+                    ${hasNote ? `<div class="rs-note">${escapeHtml(r.note)}</div>` : (fallbackQuote ? `<div class="rs-note">${escapeHtml(fallbackQuote)}</div>` : '')}
+                    ${identityLabel ? `<div class="rs-meta">${identityLabel}</div>` : ''}
+                    ${starsHtml}
+                    ${logoHtml ? `<div class="rs-logos">${logoHtml}</div>` : ''}
                 </div>
             </div>
         `;
     }).join('');
-    
-    container.innerHTML = html;
-    
-    // Observe newly added lazy-loaded thumbnails
-    setTimeout(() => observeLazyThumbnails(), 0);
+
+    const dotsHtml = embedReviews.map((_, i) => `<div class="rs-dot ${i === 0 ? 'active' : ''}"></div>`).join('');
+
+    container.innerHTML = `
+        <div class="rs-track" id="rsTrack">${cardsHtml}</div>
+        <div class="rs-dots" id="rsDots">${dotsHtml}</div>
+    `;
 }
 
-// ==================== FOLDER SELECTION ====================
-async function selectFolder(folderId) {
-    await loadFolderContent(folderId);
-}
-
-// ==================== CONTENT OPENING ====================
-async function openContent(contentData) {
-    // Parse if string
-    const content = typeof contentData === 'string' ? JSON.parse(contentData) : contentData;
-    
-    currentContentId = content.id;
-    
-    // Increment view count
-    await supabaseClient.incrementViewCount(content.id);
-    
-    // Log interaction
-    await supabaseClient.logInteraction(content.id, 'view');
-    
-    // Open based on type
-    switch (content.type) {
-        case 'pdf':
-            openPdfViewer(content);
-            break;
-        case 'flipbook':
-            openFlipbookViewer(content);
-            break;
-        case 'presentation':
-            openPresentationViewer(content);
-            break;
-        case 'video':
-            openMediaPlayer(content, 'video');
-            break;
-        case 'audio':
-            openMediaPlayer(content, 'audio');
-            break;
-        case 'image':
-            openMediaPlayer(content, 'image');
-            break;
-        case 'link':
-            if (content.url) {
-                window.open(content.url, '_blank');
-            } else if (content.external_url) {
-                window.open(content.external_url, '_blank');
-            }
-            break;
-        case 'virtual-slideshow':
-        case 'quiz':
-        case 'card-game':
-        case 'spin-wheel':
-        case 'landing-page':
-            if (content.url) {
-                window.open(content.url, '_blank');
-            }
-            break;
-        default:
-            if (content.url) {
-                window.open(content.url, '_blank');
-            }
-    }
-    
-    // If has external_url, show option to open it
-    if (content.external_url && content.type !== 'link') {
-        setTimeout(() => {
-            if (confirm('This content has an external reference link. Open it?')) {
-                openLinkInModal(content.external_url, 'Reference: ' + content.title);
-            }
-        }, 1000);
+function updateEmbedPosition() {
+    const track = document.getElementById('rsTrack');
+    const dots = document.getElementById('rsDots');
+    if (!track) return;
+    track.style.transform = `translateX(-${embedIndex * 100}%)`;
+    if (dots) {
+        dots.querySelectorAll('.rs-dot').forEach((d, i) => d.classList.toggle('active', i === embedIndex));
     }
 }
 
-// ==================== MEDIA PLAYER ====================
-function openMediaPlayer(content, type) {
+// ==================== COPY SERIES LINK ====================
+// Copies a library URL — ?folder=X&highlight=Y — so visitors land
+// in the Vault first (traffic + view tracking) rather than skipping
+// straight to an external quiz app. Opens the full grid with that
+// one item glowing and scrolled into view, keeping the "browse
+// everything" feel intact rather than isolating a single item.
+function copySeriesLink(itemId) {
+    const item = seriesItemsCache.find(i => i.id === itemId);
+    if (!item) return;
+
+    const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+    const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
+    const itemSlug = item.custom_url || item.slug || item.id;
+    const link = `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
+
+    navigator.clipboard.writeText(link).then(() => {
+        alert('✅ Link copied!\n\n' + item.title + '\n' + link);
+    }).catch(() => {
+        prompt('Copy this link:', link);
+    });
+}
+
+function nativeShareSeriesItem(itemId) {
+    const item = seriesItemsCache.find(i => i.id === itemId);
+    if (!item) return;
+    const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+    const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
+    const itemSlug = item.custom_url || item.slug || item.id;
+    const link = `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
+    if (navigator.share) {
+        navigator.share({
+            title: item.title,
+            text: item.description || 'Think it. Do it. Own it.',
+            url: link,
+        }).catch(() => { /* cancelled */ });
+    } else {
+        copySeriesLink(itemId);
+    }
+}
+
+// ==================== OPEN SERIES ITEM ====================
+function openSeriesItem(itemId) {
+    const item = seriesItemsCache.find(i => i.id === itemId);
+    if (!item) return;
+
+    // Track that this item was opened — fire and forget, never
+    // blocks navigation. Shows up as "Views" in the admin panel.
+    if (typeof vaultClient !== 'undefined' && vaultClient.incrementSeriesViewCount) {
+        vaultClient.incrementSeriesViewCount(item.id).catch(() => {});
+    }
+
+    if (item.type === 'pdf') {
+        openPDFModal(item.url, item.title, item.id);
+        return;
+    }
+
+    if (item.type === 'flipbook') {
+        const isMobile = window.innerWidth <= 768;
+        const page = isMobile ? '../flipbook-viewer-mobile.html' : '../flipbook-viewer.html';
+        const url = item.url ? page + '?manifest=' + encodeURIComponent(item.url) : page + '?content=' + item.id;
+        window.location.href = url;
+        return;
+    }
+
+    if (item.type === 'presentation') {
+        const url = item.url ? '../presentation-viewer.html?manifest=' + encodeURIComponent(item.url) : '../presentation-viewer.html?content=' + item.id;
+        window.location.href = url;
+        return;
+    }
+
+    if (item.type === 'video') { openSeriesMedia(item, 'video'); return; }
+    if (item.type === 'audio') { openSeriesMedia(item, 'audio'); return; }
+    if (item.type === 'image' || item.type === 'gif') { openSeriesMedia(item, 'image'); return; }
+
+    // Quiz has its own exit button (fixed separately in quiz_app.js
+    // to return to document.referrer) — still same-tab navigation.
+    if (item.type === 'quiz') {
+        window.location.href = item.url || item.external_url || '#';
+        return;
+    }
+
+    // card-game, spin-wheel, landing-page, virtual-slideshow, link —
+    // these are external single-page apps with no close button of
+    // their own. Rather than navigate away entirely, load them in an
+    // iframe inside the same modal video/audio already use, so the
+    // vault's own X button controls closing — no changes needed to
+    // the destination site itself.
+    if (item.type === 'card-game' || item.type === 'spin-wheel' ||
+        item.type === 'landing-page' || item.type === 'virtual-slideshow' || item.type === 'link') {
+        openSeriesMedia(item, 'iframe');
+        return;
+    }
+
+    // Fallback for anything unrecognised — still same-tab, not a new one
+    window.location.href = item.url || item.external_url || '#';
+}
+
+// ==================== SERIES MEDIA MODAL ====================
+// Reuses #mediaModal (already in vault.html). Video/image size to
+// their own natural dimensions — no forced aspect ratio, no
+// letterboxing margins. Plyr's hide-controls + replay-on-end
+// behaviour (vault.html) picks up any <video> automatically via
+// its MutationObserver, so no extra wiring needed here.
+function openSeriesMedia(item, kind) {
     const modal = document.getElementById('mediaModal');
-    const container = document.getElementById('mediaContainer');
     const title = document.getElementById('mediaTitle');
-    
-    title.textContent = content.title;
-    
-    let html = '';
-    const url = content.url;
-    
-    switch (type) {
-        case 'video':
-            // Check if YouTube
-            if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                const videoId = extractYouTubeId(url);
-                html = `<iframe width="800" height="450" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>`;
-            } else {
-                html = `<video controls style="max-width: 100%; max-height: 70vh;">
-                    <source src="${url}" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>`;
-            }
-            break;
-        case 'audio':
-            html = `<audio controls style="width: 100%;">
-                <source src="${url}" type="audio/mpeg">
-                Your browser does not support the audio tag.
-            </audio>`;
-            break;
-        case 'image':
-            html = `<img src="${url}" style="max-width: 100%; max-height: 70vh;" alt="${escapeHtml(content.title)}">`;
-            break;
+    const container = document.getElementById('mediaContainer');
+    if (!modal || !container) return;
+
+    // Iframe-embedded apps already show their own title on screen —
+    // showing ours too was just a duplicate sitting above it.
+    if (title) title.textContent = (kind === 'iframe') ? '' : (item.title || '');
+    container.innerHTML = '';
+
+    if (kind === 'video') {
+        container.innerHTML = '<video autoplay playsinline style="display:block; max-width:90vw; max-height:80vh; width:auto; height:auto; background:transparent; border-radius:8px;"><source src="' + item.url + '"></video>';
+    } else if (kind === 'audio') {
+        container.innerHTML = '<audio controls autoplay style="width:400px; max-width:90vw;"><source src="' + item.url + '"></audio>';
+    } else if (kind === 'image') {
+        container.innerHTML = '<img src="' + item.url + '" style="display:block; max-width:90vw; max-height:80vh; width:auto; height:auto; border-radius:8px;">';
+    } else if (kind === 'iframe') {
+        // No border, no radius, no background — the app itself already
+        // has its own bezel/frame/background designed in. This iframe
+        // is just an invisible window behind it.
+        // Sized by percentage (100% of its parent), not vh — vh measures
+        // against the full viewport including space a mobile browser's
+        // address bar hasn't collapsed out of yet, which was pushing
+        // content (like the app's own header) up out of view on phones.
+        // #mediaModal is already correctly sized via fixed positioning,
+        // so cascading percentage height down from it tracks the real
+        // visible area correctly on every device.
+        container.style.maxWidth = '100%';
+        container.style.maxHeight = '100%';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.innerHTML = '<iframe src="' + (item.url || item.external_url) + '" style="width:100%; height:100%; border:none; background:transparent; display:block;" allow="autoplay; fullscreen"></iframe>';
     }
-    
-    container.innerHTML = html;
-    modal.classList.add('active');
+
+    modal.style.display = 'flex';
 }
 
 function closeMediaPlayer() {
     const modal = document.getElementById('mediaModal');
     const container = document.getElementById('mediaContainer');
-    
-    modal.classList.remove('active');
-    container.innerHTML = '';
+    if (container) {
+        container.querySelectorAll('video, audio').forEach(el => {
+            try { el.pause(); el.currentTime = 0; el.src = ''; } catch (e) {}
+        });
+        container.innerHTML = '';
+    }
+    if (modal) modal.style.display = 'none';
 }
 
-// ==================== FLIPBOOK VIEWER ====================
-function openFlipbookViewer(content) {
-    // Priority 1: Use Cloudflare R2 manifest URL if available (fast, public)
-    if (content.url) {
-        const flipbookUrl = `flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}`;
-        window.open(flipbookUrl, '_blank', 'width=1200,height=800');
+// Click outside the media content (on the dark backdrop) closes it
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('mediaModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => { if (e.target === modal) closeMediaPlayer(); });
     }
-    // Priority 2: Fallback to content ID (loads from Supabase)
-    else if (content.id) {
-        const flipbookUrl = `flipbook-viewer.html?content=${content.id}`;
-        window.open(flipbookUrl, '_blank', 'width=1200,height=800');
-    }
-    else {
-        alert('Flipbook data not available');
-}
-
-// ==================== PRESENTATION VIEWER ====================
-function openPresentationViewer(content) {
-    // Priority 1: Use Cloudflare R2 manifest URL if available (fast, public)
-    if (content.url) {
-        const presentationUrl = `presentation-viewer.html?manifest=${encodeURIComponent(content.url)}`;
-        window.open(presentationUrl, '_blank', 'width=1200,height=800');
-    }
-    // Priority 2: Fallback to content ID (loads from Supabase)
-    else if (content.id) {
-        const presentationUrl = `presentation-viewer.html?content=${content.id}`;
-        window.open(presentationUrl, '_blank', 'width=1200,height=800');
-    }
-    else {
-        alert('Presentation data not available');
-    }        
-}
-
-// ==================== LINK MODAL (DRAGGABLE) ====================
-function openLinkInModal(url, title = 'External Link') {
-    const modal = document.getElementById('linkModal');
-    const frame = document.getElementById('linkFrame');
-    const titleEl = document.getElementById('linkModalTitle');
-    
-    titleEl.textContent = title;
-    frame.src = url;
-    
-    // Center modal
-    modal.style.left = '50%';
-    modal.style.top = '50%';
-    modal.style.transform = 'translate(-50%, -50%)';
-    modal.style.width = '800px';
-    modal.style.height = '600px';
-    modal.style.display = 'flex';
-    
-    // Make draggable
-    makeDraggable(modal);
-}
-
-function closeLinkModal() {
-    const modal = document.getElementById('linkModal');
-    const frame = document.getElementById('linkFrame');
-    
-    modal.style.display = 'none';
-    frame.src = '';
-}
-
-function makeDraggable(element) {
-    const header = element.querySelector('.link-modal-header');
-    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-    
-    header.onmousedown = dragMouseDown;
-    
-    function dragMouseDown(e) {
-        e.preventDefault();
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        document.onmouseup = closeDragElement;
-        document.onmousemove = elementDrag;
-    }
-    
-    function elementDrag(e) {
-        e.preventDefault();
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        element.style.top = (element.offsetTop - pos2) + 'px';
-        element.style.left = (element.offsetLeft - pos1) + 'px';
-        element.style.transform = 'none';
-    }
-    
-    function closeDragElement() {
-        document.onmouseup = null;
-        document.onmousemove = null;
-    }
-}
-
-// Close modal when clicking outside
-document.addEventListener('click', (e) => {
-    const linkModal = document.getElementById('linkModal');
-    if (e.target === linkModal) {
-        closeLinkModal();
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('mediaModal');
+        if (modal && modal.style.display === 'flex') closeMediaPlayer();
     }
 });
 
-// ==================== VIEW TOGGLE ====================
-function setView(mode) {
-    viewMode = mode;
+// Apps running inside the iframe modal (Mirror Quest and similar)
+// can't just navigate to "go back" — that only changes what's shown
+// inside their own small window, not the modal around them. Instead
+// they post a message out to this page asking it to close the modal.
+// Pair this with a standard exit function inside each app:
+//
+//   function vaultExit() {
+//       if (window.parent && window.parent !== window) {
+//           window.parent.postMessage({ type: 'vault-close-modal' }, '*');
+//           return;
+//       }
+//       if (document.referrer) { window.location.href = document.referrer; }
+//       else { window.history.back(); }
+//   }
+//
+window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'vault-close-modal') {
+        closeMediaPlayer();
+    }
+});
+
+// ==================== OPEN FOLDER SIDEBAR ====================
+async function openFolderSidebar(folderId) {
+    const folder = library.folders.find(f => f.id === folderId);
+    if (!folder) return;
+    if (folder.isPublic === false) { console.warn('Attempted to access private folder via sidebar:', folder.title); window.location.href = '?folder=' + folder.slug; return; }
+    console.log('Opening folder sidebar for:', folder.title, 'ID:', folderId);
+    const subfolders = library.folders.filter(f => f.parentId === folderId).sort((a, b) => a.title.localeCompare(b.title));
+
+    let folderContent = [];
+    if (folder.displayStyle === 'collection') {
+        try {
+            const items = await vaultClient.getContentSeries(folderId);
+            folderContent = items.map(item => ({ id: item.id, title: item.title, slug: item.slug, type: item.type, folderId: item.folder_id, url: item.url, thumbnail: item.thumbnail_url, description: item.description, order: item.display_order }));
+            console.log('Loaded series folder content:', folderContent.length, 'items');
+        } catch (err) { console.error('Error loading series folder content:', err); }
+    } else {
+        try {
+            const { data, error } = await vaultClient.client.from('vault_content')
+                .select('id, folder_id, title, type, url, thumbnail_url, description, slug, display_order')
+                .eq('folder_id', folderId).order('display_order', { ascending: true });
+            console.log('Vault sidebar query result:', { data, error, count: data ? data.length : 0 });
+            if (!error && data) {
+                folderContent = data.map(item => ({ id: item.id, title: item.title, slug: item.slug, type: item.type, folderId: item.folder_id, url: item.url, thumbnail: item.thumbnail_url, description: item.description, order: item.display_order }));
+                console.log('Loaded vault folder content:', folderContent.length, 'items');
+            } else if (error) { console.error('Vault sidebar Supabase error:', error); }
+        } catch (err) { console.error('Error loading vault folder content:', err); }
+    }
+
+    document.getElementById('sidebarFolderTitle').innerHTML = `<div><h3 style="margin: 0; color: #9b59b6; font-size: 18px;">${folder.title}</h3><div style="font-size: 12px; color: #808080; margin-top: 4px;">${folder.tableName || folder.slug}</div></div>`;
+
+    let contentHtml = '';
+    if (subfolders.length > 0) {
+        subfolders.forEach(subfolder => {
+            const itemCount = subfolder.actualItemCount || 0;
+            contentHtml += `<div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'"><div style="display: flex; align-items: center; gap: 10px;"><div style="font-size: 24px;">📂</div><div style="flex: 1;"><div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div><div style="font-size: 11px; color: #808080;">${itemCount} items</div></div><div style="color: #9b59b6; font-size: 18px;">→</div></div></div>`;
+        });
+    }
+    if (folderContent.length > 0) {
+        const itemCount = folderContent.length;
+        const isCollection = folder.displayStyle === 'collection';
+        if (subfolders.length > 0) contentHtml += '<hr style="border: none; border-top: 1px solid rgba(155, 89, 182, 0.3); margin: 20px 0;">';
+        contentHtml += '<p style="color: #9b59b6; margin-top: 15px; font-size: 14px;">' + (isCollection ? '🎬' : '📄') + ' This folder has ' + itemCount + ' content item' + (itemCount !== 1 ? 's' : '') + '. Click to view:</p>';
+        contentHtml += '<button onclick="window.location.href=\'?folder=' + (folder.tableName || folder.slug) + '\'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 12px rgba(155, 89, 182, 0.4)\'" onmouseout="this.style.transform=\'\'; this.style.boxShadow=\'0 2px 8px rgba(155, 89, 182, 0.3)\'">' + (isCollection ? '🎬 View Collection (' : '📂 View Content (') + itemCount + ')</button>';
+    }
+    if (folderContent.length === 0 && subfolders.length === 0) contentHtml = '<p style="color: #999; text-align: center; padding: 40px;">No sub-folders or content yet.</p>';
+    document.getElementById('sidebarContent').innerHTML = contentHtml;
+    document.getElementById('folderSidebar').style.display = 'block';
+}
+
+function closeFolderSidebar() { document.getElementById('folderSidebar').style.display = 'none'; }
+
+// ==================== VIEW CONTENT ====================
+function viewContent(contentSlug) {
+    const content = findContentBySlug(contentSlug, currentFolder.id);
+    if (content) showViewer(content);
+}
+
+// ==================== SHARE PDF LINK ====================
+function sharePDFLink(contentId) {
+    const baseUrl = window.location.origin + window.location.pathname;
     
-    document.getElementById('gridBtn').classList.toggle('active', mode === 'grid');
-    document.getElementById('listBtn').classList.toggle('active', mode === 'list');
+    // Determine view type based on content type
+    let viewType = 'pdf-only'; // default
+    if (currentContent) {
+        const type = currentContent.type;
+        if (type === 'flipbook') {
+            viewType = 'flipbook-only';
+        } else if (type === 'presentation') {
+            viewType = 'presentation-only';
+        } else if (type === 'pdf') {
+            viewType = 'pdf-only';
+        } else if (type === 'video') {
+            viewType = 'video-only';
+        } else if (type === 'image' || type === 'gif') {
+            viewType = 'image-only';
+        } else if (type === 'audio') {
+            viewType = 'audio-only';
+        } else if (type === 'landing-page') {
+            viewType = 'landing-page-only';
+        } else if (type === 'virtual-slideshow') {
+            viewType = 'virtual-slideshow-only';
+        } else if (type === 'quiz') {
+            viewType = 'quiz-only';
+        } else if (type === 'card-game') {
+            viewType = 'card-game-only';
+        } else if (type === 'spin-wheel') {
+            viewType = 'spin-wheel-only';
+        } else if (type === 'link') {
+            viewType = 'link-only';
+        }
+    }
     
-    const container = document.getElementById('contentGrid');
-    container.className = 'content-grid' + (mode === 'list' ? ' list-view' : '');
+    if (currentContent && currentFolder) {
+        const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+        const folderSlug = currentFolder.slug || currentFolder.tableName;
+        const itemSlug = currentContent.customUrl || currentContent.slug || currentContent.id;
+        return `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
+    }
+    return baseUrl + '?content=' + contentId + '&view=' + viewType;
 }
 
-// ==================== DARK MODE ====================
-function toggleDarkMode() {
-    darkMode = !darkMode;
-    document.body.classList.toggle('dark-mode', darkMode);
-    localStorage.setItem('darkMode', darkMode);
+// ==================== SHOW VIEWER ====================
+function showViewer(content, pdfOnlyMode) {
+    if (pdfOnlyMode === undefined) pdfOnlyMode = false;
+    currentContent = content;
+    let viewerHtml = '';
+
+    const shareButton = pdfOnlyMode ? '' : '<button onclick="nativeShareContent()" style="background: linear-gradient(135deg, #00d4c8, #00a89e); color: #0a0416; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,212,200,0.3);" title="Share">&#8599;</button><button onclick="copyShareLink()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 6px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);" title="Copy Link">&#8853;</button>';
+
+    if (content.type === 'pdf') {
+        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%84%3C/text%3E%3C/svg%3E';
+        const safeUrl = content.url.replace(/`/g, '\\`'), safeTitle = content.title.replace(/`/g, '\\`');
+        viewerHtml = `<div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${safeUrl}\`, \`${safeTitle}\`, \`${content.id}\`)"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><div style="font-size: 18px; color: #9b59b6; font-weight: 600; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">📄 Click to view PDF</div></div>`;
+    } else if (content.type === 'flipbook') {
+        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%96%3C/text%3E%3C/svg%3E';
+        const isMobile = window.innerWidth <= 768;
+        const flipbookViewerPage = isMobile ? '../flipbook-viewer-mobile.html' : '../flipbook-viewer.html';
+        const flipbookUrl = content.url ? flipbookViewerPage + '?manifest=' + encodeURIComponent(content.url) : flipbookViewerPage + '?content=' + content.id;
+        viewerHtml = `<div style="text-align: center;"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="${flipbookUrl}" onclick="event.stopPropagation(); window.location.href='${flipbookUrl}'; return false;" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📖</span>Click to View Flipbook</a></div>`;
+    } else if (content.type === 'presentation') {
+        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%8A%3C/text%3E%3C/svg%3E';
+        const presentationUrl = content.url ? '../presentation-viewer.html?manifest=' + encodeURIComponent(content.url) : '../presentation-viewer.html?content=' + content.id;
+        viewerHtml = `<div style="text-align: center;"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="${presentationUrl}" onclick="event.stopPropagation(); window.location.href='${presentationUrl}'; return false;" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📊</span>Click to View Presentation</a></div>`;
+    } else if (content.type === 'video') {
+        const isDirectVideo = /\.(mp4|webm|mov|ogg|m4v)(\?|#|$)/i.test(content.url);
+        viewerHtml = (content.url.startsWith('data:') || isDirectVideo) ?
+            '<div style="position:relative;width:fit-content;max-width:100%;margin:0 auto;background:transparent;border-radius:16px;overflow:hidden;">' +
+            '<video id="vaultVideo" autoplay playsinline style="display:block;max-width:100%;height:auto;max-height:90vh;object-fit:contain;background:transparent;"><source src="' + content.url + '"></video>' +
+            '<div id="vaultPlayOverlay" onclick="var v=document.getElementById(\'vaultVideo\');v.play();this.style.display=\'none\';" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;cursor:pointer;background:transparent;">' +
+            '<div style="width:60px;height:60px;background:rgba(155,89,182,0.7);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;color:white;backdrop-filter:blur(4px);">▸</div></div></div>' :
+            '<iframe src="' + content.url + '" style="width:100%;height:90vh;border:none;display:block;" allowfullscreen></iframe>';
+    } else if (content.type === 'image' || content.type === 'gif') {
+        viewerHtml = '<div style="display: flex; justify-content: center; padding: 20px;"><img src="' + content.url + '" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>';
+    } else if (content.type === 'audio') {
+        viewerHtml = '<div style="display: flex; justify-content: center; padding: 40px;"><audio controls style="width: 100%; max-width: 600px; height: 54px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"><source src="' + content.url + '"></audio></div>';
+    } else if (content.type === 'quiz' || content.type === 'card-game' || content.type === 'spin-wheel' || content.type === 'landing-page' || content.type === 'virtual-slideshow' || content.type === 'link') {
+        const linkLabels = { 'quiz': 'Click to Open Quiz', 'card-game': 'Click to Open Card Game', 'spin-wheel': 'Click to Spin the Wheel', 'landing-page': 'Click to Open', 'virtual-slideshow': 'Click to Launch Virtual Slideshow', 'link': 'Click to Open Link' };
+        const linkIcons  = { 'quiz': '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', 'virtual-slideshow': '🎞️', 'link': '🔗' };
+        const linkLabel  = linkLabels[content.type] || '🔗 Click to Open';
+        const linkIcon   = linkIcons[content.type]  || '🔗';
+        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%94%97%3C/text%3E%3C/svg%3E';
+        const target = content.url || content.externalUrl || '#';
+        viewerHtml = '<div style="text-align: center;"><img src="' + thumbnailSrc + '" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="' + target + '" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">' + linkIcon + '</span>' + linkLabel + '</a></div>';
+    } else {
+        // Unknown type — thumbnail + generic open button
+        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%8E%3C/text%3E%3C/svg%3E';
+        const target = content.url || content.externalUrl || '#';
+        viewerHtml = '<div style="text-align: center;"><img src="' + thumbnailSrc + '" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="' + target + '" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📎</span>Click to Open</a></div>';
+    }
+
+    const backButton = !pdfOnlyMode ? '<button onclick="hideContentViewer()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>' : '';
+
+    const viewer = document.getElementById('viewer');
+    if (pdfOnlyMode) viewer.innerHTML = '<div id="viewerContent" style="max-width: 800px; margin: 0 auto; padding: 20px;"></div>';
+    let contentArea = document.getElementById('viewerContent');
+
+    if (contentArea) {
+        contentArea.style.display = 'block';
+        contentArea.classList.add('active');
+        const leftSidebar = document.getElementById('leftSidebar');
+        if (leftSidebar && window.innerWidth <= 768) leftSidebar.classList.add('hidden');
+    }
+
+    const descHtml = content.description ? '<div class="viewer-desc">' + content.description + '</div>' : '';
+
+    contentArea.innerHTML = backButton + '<h2 style="font-size: 18px;">' + content.title + shareButton + '</h2>' + descHtml + viewerHtml + `
+        <div class="comments-section" style="margin-top: 40px;">
+            <div class="comments-header"><h3>💬 Comments</h3><span class="comment-count" id="commentCount">0</span></div>
+            <div class="comment-form">
+                <div id="commentSuccessMsg" class="comment-success" style="display: none;">✅ Thank you! Your comment has been posted successfully.</div>
+                <input type="text" id="commentAuthorName" placeholder="Your Name *" required>
+                <input type="email" id="commentAuthorEmail" placeholder="Your Email (optional, for notifications)">
+                <textarea id="commentText" placeholder="Write your comment here... *" required></textarea>
+                <button onclick="submitComment()" id="submitCommentBtn">Post Comment</button>
+            </div>
+            <div class="comments-list" id="commentsList"><div class="no-comments">No comments yet. Be the first to comment!</div></div>
+        </div>
+    `;
+    loadComments(content.id);
+
+    // Telegram webview autoplay fallback — show play overlay only if autoplay blocked at start
+    const vaultVid = document.getElementById('vaultVideo');
+    const vaultOverlay = document.getElementById('vaultPlayOverlay');
+    if (vaultVid && vaultOverlay) {
+        vaultVid.play().then(() => {
+            vaultOverlay.style.display = 'none';
+        }).catch(() => {
+            vaultOverlay.style.display = 'flex';
+        });
+    }
 }
 
-// ==================== UTILITY FUNCTIONS ====================
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+// ==================== COPY SHARE LINK ====================
+function copyShareLink() {
+    if (!currentContent) return;
+    const shareLink = sharePDFLink(currentContent.id);
+    navigator.clipboard.writeText(shareLink).then(() => { alert('✅ Link copied to clipboard!\n\n' + shareLink); }).catch(err => { prompt('Copy this link:', shareLink); });
 }
 
-function getTypeIcon(type) {
-    const icons = {
-        pdf: '📄',
-        flipbook: '📖',
-        presentation: '📊',
-        video: '🎥',
-        image: '🖼️',
-        audio: '🎵',
-        gif: '🎞️',
-        link: '🔗',
-        quiz: '🧠',
-        'card-game': '🃏',
-        'spin-wheel': '🎡',
-        'landing-page': '🚀',
-        'virtual-slideshow': '🎞️',
-        other: '📎'
-    };
-    return icons[type] || '📎';
+function nativeShareContent() {
+    if (!currentContent) return;
+    const shareLink = sharePDFLink(currentContent.id);
+    if (navigator.share) {
+        navigator.share({
+            title: currentContent.title,
+            text: currentContent.description || 'Think it. Do it. Own it.',
+            url: shareLink,
+        }).catch(() => { /* cancelled */ });
+    } else {
+        copyShareLink();
+    }
 }
 
-function extractYouTubeId(url) {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+// ==================== PDF MODAL ====================
+function openPDFModal(pdfUrl, title, contentId) {
+    const modal = document.getElementById('pdfModal'), titleEl = document.getElementById('pdfTitle');
+    if (!modal || !titleEl) return;
+    titleEl.textContent = title;
+    modal.classList.add('active');
+    if (typeof window.loadPdfInViewer === 'function') window.loadPdfInViewer(pdfUrl);
+    else if (typeof window.openEnhancedPDF === 'function') window.openEnhancedPDF(pdfUrl, title);
 }
 
-// ==================== PLAYBACK MEMORY ====================
-function savePlaybackPosition(contentId, position) {
-    const key = `playback_${contentId}`;
-    localStorage.setItem(key, JSON.stringify({
-        position: position,
-        timestamp: Date.now()
-    }));
-}
+function closePDFModal() { const modal = document.getElementById('pdfModal'); if (modal) modal.classList.remove('active'); }
 
-function getPlaybackPosition(contentId) {
-    const key = `playback_${contentId}`;
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : null;
+// ==================== HIDE CONTENT VIEWER ====================
+function hideContentViewer() {
+    const viewer = document.querySelector('.right-viewer'), leftSidebar = document.getElementById('leftSidebar');
+    if (viewer) viewer.classList.remove('active');
+    if (leftSidebar) leftSidebar.classList.remove('hidden');
+    if (window.innerWidth > 768) window.location.href = 'vault.html';
 }
 
 // ==================== LAZY LOADING ====================
-// Global image observer for lazy loading thumbnails
-let imageObserver = null;
-
+let thumbnailObserver;
 function initLazyLoading() {
     if ('IntersectionObserver' in window) {
-        imageObserver = new IntersectionObserver((entries, observer) => {
+        thumbnailObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    const img = entry.target;
-                    if (img.dataset.src) {
-                        // Add fade-in effect
-                        img.style.opacity = '0';
-                        img.style.transition = 'opacity 0.3s ease-in';
-                        
-                        img.src = img.dataset.src;
-                        img.onload = () => {
-                            img.style.opacity = '1';
-                            img.classList.remove('lazy-thumbnail');
-                        };
-                        img.removeAttribute('data-src');
-                        observer.unobserve(img);
+                    const thumbnail = entry.target, bgImage = thumbnail.getAttribute('data-bg');
+                    if (bgImage) {
+                        const img = new Image(); img.decoding = 'async';
+                        img.onload = () => { thumbnail.style.backgroundImage = 'url(\'' + bgImage + '\')'; thumbnail.style.backgroundSize = 'cover'; thumbnail.style.backgroundPosition = 'center'; };
+                        img.src = bgImage; thumbnail.removeAttribute('data-bg'); thumbnailObserver.unobserve(thumbnail);
                     }
                 }
             });
-        }, {
-            rootMargin: '50px' // Start loading 50px before image is visible
-        });
+        }, { rootMargin: '200px', threshold: 0.01 });
     }
 }
-
-// Observe all lazy-loaded thumbnails
-function observeLazyThumbnails() {
-    if (imageObserver) {
-        document.querySelectorAll('img.lazy-thumbnail[data-src]').forEach(img => {
-            imageObserver.observe(img);
-        });
-    }
-}
-
-// Initialize on load
+function observeThumbnails() { if (thumbnailObserver) document.querySelectorAll('.content-thumbnail[data-bg]').forEach(t => thumbnailObserver.observe(t)); }
 initLazyLoading();
 
-// ==================== PRIVATE FOLDER PASSWORD MANAGEMENT ====================
+// ==================== COMMENTS ====================
+async function loadComments(contentId) {
+    try {
+        console.log('Loading vault comments for content:', contentId);
+        const { data: comments, error } = await vaultClient.client.from('vault_comments').select('*').eq('content_id', contentId).eq('is_approved', true).order('created_at', { ascending: true });
+        if (error) throw error;
+        const count = comments ? comments.length : 0;
+        const commentCountEl = document.getElementById('commentCount');
+        if (commentCountEl) commentCountEl.textContent = count;
+        const commentsList = document.getElementById('commentsList');
+        if (!commentsList) return;
+        if (count === 0) { commentsList.innerHTML = '<div class="no-comments">No comments yet. Be the first to comment!</div>'; return; }
+        commentsList.innerHTML = comments.map(comment => '<div class="comment-item"><div class="comment-header"><span class="comment-author">' + escapeHtml(comment.author_name) + '</span><span class="comment-date">' + formatDate(comment.created_at) + '</span></div><div class="comment-text">' + escapeHtml(comment.comment_text) + '</div></div>').join('');
+    } catch (error) { console.error('Error loading vault comments:', error); const cl = document.getElementById('commentsList'); if (cl) cl.innerHTML = '<div class="no-comments">Error loading comments.</div>'; }
+}
 
-let pendingPrivateFolder = null;
+async function submitComment() {
+    const authorName = document.getElementById('commentAuthorName').value.trim();
+    const authorEmail = document.getElementById('commentAuthorEmail').value.trim();
+    const commentText = document.getElementById('commentText').value.trim();
+    const submitBtn = document.getElementById('submitCommentBtn');
+    if (!authorName || !commentText) { alert('Please fill in your name and comment.'); return; }
+    if (!currentContent || !currentContent.id) { alert('No content selected for commenting.'); return; }
+    try {
+        submitBtn.disabled = true; submitBtn.textContent = 'Posting...';
+        const { error } = await vaultClient.client.from('vault_comments').insert([{ content_id: currentContent.id, author_name: authorName, author_email: authorEmail || null, comment_text: commentText, is_approved: true }]);
+        if (error) throw error;
+        const successMsg = document.getElementById('commentSuccessMsg');
+        if (successMsg) { successMsg.style.display = 'block'; setTimeout(() => { successMsg.style.display = 'none'; }, 5000); }
+        document.getElementById('commentAuthorName').value = ''; document.getElementById('commentAuthorEmail').value = ''; document.getElementById('commentText').value = '';
+        await loadComments(currentContent.id); console.log('Vault comment submitted');
+    } catch (error) { console.error('Error submitting vault comment:', error); alert('Error submitting comment: ' + (error.message || error.toString()) + '\n\nPlease try again or contact support.'); }
+    finally { submitBtn.disabled = false; submitBtn.textContent = 'Post Comment'; }
+}
 
-/**
- * Check if current user is the owner/admin
- */
+function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+
+function formatDate(dateString) {
+    const date = new Date(dateString), now = new Date(), diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000), diffHours = Math.floor(diffMs / 3600000), diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return diffMins + ' minute' + (diffMins > 1 ? 's' : '') + ' ago';
+    if (diffHours < 24) return diffHours + ' hour' + (diffHours > 1 ? 's' : '') + ' ago';
+    if (diffDays < 7) return diffDays + ' day' + (diffDays > 1 ? 's' : '') + ' ago';
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// ==================== PRIVATE FOLDER PASSWORD ====================
+
 function isOwner() {
     if (!currentUser || !currentUser.email) return false;
-    const ownerEmail = CONFIG?.app?.ownerEmail;
+    const ownerEmail = CONFIG && CONFIG.app ? CONFIG.app.ownerEmail : null;
     if (!ownerEmail) return false;
     return currentUser.email.toLowerCase() === ownerEmail.toLowerCase();
 }
 
-/**
- * Check current user session
- */
 async function checkCurrentUser() {
     try {
-        if (!supabaseClient || !supabaseClient.client) return;
-        const { data: { user } } = await supabaseClient.client.auth.getUser();
-        currentUser = user;
-        if (user) {
-            console.log('👤 Logged in as:', user.email);
-            if (isOwner()) {
-                console.log('👑 Owner access granted');
-            }
-        }
-    } catch (error) {
-        console.error('Error checking user:', error);
-        currentUser = null;
-    }
+        if (!vaultClient || !vaultClient.client) return;
+        const result = await vaultClient.client.auth.getUser();
+        currentUser = result.data.user;
+        if (currentUser) { console.log('Vault: Logged in as:', currentUser.email); if (isOwner()) console.log('Owner access granted'); }
+    } catch (error) { console.error('Error checking vault user:', error); currentUser = null; }
 }
 
-/**
- * Check if folder is private and requires password
- */
-function isFolderPrivate(folder) {
-    return folder && folder.is_public === false;
-}
+function isFolderPrivate(folder) { return folder && folder.is_public === false; }
 
-/**
- * Prompt for password to access private folder
- */
 function promptForFolderPassword(folder) {
     pendingPrivateFolder = folder;
-    
-    const modal = document.getElementById('passwordPromptModal');
-    const folderNameEl = document.getElementById('passwordPromptFolderName');
-    const inputEl = document.getElementById('passwordPromptInput');
-    const errorEl = document.getElementById('passwordError');
-    
-    folderNameEl.textContent = `Enter password to access: ${folder.title}`;
-    inputEl.value = '';
-    errorEl.style.display = 'none';
-    
-    modal.style.display = 'flex';
-    inputEl.focus();
-    
-    // Allow Enter key to submit
-    inputEl.onkeypress = (e) => {
-        if (e.key === 'Enter') {
-            submitFolderPassword();
-        }
-    };
+    const modal = document.getElementById('passwordPromptModal'), folderNameEl = document.getElementById('passwordPromptFolderName'), inputEl = document.getElementById('passwordPromptInput'), errorEl = document.getElementById('passwordError');
+    folderNameEl.textContent = 'Enter password to access: ' + folder.title;
+    inputEl.value = ''; errorEl.style.display = 'none'; modal.style.display = 'flex'; inputEl.focus();
+    inputEl.onkeypress = (e) => { if (e.key === 'Enter') submitFolderPassword(); };
 }
 
-/**
- * Submit and validate folder password
- */
 async function submitFolderPassword() {
     if (!pendingPrivateFolder) return;
-    
-    const inputEl = document.getElementById('passwordPromptInput');
-    const errorEl = document.getElementById('passwordError');
-    const password = inputEl.value.trim();
-    
-    if (!password) {
-        errorEl.textContent = 'Please enter a password';
-        errorEl.style.display = 'block';
-        return;
-    }
-    
+    const inputEl = document.getElementById('passwordPromptInput'), errorEl = document.getElementById('passwordError'), password = inputEl.value.trim();
+    if (!password) { errorEl.textContent = 'Please enter a password'; errorEl.style.display = 'block'; return; }
     try {
-        // Get active passwords for this folder
-        const { data: passwords, error } = await supabaseClient.client
-            .from('folder_passwords')
-            .select('*')
-            .eq('folder_id', pendingPrivateFolder.id)
-            .eq('is_active', true);
-        
+        const { data: passwords, error } = await vaultClient.client.from('vault_folder_passwords').select('*').eq('folder_id', pendingPrivateFolder.id).eq('is_active', true);
         if (error) throw error;
-        
-        if (!passwords || passwords.length === 0) {
-            errorEl.textContent = 'No active passwords for this folder';
-            errorEl.style.display = 'block';
-            return;
-        }
-        
-        // Check password against all active passwords
+        if (!passwords || passwords.length === 0) { errorEl.textContent = 'No active passwords for this folder'; errorEl.style.display = 'block'; return; }
         let passwordValid = false;
         for (const pwd of passwords) {
-            // Check expiration
-            if (pwd.expires_at && new Date(pwd.expires_at) < new Date()) {
-                continue; // Skip expired passwords
-            }
-            
-            // Verify password
+            if (pwd.expires_at && new Date(pwd.expires_at) < new Date()) continue;
             const isValid = await PasswordUtils.verifyPassword(password, pwd.password_hash);
-            if (isValid) {
-                passwordValid = true;
-                break;
-            }
+            if (isValid) { passwordValid = true; break; }
         }
-        
-        if (passwordValid) {
-            // Grant access
-            PasswordUtils.grantAccess(pendingPrivateFolder.id);
-            closePasswordPrompt();
-            
-            // Now open the folder
-            window.location.href = `?folder=${pendingPrivateFolder.slug}`;
-        } else {
-            errorEl.textContent = '❌ Invalid password';
-            errorEl.style.display = 'block';
-            inputEl.value = '';
-            inputEl.focus();
-        }
-        
-    } catch (error) {
-        console.error('Error validating password:', error);
-        errorEl.textContent = 'Error validating password';
-        errorEl.style.display = 'block';
-    }
+        if (passwordValid) { PasswordUtils.grantAccess(pendingPrivateFolder.id); closePasswordPrompt(); window.location.href = '?folder=' + pendingPrivateFolder.slug; }
+        else { errorEl.textContent = '❌ Invalid password'; errorEl.style.display = 'block'; inputEl.value = ''; inputEl.focus(); }
+    } catch (error) { console.error('Error validating vault password:', error); errorEl.textContent = 'Error validating password'; errorEl.style.display = 'block'; }
 }
 
-/**
- * Close password prompt modal
- */
-function closePasswordPrompt() {
-    const modal = document.getElementById('passwordPromptModal');
-    modal.style.display = 'none';
-    pendingPrivateFolder = null;
-}
-
-/**
- * Check if user has access to private folder
- */
-function checkPrivateFolderAccess(folder) {
-    if (!isFolderPrivate(folder)) {
-        return true; // Public folder, always accessible
-    }
-    
-    // Check if user has already unlocked this folder
-    return PasswordUtils.hasAccess(folder.id);
-}
-
-/**
- * Handle folder click - check if private and prompt for password
- */
-function handleFolderClick(folderSlug) {
-    const folder = folders.find(f => f.slug === folderSlug);
-    if (!folder) {
-        window.location.href = `?folder=${folderSlug}`;
-        return;
-    }
-    
-    // Owner bypass
-    if (isFolderPrivate(folder) && isOwner()) {
-        console.log('👑 Owner bypassing password for:', folder.title);
-        window.location.href = `?folder=${folderSlug}`;
-        return;
-    }
-    
-    if (isFolderPrivate(folder) && !checkPrivateFolderAccess(folder)) {
-        // Private folder without access - prompt for password
-        promptForFolderPassword(folder);
-    } else {
-        // Public folder or already has access
-        window.location.href = `?folder=${folderSlug}`;
-    }
-}
+function closePasswordPrompt() { const modal = document.getElementById('passwordPromptModal'); if (modal) modal.style.display = 'none'; pendingPrivateFolder = null; }
+function checkPrivateFolderAccess(folder) { if (!isFolderPrivate(folder)) return true; return PasswordUtils.hasAccess(folder.id); }
