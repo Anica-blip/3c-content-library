@@ -328,43 +328,6 @@ export default {
             }
         }
 
-        // ── TEMPORARY DIAGNOSTIC — remove once the share bug is confirmed
-        // fixed. Same lookup as /share/ but returns raw JSON instead of
-        // redirecting, so the actual folder/item data can be inspected
-        // directly rather than relayed back and forth through screenshots. ──
-        const debugMatch = path.match(/^\/share-debug\/(library|vault)\/([^/]+)\/([^/]+)\/?$/);
-        if (debugMatch) {
-            try {
-                const [, side, folderSlug, itemSlug] = debugMatch;
-                const isLibrary = side === 'library';
-                const folderTable = isLibrary ? 'folders' : 'vault_folders';
-                const defaultTable = isLibrary ? 'content_public' : 'vault_content';
-                const seriesTable = isLibrary ? 'content_public_series' : 'content_series';
-
-                const folder = await findFolder(folderTable, folderSlug);
-                const itemInDefault = folder ? await findItem(defaultTable, folder.id, itemSlug) : null;
-                const itemInSeries = folder ? await findItem(seriesTable, folder.id, itemSlug) : null;
-
-                // Raw, unfiltered — everything actually stored under this
-                // folder_id in both tables, no slug-matching involved at
-                // all. This shows us the real data directly rather than
-                // through a filter that might itself be the problem.
-                const allInDefault = folder ? await supabaseGet(`${defaultTable}?select=id,title,custom_url,slug,folder_id&folder_id=eq.${folder.id}`) : [];
-                const allInSeries = folder ? await supabaseGet(`${seriesTable}?select=id,title,custom_url,slug,folder_id&folder_id=eq.${folder.id}`) : [];
-
-                return json({
-                    searched: { side, folderSlug, itemSlug },
-                    folder_found: folder,
-                    item_found_in_default_table: itemInDefault,
-                    item_found_in_series_table: itemInSeries,
-                    everything_actually_in_this_folder_default_table: allInDefault,
-                    everything_actually_in_this_folder_series_table: allInSeries,
-                });
-            } catch (error) {
-                return json({ error: error.message }, 500);
-            }
-        }
-
         try {
             // ── PUBLIC: get contact email for the "prefer email" option ──
             if (path === '/api/config' && method === 'GET') {
