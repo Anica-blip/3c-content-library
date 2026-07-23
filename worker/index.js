@@ -213,17 +213,35 @@ async function handleShareRequest(request, env, ctx, side, folderSlug, itemSlug)
         return Response.redirect(`${SITE_URL}/${realPage}`, 302);
     }
 
-    const isCollection = folder.display_style === 'collection';
-    const contentTable = isCollection ? seriesTable : defaultTable;
-    const item = await findItem(contentTable, folder.id, itemSlug);
+    // Check BOTH content tables for the item, rather than trusting
+    // folder.display_style to correctly pick the one right table —
+    // that's a fragile dependency if that field is ever out of sync,
+    // missing, or the folder was reclassified after content was added.
+    // Try the table display_style suggests first (fewer wasted calls
+    // in the common case), then fall back to the other table.
+    const preferredTable = folder.display_style === 'collection' ? seriesTable : defaultTable;
+    const otherTable = folder.display_style === 'collection' ? defaultTable : seriesTable;
+
+    let item = await findItem(preferredTable, folder.id, itemSlug);
+    let foundInSeriesTable = preferredTable === seriesTable;
+
+    if (!item) {
+        item = await findItem(otherTable, folder.id, itemSlug);
+        foundInSeriesTable = otherTable === seriesTable;
+    }
 
     const folderRealSlug = folder.custom_url || folder.slug || folder.table_name;
 
     if (!item) {
-        // Item not found — still send a real visitor somewhere useful
-        // (the folder itself) rather than a dead end.
+        // Item not found in either table — still send a real visitor
+        // somewhere useful (the folder itself) rather than a dead end.
         return Response.redirect(`${SITE_URL}/${realPage}?folder=${encodeURIComponent(folderRealSlug)}`, 302);
     }
+
+    // Which table the item actually came from decides the correct
+    // redirect format — not folder.display_style, since that's exactly
+    // the value that turned out not to be reliable enough to trust alone.
+    const isCollection = foundInSeriesTable;
 
     const itemRealSlug = item.custom_url || item.slug || item.id;
     const realUrl = isCollection
