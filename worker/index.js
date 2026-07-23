@@ -156,6 +156,15 @@ async function supabaseGetStrict(path) {
     return res.json();
 }
 
+async function logShareRequest(env, entry) {
+    try {
+        const raw = await env.SHARE_CACHE_KV.get('_request_log');
+        const log = raw ? JSON.parse(raw) : [];
+        log.unshift(entry);
+        await env.SHARE_CACHE_KV.put('_request_log', JSON.stringify(log.slice(0, 30)));
+    } catch (e) { /* logging must never break the actual request */ }
+}
+
 async function findFolder(table, slugOrName) {
     const encoded = encodeURIComponent(slugOrName);
     const rows = await supabaseGet(
@@ -227,6 +236,12 @@ function buildSharePageHtml({ title, description, image, realUrl }) {
 async function handleShareRequest(request, env, ctx, side, folderSlug, itemSlug) {
     const userAgent = request.headers.get('User-Agent') || '';
     const bot = isBotRequest(userAgent);
+
+    // Log every real request hitting this route — keeps the last 30,
+    // so it's possible to see the actual User-Agent strings arriving
+    // and whether they were detected as a bot, rather than trusting
+    // the design in theory.
+    ctx.waitUntil(logShareRequest(env, { userAgent, detectedAsBot: bot, side, folderSlug, itemSlug, at: new Date().toISOString() }));
 
     const isLibrary = side === 'library';
     const folderTable = isLibrary ? 'folders' : 'vault_folders';
@@ -721,6 +736,16 @@ export default {
                         env.BUILDKIT_KV.put(`entry:${entryB.id}`, JSON.stringify(entryB)),
                     ]);
                     return json({ ok: true });
+                }
+
+                // View the last 30 real requests to any /share/ URL —
+                // shows the actual User-Agent that arrived and whether
+                // it was detected as a bot. Admin-key protected, unlike
+                // the earlier debug endpoint that got removed for
+                // being open to anyone.
+                if (path === '/api/admin/share-log' && method === 'GET') {
+                    const raw = await env.SHARE_CACHE_KV.get('_request_log');
+                    return json({ log: raw ? JSON.parse(raw) : [] });
                 }
 
                 return json({ error: 'Not found' }, 404);
