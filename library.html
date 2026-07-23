@@ -1926,7 +1926,10 @@
                         <button onclick="backToLibrarySeriesGrid('${folder.id}')" title="Back to thumbnails" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg>
                         </button>
-                        <button onclick="copyLibrarySeriesLink('${item.id}')" title="Copy link" style="background: rgba(0,212,200,0.1); border: 1px solid rgba(0,212,200,0.35); color: #00d4c8; width: 30px; height: 30px; border-radius: 8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                        <button onclick="nativeShareLibrarySeriesItem('${item.id}')" title="Share" style="background: rgba(0,212,200,0.1); border: 1px solid rgba(0,212,200,0.35); color: #00d4c8; width: 30px; height: 30px; border-radius: 8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49"/></svg>
+                        </button>
+                        <button onclick="copyLibrarySeriesLink('${item.id}')" title="Copy link" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
                         </button>
                     </span>
@@ -1942,15 +1945,33 @@
         function copyLibrarySeriesLink(itemId) {
             const item = librarySeriesItemsCache.find(i => i.id === itemId);
             if (!item) return;
-            const baseUrl = window.location.origin + window.location.pathname;
+            const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
             const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
             const itemSlug = item.customUrl || item.slug || item.id;
-            const link = baseUrl + '?folder=' + encodeURIComponent(folderSlug) + '&highlight=' + encodeURIComponent(itemSlug);
+            const link = `${SHARE_WORKER}/share/library/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
             navigator.clipboard.writeText(link).then(() => {
                 alert('✅ Link copied!\n\n' + item.title + '\n' + link);
             }).catch(() => {
                 prompt('Copy this link:', link);
             });
+        }
+
+        function nativeShareLibrarySeriesItem(itemId) {
+            const item = librarySeriesItemsCache.find(i => i.id === itemId);
+            if (!item) return;
+            const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+            const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
+            const itemSlug = item.customUrl || item.slug || item.id;
+            const link = `${SHARE_WORKER}/share/library/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
+            if (navigator.share) {
+                navigator.share({
+                    title: item.title,
+                    text: item.description || 'Think it. Do it. Own it.',
+                    url: link,
+                }).catch(() => { /* cancelled */ });
+            } else {
+                copyLibrarySeriesLink(itemId);
+            }
         }
 
         function displayAllFolders() {
@@ -2176,18 +2197,23 @@
         }
         
         function sharePDFLink(contentId) {
-            const baseUrl = window.location.origin + window.location.pathname;
-            
-            // Generate URL using folder custom_url and content custom_url
+            // Goes through the share-preview Worker now, not a direct
+            // deep-link — this is what gives the shared link a real
+            // thumbnail, title, and description when it lands anywhere
+            // (Telegram, WhatsApp, etc.). Real visitors clicking it get
+            // redirected straight to the actual page automatically.
+            const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+
             if (currentContent && currentFolder) {
-                const folderTableName = currentFolder.tableName;
-                const contentCustomUrl = currentContent.customUrl || currentContent.slug;
-                const viewType = (currentContent.type === 'flipbook' || currentContent.type === 'presentation') ? 'flipbook-only' : 'pdf-only';
-                
-                return `${baseUrl}?folder=${folderTableName}&url=${contentCustomUrl}&view=${viewType}`;
+                const folderSlug = currentFolder.slug || currentFolder.tableName;
+                const itemSlug = currentContent.customUrl || currentContent.slug || currentContent.id;
+                return `${SHARE_WORKER}/share/library/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
             }
-            
-            // Fallback to old format if folder/content data not available
+
+            // Fallback to the old direct format if folder/content data
+            // isn't available for some reason — still works, just
+            // without a rich preview attached.
+            const baseUrl = window.location.origin + window.location.pathname;
             const viewType = currentContent && (currentContent.type === 'flipbook' || currentContent.type === 'presentation') ? 'flipbook-only' : 'pdf-only';
             return `${baseUrl}?content=${contentId}&view=${viewType}`;
         }
@@ -2199,9 +2225,15 @@
             
             // In PDF-only mode, show share button
             const shareButton = pdfOnlyMode ? '' : `
+                <button onclick="nativeShareContent()" 
+                        style="background: linear-gradient(135deg, #00d4c8, #00a89e); color: #0a0416; border: none; padding: 8px 12px; 
+                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,212,200,0.3);"
+                        title="Share">
+                    ↗
+                </button>
                 <button onclick="copyShareLink()" 
                         style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; 
-                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);"
+                               border-radius: 4px; cursor: pointer; margin-left: 6px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);"
                         title="Copy Link">
                     ⧉
                 </button>
@@ -2363,6 +2395,22 @@
             }).catch(err => {
                 prompt('Copy this link:', shareLink);
             });
+        }
+
+        function nativeShareContent() {
+            if (!currentContent) return;
+            const shareLink = sharePDFLink(currentContent.id);
+            if (navigator.share) {
+                navigator.share({
+                    title: currentContent.title,
+                    text: currentContent.description || 'Think it. Do it. Own it.',
+                    url: shareLink,
+                }).catch(() => { /* user cancelled the share sheet — not an error */ });
+            } else {
+                // No native share sheet available (some desktop browsers) —
+                // fall back to the same copy-link behavior
+                copyShareLink();
+            }
         }
         
         function openShareLink() {
