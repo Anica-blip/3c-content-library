@@ -1,22 +1,23 @@
- ⛅️ wrangler 4.104.0 (update available 4.112.0)
-───────────────────────────────────────────────
-Total Upload: 9.85 KiB / gzip: 2.56 KiB
-Your Worker has access to the following bindings:
-Binding                                             Resource          
-env.CHAT_KV (e8df3751ad8b4cdda353683b97e08f09)      KV Namespace      
+name = "dropin-chat"
+main = "index.js"
+compatibility_date = "2024-01-01"
+preview_urls = false
 
-Uploaded dropin-chat (11.47 sec)
-▲ [WARNING] You are enabling the 'workers.dev' subdomain for this Worker, but Preview URLs are still disabled.
+[[kv_namespaces]]
+binding = "CHAT_KV"
+id = "e8df3751ad8b4cdda353683b97e08f09"
 
-  Preview URLs will automatically generate a unique, shareable link for each new
-  version which will be accessible at:
-    https://<VERSION_PREFIX>-dropin-chat.3c-innertherapy.workers.dev
-  
-  You may want to enable the Preview URLs as well by setting `preview_urls =
-  true` in your Wrangler config file.
+[[kv_namespaces]]
+binding = "REVIEWS_KV"
+id = "1185fa64f2c14b508278cc06b24eb0af"
 
+[[kv_namespaces]]
+binding = "BUILDKIT_KV"
+id = "214959dc21244082b3e80493a847ffd2"
 
-Deployed dropin-chat triggers (11.60 sec)
-  https://dropin-chat.3c-innertherapy.workers.dev
-  schedule: 0 14 * * *
-Current Version ID: e46a961d-208e-48a0-9140-f1eb2b415875
+[[kv_namespaces]]
+binding = "SHARE_CACHE_KV"
+id = "09c09aeec9b7423ca162e57c2af8cd36"
+
+[triggers]
+crons = ["0 14 * * *"]
