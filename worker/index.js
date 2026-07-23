@@ -164,8 +164,16 @@ async function findFolder(table, slugOrName) {
     return rows[0] || null;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function findItem(table, folderId, slugOrId) {
     const encoded = encodeURIComponent(slugOrId);
+    // Only compare against id (a UUID column) when the value actually
+    // looks like a UUID — comparing a UUID column against an ordinary
+    // slug string causes Supabase to reject the ENTIRE query outright,
+    // not just skip that one condition. This was silently breaking
+    // every single item lookup, real data or not.
+    const idClause = UUID_PATTERN.test(slugOrId) ? `,id.eq.${encoded}` : '';
 
     // Try including path in the match — but path doesn't exist on
     // every table yet, so if Supabase rejects the query for that
@@ -173,14 +181,14 @@ async function findItem(table, folderId, slugOrId) {
     // failing the whole lookup.
     try {
         const rows = await supabaseGetStrict(
-            `${table}?select=id,title,type,url,thumbnail_url,description,custom_url,slug,path,project_json,external_url&folder_id=eq.${folderId}&or=(custom_url.eq.${encoded},slug.eq.${encoded},id.eq.${encoded},path.eq.${encoded})&limit=1`
+            `${table}?select=id,title,type,url,thumbnail_url,description,custom_url,slug,path,project_json,external_url&folder_id=eq.${folderId}&or=(custom_url.eq.${encoded},slug.eq.${encoded}${idClause},path.eq.${encoded})&limit=1`
         );
         return rows[0] || null;
     } catch (e) {
         // path column doesn't exist on this table (or some other
         // transient issue) — fall back to the safe, original match.
         const rows = await supabaseGet(
-            `${table}?select=id,title,type,url,thumbnail_url,description,custom_url,slug&folder_id=eq.${folderId}&or=(custom_url.eq.${encoded},slug.eq.${encoded},id.eq.${encoded})&limit=1`
+            `${table}?select=id,title,type,url,thumbnail_url,description,custom_url,slug&folder_id=eq.${folderId}&or=(custom_url.eq.${encoded},slug.eq.${encoded}${idClause})&limit=1`
         );
         return rows[0] || null;
     }
@@ -337,11 +345,20 @@ export default {
                 const itemInDefault = folder ? await findItem(defaultTable, folder.id, itemSlug) : null;
                 const itemInSeries = folder ? await findItem(seriesTable, folder.id, itemSlug) : null;
 
+                // Raw, unfiltered — everything actually stored under this
+                // folder_id in both tables, no slug-matching involved at
+                // all. This shows us the real data directly rather than
+                // through a filter that might itself be the problem.
+                const allInDefault = folder ? await supabaseGet(`${defaultTable}?select=id,title,custom_url,slug,folder_id&folder_id=eq.${folder.id}`) : [];
+                const allInSeries = folder ? await supabaseGet(`${seriesTable}?select=id,title,custom_url,slug,folder_id&folder_id=eq.${folder.id}`) : [];
+
                 return json({
                     searched: { side, folderSlug, itemSlug },
                     folder_found: folder,
                     item_found_in_default_table: itemInDefault,
                     item_found_in_series_table: itemInSeries,
+                    everything_actually_in_this_folder_default_table: allInDefault,
+                    everything_actually_in_this_folder_series_table: allInSeries,
                 });
             } catch (error) {
                 return json({ error: error.message }, 500);
