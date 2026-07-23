@@ -1,1119 +1,2166 @@
 /**
- * Aurion's Vault - Core JavaScript
- * CLONE of library.html inline JS.
- * Vault-only substitutions:
- *   supabaseClient -> vaultClient
- *   content_public -> vault_content
- *   folder_passwords -> vault_folder_passwords
- *   flipbook-viewer.html -> ../flipbook-viewer.html
- *   presentation-viewer.html -> ../presentation-viewer.html
- *   library.html -> vault.html  (hideContentViewer desktop redirect)
- *   getComments/addComment -> vault_comments direct queries
- *   getTypeIcon extended with vault types
- *   displayAllFolders alphabetical (no pinned order)
- *   init block adds initVaultSupabase + updateVaultNav
- *   openPDFModal activates vault pdfModal + pdf-viewer-enhanced.js
+ * 3C Admin Panel - Core JavaScript
+ * Enhanced version with Supabase integration
  */
 
 // ==================== GLOBAL STATE ====================
-let library        = { folders: [], content: [] };
-let currentFolder  = null;
-let currentContent = null;
-let currentUser    = null;
-let pendingPrivateFolder = null;
-let contentCache   = {};
-let libraryCache   = null;
-let cacheTimestamp = null;
-const CACHE_DURATION = 2 * 60 * 1000;
+let currentFile = null;
+let currentThumbnail = null;
+let debugMode = false;
+let folders = [];
+let allContent = [];
+let allSeriesContent = [];
+let editingSeriesContent = false; // true when the content form is editing a content_series item
+let vaultFolders = []; // Vault folders — separate from library folders
 
-// ==================== INIT ====================
-(async () => {
-    try {
-        await initVaultSupabase();
-        await checkCurrentUser();
-        const urlParams = new URLSearchParams(window.location.search);
-        updateVaultNav(!!(urlParams.get('folder') || urlParams.get('content') || urlParams.get('url')));
-        await loadData();
-        await displayContent();
-    } catch (error) {
-        console.error('Failed to load vault:', error);
-        const overlay = document.getElementById('loadingOverlay');
-        if (overlay) overlay.innerHTML = '<div style="text-align:center;color:var(--text-primary);"><div style="font-size:48px;margin-bottom:20px;">&#9888;</div><div style="font-size:18px;font-weight:600;margin-bottom:10px;">Failed to load Aurion\'s Vault</div><div style="font-size:14px;color:var(--text-secondary);">Please refresh the page to try again</div></div>';
-        return;
-    } finally {
+// ==================== UTILITY FUNCTIONS ====================
+function debugLog(message) {
+    if (debugMode) {
+        console.log('[DEBUG]', message);
+    }
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.getElementById('connectionAlert');
+    if (!alertDiv) return;
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+    alertDiv.style.display = 'block';
+
+    // Scroll alert into view so it is never missed
+    alertDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Errors stay until clicked to dismiss — success auto-hides after 6s
+    if (type === 'error') {
+        alertDiv.style.cursor = 'pointer';
+        alertDiv.title = 'Click to dismiss';
+        alertDiv.onclick = () => { alertDiv.style.display = 'none'; };
+    } else {
+        alertDiv.style.cursor = '';
+        alertDiv.title = '';
+        alertDiv.onclick = null;
         setTimeout(() => {
-            const overlay = document.getElementById('loadingOverlay');
-            if (overlay) { overlay.classList.add('hidden'); setTimeout(() => overlay.remove(), 300); }
-        }, 100);
-    }
-})();
-
-// ==================== VAULT NAV ====================
-function updateVaultNav(isInsideFolder) {
-    const folderBtn = document.getElementById('folderIconBtn');
-    const publicBtn = document.getElementById('publicLibBtn');
-    if (folderBtn) folderBtn.style.display = isInsideFolder ? 'flex' : 'none';
-    if (publicBtn) publicBtn.style.display  = 'flex';
-}
-
-// ==================== VAULT SUPABASE INIT ====================
-async function initVaultSupabase() {
-    if (!CONFIG || !CONFIG.supabase || !CONFIG.supabase.url) { console.error('Supabase configuration not found'); return; }
-    try { await vaultClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey); console.log('Vault Supabase connected'); }
-    catch (error) { console.error('Vault Supabase connection failed:', error); }
-}
-
-// ==================== LOAD DATA ====================
-async function loadData() {
-    console.log('Loading vault data from Supabase...');
-    const now = Date.now();
-    if (libraryCache && cacheTimestamp && (now - cacheTimestamp) < CACHE_DURATION) { console.log('Using cached data'); library = libraryCache; return; }
-    try {
-        if (!vaultClient.isConnected) { await vaultClient.init(CONFIG.supabase.url, CONFIG.supabase.anonKey); }
-        const folders = await vaultClient.getFolders();
-        library.folders = folders.map(f => ({
-            id: f.id, title: f.title, name: f.title, slug: f.custom_url || f.slug,
-            customUrl: f.custom_url, tableName: f.table_name, description: f.description,
-            folderType: f.folder_type, parentId: f.parent_id, depth: f.depth || 0,
-            path: f.path, actualItemCount: f.actual_item_count || 0, isPublic: f.is_public,
-            displayStyle: f.display_style || 'default'
-        }));
-        library.content = [];
-        libraryCache = library; cacheTimestamp = now;
-        console.log('Vault loaded and cached:', library);
-        console.log('Folders:', library.folders.length, 'Content:', library.content.length);
-    } catch (error) { console.error('Error loading vault data:', error); library = { folders: [], content: [] }; }
-}
-
-// ==================== URL PARAMS ====================
-function getUrlParams() {
-    const params = new URLSearchParams(window.location.search);
-    return { folder: params.get('folder'), content: params.get('content'), url: params.get('url'), view: params.get('view'), highlight: params.get('highlight') };
-}
-
-// ==================== FIND HELPERS ====================
-function findFolderBySlug(slug) {
-    return library.folders.find(f => f.slug === slug || f.id === slug || f.tableName === slug);
-}
-function findContentBySlug(slug, folderId) {
-    if (folderId) return library.content.find(c => (c.slug === slug || c.id === slug || c.customUrl === slug) && c.folderId === folderId);
-    return library.content.find(c => c.slug === slug || c.id === slug || c.customUrl === slug);
-}
-
-// ==================== TYPE ICON ====================
-function getTypeIcon(type) {
-    const icons = { pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵', flipbook: '📖', presentation: '📊', gif: '🎞️', link: '🔗', quiz: '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', 'virtual-slideshow': '🎞️', other: '📎' };
-    return icons[type] || icons.other;
-}
-
-// ==================== DISPLAY CONTENT ====================
-async function displayContent() {
-    const params = getUrlParams();
-    const folderSlug = params.folder, contentSlug = params.content, contentUrl = params.url, viewMode = params.view;
-
-    console.log('displayContent called with params:', { folderSlug, contentSlug, contentUrl, viewMode });
-    console.log('Library state:', { folders: library.folders.length, content: library.content.length });
-
-    const folderIconBtn = document.getElementById('folderIconBtn');
-    if (folderIconBtn) {
-        folderIconBtn.style.visibility = (folderSlug || contentSlug || contentUrl) ? 'visible' : 'hidden';
-    }
-
-    // NEW FORMAT: ?folder=X&url=Y&view=pdf-only (any *-only viewMode = standalone, no sidebar)
-    if (viewMode && viewMode.endsWith('-only') && folderSlug && contentUrl) {
-        document.querySelector('.folders-section').style.display = 'none';
-        document.getElementById('contentViewer').style.display = 'block';
-        console.log('Loading content with new URL format:', { folderSlug, contentUrl });
-        const folder = library.folders.find(f => f.tableName === folderSlug || f.slug === folderSlug);
-        if (!folder) {
-            console.error('Folder not found:', folderSlug);
-            document.getElementById('viewer').innerHTML = '<div style="padding:40px;text-align:center;"><h2>Folder not found</h2><p>The folder "' + folderSlug + '" does not exist.</p></div>';
-            return;
-        }
-        try {
-            const { data, error } = await vaultClient.client.from('vault_content')
-                .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, custom_url, slug, display_order, view_count')
-                .eq('folder_id', folder.id).or('custom_url.eq.' + contentUrl + ',slug.eq.' + contentUrl).single();
-            if (error) throw error;
-            if (data) {
-                const content = { id: data.id, folderId: data.folder_id, title: data.title, type: data.type, url: data.url, slug: data.custom_url || data.slug, customUrl: data.custom_url, thumbnail: data.thumbnail_url, description: data.description, externalUrl: data.external_url };
-                currentFolder = folder; showViewer(content, true); return;
-            } else {
-                console.error('Content not found:', contentUrl);
-                document.getElementById('viewer').innerHTML = '<div style="padding:40px;text-align:center;"><h2>Content not found</h2><p>The content "' + contentUrl + '" does not exist in folder "' + folderSlug + '".</p></div>';
-                return;
-            }
-        } catch (err) {
-            console.error('Error loading content:', err);
-            document.getElementById('viewer').innerHTML = '<div style="padding:40px;text-align:center;"><h2>Error loading content</h2><p>' + err.message + '</p></div>';
-            return;
-        }
-    }
-
-    // OLD FORMAT: ?content=X&view=pdf-only (any *-only viewMode = standalone)
-    if (viewMode && viewMode.endsWith('-only') && contentSlug) {
-        document.querySelector('.folders-section').style.display = 'none';
-        document.getElementById('contentViewer').style.display = 'block';
-        let content = findContentBySlug(contentSlug);
-        if (!content) {
-            const loadContent = async () => {
-                try {
-                    const { data, error } = await vaultClient.client.from('vault_content')
-                        .select('id, folder_id, title, type, url, external_url, thumbnail_url, description, custom_url, slug, display_order, view_count')
-                        .or('id.eq.' + contentSlug + ',slug.eq.' + contentSlug + ',custom_url.eq.' + contentSlug).single();
-                    if (!error && data) {
-                        content = { id: data.id, title: data.title, slug: data.custom_url || data.slug, customUrl: data.custom_url, type: data.type, folderId: data.folder_id, url: data.url, thumbnail: data.thumbnail_url, description: data.description, externalUrl: data.external_url };
-                        showViewer(content, true);
-                    }
-                } catch (err) { console.error('Error loading content:', err); }
-            };
-            loadContent(); return;
-        }
-        if (content) { showViewer(content, true); return; }
-    }
-
-    // No folder selected — show all folders
-    if (!folderSlug) { console.log('No folder slug, showing all folders'); displayAllFolders(); return; }
-
-    // Hide folders section, show content viewer with left/right layout
-    document.querySelector('.folders-section').style.display = 'none';
-    document.getElementById('contentViewer').style.display = 'block';
-    document.getElementById('folderSidebar').style.display = 'none';
-
-    currentFolder = findFolderBySlug(folderSlug);
-    if (!currentFolder) { document.getElementById('viewer').innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>'; return; }
-
-    // Collection/Series folders use the grid landing page instead of
-    // the default sidebar + viewer layout
-    console.log('🔍 Folder display style check:', currentFolder.title, '→ displayStyle =', JSON.stringify(currentFolder.displayStyle));
-    if (currentFolder.displayStyle === 'collection') {
-        console.log('🎬 Routing to displayCollectionGrid()');
-        await displayCollectionGrid(currentFolder, params.highlight);
-        return;
-    } else {
-        console.log('📋 Routing to default sidebar layout (displayStyle was not "collection")');
-    }
-
-    if (!contentCache[currentFolder.id]) {
-        try {
-            const content = await vaultClient.getContentByFolder(currentFolder.id);
-            const mappedContent = content.map(c => ({ id: c.id, folderId: c.folder_id, title: c.title, type: c.type, url: c.url, slug: c.custom_url || c.slug, customUrl: c.custom_url, thumbnail: c.thumbnail_url, description: c.description, externalUrl: c.external_url, order: c.display_order }));
-            contentCache[currentFolder.id] = mappedContent;
-            library.content = [...library.content, ...mappedContent];
-        } catch (error) { console.error('Error loading folder content:', error); }
-    }
-
-    let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
-    folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
-    const subfolders = library.folders.filter(f => f.parentId === currentFolder.id).sort((a, b) => a.title.localeCompare(b.title));
-
-    // If contentSlug exists, show ONLY content viewer (no left sidebar)
-    if (contentSlug) {
-        const viewer = document.getElementById('viewer');
-        viewer.innerHTML = '<div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; display: block; width: 100%; max-width: 100%;"><div class="no-content"><h2>Loading content...</h2></div></div>';
-        const content = findContentBySlug(contentSlug, currentFolder.id);
-        if (content) { showViewer(content, false); } else { document.getElementById('viewerContent').innerHTML = '<div class="no-content"><h2>Error loading content</h2><p>JSON object requested, multiple (or no) rows returned</p></div>'; }
-        return;
-    }
-
-    // Create left/right layout
-    const viewer = document.getElementById('viewer');
-    viewer.innerHTML = `
-        <div class="layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px;">
-            <div class="sidebar" id="leftSidebar" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; width: 100%; max-width: 100%;">
-                <h2 style="color: #ffffff; font-size: 18px; margin-bottom: 15px;">${currentFolder.title}</h2>
-                <div id="subfoldersContainer"></div>
-                <div class="content-grid" id="contentList"></div>
-            </div>
-            <div id="viewerContent" class="right-viewer" style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; display: none; width: 100%; max-width: 100%;">
-                <div class="no-content"><h2>Welcome to Aurion's Universe</h2><p>Select content from the sidebar to view</p></div>
-            </div>
-        </div>
-        <div class="comments-section" id="commentsSection" style="display: none;"></div>
-    `;
-
-    if (folderContent.length === 0 && subfolders.length === 0) { document.getElementById('contentList').innerHTML = '<p style="color: #999;">No subfolders or content</p>'; return; }
-
-    let subfoldersHtml = '';
-    if (subfolders.length > 0) {
-        subfoldersHtml += '<div style="margin-bottom: 20px;">';
-        subfolders.forEach(subfolder => {
-            const itemCount = subfolder.actualItemCount || 0;
-            subfoldersHtml += `<div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'" style="background: rgba(155, 89, 182, 0.1); border: 1px solid rgba(155, 89, 182, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(155, 89, 182, 0.2)'; this.style.borderColor='rgba(155, 89, 182, 0.5)'" onmouseout="this.style.background='rgba(155, 89, 182, 0.1)'; this.style.borderColor='rgba(155, 89, 182, 0.3)'"><div style="display: flex; align-items: center; gap: 10px;"><div style="font-size: 24px;">📂</div><div style="flex: 1;"><div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div><div style="font-size: 11px; color: #808080;">${itemCount} item${itemCount !== 1 ? 's' : ''}</div></div><div style="color: #9b59b6; font-size: 18px;">→</div></div></div>`;
-        });
-        subfoldersHtml += '</div>';
-    }
-    document.getElementById('subfoldersContainer').innerHTML = subfoldersHtml;
-
-    let contentHtml = '';
-    if (folderContent.length > 0) {
-        contentHtml = folderContent.map(item => {
-            let thumbnailAttr = '', thumbnailContent = '';
-            if (item.thumbnail) { thumbnailAttr = `data-bg="${item.thumbnail}"`; } else { thumbnailContent = `<div class="type-icon">${getTypeIcon(item.type)}</div>`; }
-            return `<div class="content-card ${item.slug === contentSlug || item.id === contentSlug ? 'active' : ''}" onclick="viewContent('${item.id}')" style="display: flex; flex-direction: column; height: auto; margin-bottom: 25px;"><div class="content-thumbnail" ${thumbnailAttr} style="flex-shrink: 0; aspect-ratio: 1; border-radius: 8px 8px 0 0; margin-bottom: 0;">${thumbnailContent}</div><div class="content-info" style="padding: 12px 10px; text-align: left; min-height: 60px; margin-top: 0;"><div class="content-title" style="font-size: 12px; color: #ffffff; line-height: 1.4; font-weight: 500; word-wrap: break-word; margin: 0;">${item.title}</div></div></div>`;
-        }).join('');
-    }
-    document.getElementById('contentList').innerHTML = contentHtml;
-    observeThumbnails();
-}
-
-// ==================== DISPLAY ALL FOLDERS ====================
-function displayAllFolders() {
-    console.log('displayAllFolders called, folders:', library.folders);
-    document.getElementById('contentViewer').style.display = 'none';
-    document.querySelector('.folders-section').style.display = 'block';
-    const commentsSection = document.getElementById('commentsSection');
-    if (commentsSection) commentsSection.style.display = 'none';
-    if (library.folders.length === 0) { console.log('No folders to display'); return; }
-    console.log('Displaying only root folders');
-
-    const rootFolders = library.folders.filter(f => !f.parentId && f.depth === 0).sort((a, b) => {
-        // Pin pop_in first, aurion_gems second, everything else alphabetical
-        const pinOrder = { pop_in: 0, aurion_gems: 1 };
-        const aPin = pinOrder[a.tableName];
-        const bPin = pinOrder[b.tableName];
-        if (aPin !== undefined && bPin !== undefined) return aPin - bPin;
-        if (aPin !== undefined) return -1;
-        if (bPin !== undefined) return 1;
-        return a.title.localeCompare(b.title);
-    });
-
-    let html = '';
-    rootFolders.forEach(folder => {
-        const subfolders = library.folders.filter(f => f.parentId === folder.id);
-        const subfoldersCount = subfolders.length;
-        const contentCount = folder.actualItemCount || 0;
-        let countLabel = subfoldersCount > 0 ? (subfoldersCount + ' subfolder' + (subfoldersCount !== 1 ? 's' : '') + ', ' + contentCount + ' item' + (contentCount !== 1 ? 's' : '')) : (contentCount + ' item' + (contentCount !== 1 ? 's' : ''));
-
-        // Start Here button only on Aurion Gems
-        const startHereBtn = folder.tableName === 'aurion_gems'
-            ? '<button onclick="event.stopPropagation(); openFolderSidebar(\'' + folder.id + '\');" style="margin-top: 8px; padding: 6px 14px; background: linear-gradient(135deg, #7c3aed, #9b59b6); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: 0.3px; box-shadow: 0 2px 8px rgba(124,58,237,0.35); transition: all 0.2s;" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'">🚀 Start Here</button>'
-            : '';
-
-        // Pop In gets a neon purple title — visually distinct from library content
-        const titleStyle = folder.tableName === 'pop_in'
-            ? ' style="color:#c084fc; text-shadow:0 0 10px rgba(192,132,252,0.6);"'
-            : '';
-
-        html += '<div class="folder-card-item" onclick="openFolderSidebar(\'' + folder.id + '\')"><div class="folder-icon"><svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 18 L4 11 Q4 9 6 9 L24 9 Q27 9 29 13 L31 18 Z" fill="#7c3aed"/><rect x="2" y="18" width="60" height="32" rx="6" fill="rgba(30, 10, 60, 0.85)"/><rect x="2" y="18" width="60" height="32" rx="6" fill="none" stroke="rgba(124, 58, 237, 0.55)" stroke-width="1.5"/><rect x="2" y="18" width="60" height="8" rx="0" fill="rgba(124, 58, 237, 0.08)"/></svg></div><div class="folder-title"' + titleStyle + '>' + folder.title + '</div><div class="folder-details">' + countLabel + '</div><div class="folder-slug">' + folder.tableName + '</div>' + startHereBtn + '</div>';
-    });
-    document.getElementById('foldersGrid').innerHTML = html;
-}
-
-// ==================== COLLECTION / SERIES GRID ====================
-// Alternate folder landing page: all content shown as a wrapping
-// grid of thumbnail + title cards, instead of the sidebar + viewer
-// layout. Content comes from content_series, not vault_content.
-
-let seriesItemsCache = [];
-
-async function displayCollectionGrid(folder, highlightSlug) {
-    console.log('🎬 displayCollectionGrid() started for folder:', folder.title, folder.id);
-    document.querySelector('.folders-section').style.display = 'none';
-    document.getElementById('contentViewer').style.display = 'block';
-    document.getElementById('folderSidebar').style.display = 'none';
-    const commentsSection = document.getElementById('commentsSection');
-    if (commentsSection) commentsSection.style.display = 'none';
-
-    const viewer = document.getElementById('viewer');
-    viewer.innerHTML = `
-        <button id="collectionBackBtn" onclick="window.location.href='vault.html'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>
-        <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 4px;">${escapeHtml(folder.title)}</h2>
-        ${folder.description ? '<div style="color:#9a8fb0; font-size:13px; margin-bottom:20px;">' + escapeHtml(folder.description) + '</div>' : '<div style="margin-bottom:20px;"></div>'}
-        <div class="series-grid" id="seriesGrid"></div>
-        <div id="reviewSliderEmbed"></div>
-    `;
-
-    // One-time responsive rule for the series grid — desktop wraps
-    // across as many columns as fit, mobile stacks single-column
-    // downward, matching the rest of this site's 768px breakpoint.
-    // Also defines the highlight glow for shared links.
-    if (!document.getElementById('seriesGridStyle')) {
-        const style = document.createElement('style');
-        style.id = 'seriesGridStyle';
-        style.textContent = `
-            .series-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
-            #collectionBackBtn { display: none !important; }
-            @media (max-width: 768px) {
-                .series-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
-                .series-grid .series-card { flex-direction: row !important; align-items: center; gap: 14px; }
-                .series-grid .series-thumb { width: 130px !important; flex-shrink: 0; aspect-ratio: 1 !important; }
-                .series-grid .series-title { text-align: left !important; margin-top: 0 !important; }
-            }
-            .series-card.series-highlighted .series-thumb {
-                box-shadow: 0 0 0 3px #00d4c8, 0 0 24px rgba(0,212,200,0.55) !important;
-                animation: seriesHighlightPulse 1.6s ease-in-out 3;
-            }
-            @keyframes seriesHighlightPulse {
-                0%, 100% { box-shadow: 0 0 0 3px #00d4c8, 0 0 22px rgba(0,212,200,0.35); }
-                50%      { box-shadow: 0 0 0 5px #00d4c8, 0 0 34px rgba(0,212,200,0.75); }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    const grid = document.getElementById('seriesGrid');
-    grid.innerHTML = '<p style="color:#999;">Loading...</p>';
-
-    try {
-        seriesItemsCache = await vaultClient.getContentSeries(folder.id);
-        console.log('🎬 getContentSeries returned', seriesItemsCache.length, 'items for folder', folder.id);
-    } catch (error) {
-        console.error('Error loading series content:', error);
-        grid.innerHTML = '<p style="color:#e74c3c;">Error loading content.</p>';
-        return;
-    }
-
-    if (seriesItemsCache.length === 0) {
-        grid.innerHTML = '<p style="color:#999;">No content yet.</p>';
-        return;
-    }
-
-    grid.innerHTML = seriesItemsCache.map(item => {
-        const thumb = item.thumbnail_url ||
-            'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%231a0f2e" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" font-size="80"%3E' + encodeURIComponent(getTypeIcon(item.type)) + '%3C/text%3E%3C/svg%3E';
-        return `
-            <div class="series-card" data-item-id="${item.id}" data-custom-url="${item.custom_url || item.slug || ''}" onclick="openSeriesItem('${item.id}')" style="cursor: pointer; display: flex; flex-direction: column; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
-                <div class="series-thumb" style="position: relative; aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background-image: url('${thumb}'); background-size: cover; background-position: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(155,89,182,0.2);">
-                    <button onclick="event.stopPropagation(); nativeShareSeriesItem('${item.id}')" title="Share" style="position: absolute; top: 8px; right: 44px; width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(10,4,22,0.65); backdrop-filter: blur(4px); color: #00d4c8; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(0,212,200,0.35)'" onmouseout="this.style.background='rgba(10,4,22,0.65)'">↗</button>
-                    <button onclick="event.stopPropagation(); copySeriesLink('${item.id}')" title="Copy link" style="position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(10,4,22,0.65); backdrop-filter: blur(4px); color: #c084fc; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(123,63,228,0.55)'" onmouseout="this.style.background='rgba(10,4,22,0.65)'">🔗</button>
-                </div>
-                <div class="series-title" style="margin-top: 8px; font-size: 13px; color: #ffffff; text-align: center; line-height: 1.3;">${escapeHtml(item.title)}</div>
-            </div>
-        `;
-    }).join('');
-
-    // Shared-link highlight — find the item this link pointed at,
-    // glow it, and scroll it into view, without hiding the rest of
-    // the grid. Matches on custom_url first, falls back to raw id.
-    if (highlightSlug) {
-        const target = seriesItemsCache.find(i => i.custom_url === highlightSlug || i.slug === highlightSlug || i.id === highlightSlug);
-        if (target) {
-            const card = grid.querySelector(`[data-item-id="${target.id}"]`);
-            if (card) {
-                card.classList.add('series-highlighted');
-                setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
-            }
-        } else {
-            console.warn('Highlight target not found in this folder:', highlightSlug);
-        }
-    }
-
-    // Live review banner — only on the folder titled "Drop In", whose
-    // table_name is actually still 'pop_in' (display title changed,
-    // technical identity kept so the pinning/purple-title logic above
-    // keeps working). Sits BELOW the folder's own thumbnails, as an
-    // extra floating layer — the folder content itself is untouched.
-    if (folder.tableName === 'pop_in') {
-        await renderReviewSliderEmbed();
+            alertDiv.style.display = 'none';
+        }, 6000);
     }
 }
 
-// ==================== LIVE REVIEW BANNER (Drop In folder only) ====================
-// Matches each emoji to its own line — same wording as reviews.html —
-// so an emoji-only review still shows a readable quote instead of
-// looking bare or showing a placeholder like "No rating given".
-const REVIEW_EMOJI_LINES = {
-    '🥳': 'Loved it!',
-    '😊': 'Really enjoyed it.',
-    '🙂': 'Nice experience.',
-    '🤔': 'Some ideas to improve.',
-    '🌱': "I'll visit again another time.",
-};
-const REVIEW_LOGOS = {
-    library: ['../3C Thread To Success logo.png'],
-    vault: ['../Clubhouse logo.png'],
-    both: ['../3C Thread To Success logo.png', '../Clubhouse logo.png'],
-};
-
-let embedReviews = [];
-let embedIndex = 0;
-let embedTimer = null;
-
-async function renderReviewSliderEmbed() {
-    const container = document.getElementById('reviewSliderEmbed');
-    if (!container) return;
-
-    if (!document.getElementById('reviewSliderStyle')) {
-        const style = document.createElement('style');
-        style.id = 'reviewSliderStyle';
-        style.textContent = `
-            /* Outer layer — the full-width glass strip */
-            #reviewSliderEmbed:not(:empty) {
-                margin-top: 52px; width: 100%; border-radius: 16px; overflow: hidden;
-                background: rgba(255, 255, 255, 0.03);
-                backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                box-shadow: 0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.12);
-                padding: 26px 20px;
-            }
-            #reviewSliderEmbed .rs-track { display: flex; transition: transform 0.6s ease; }
-            /* Inner layer — the actual review card. The outer strip above
-               stays a subtle glass panel; this card itself needs to be
-               genuinely legible, not part of that translucency. */
-            #reviewSliderEmbed .rs-slide { flex: 0 0 100%; display: flex; justify-content: center; }
-            #reviewSliderEmbed .rs-card {
-                width: 230px; height: 230px; box-sizing: border-box;
-                background: rgba(245, 240, 220, 0.94);
-                border: 1px solid rgba(245, 240, 220, 0.6);
-                border-radius: 14px; padding: 18px 20px;
-                display: flex; flex-direction: column; align-items: center; justify-content: center;
-                text-align: center; gap: 6px; overflow: hidden;
-                box-shadow: 0 8px 22px rgba(0,0,0,0.3);
-            }
-            #reviewSliderEmbed .rs-title { font-size: 10px; font-weight: 700; color: #6d28d9; }
-            #reviewSliderEmbed .rs-emojis { font-size: 16px; letter-spacing: 3px; }
-            #reviewSliderEmbed .rs-emojis.rs-emoji-only { font-size: 24px; letter-spacing: 5px; margin: 2px 0; }
-            #reviewSliderEmbed .rs-note {
-                font-size: 11px; color: #4a3a5a; line-height: 1.5; font-style: italic;
-                overflow-y: auto; max-height: 78px; word-wrap: break-word;
-            }
-            #reviewSliderEmbed .rs-meta { font-size: 9px; color: #6a5a80; }
-            #reviewSliderEmbed .rs-stars { font-size: 13px; letter-spacing: 2px; margin-top: 2px; }
-            #reviewSliderEmbed .rs-star-filled { color: #d4a017; }
-            #reviewSliderEmbed .rs-star-empty { color: rgba(106, 90, 128, 0.35); }
-            #reviewSliderEmbed .rs-logos { display: flex; gap: 6px; align-items: center; justify-content: center; opacity: 0.7; margin-top: 2px; }
-            #reviewSliderEmbed .rs-logos img { height: 16px; width: 16px; border-radius: 50%; object-fit: cover; }
-            #reviewSliderEmbed .rs-dots { display: flex; gap: 5px; justify-content: center; padding-top: 16px; }
-            #reviewSliderEmbed .rs-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.15); }
-            #reviewSliderEmbed .rs-dot.active { background: rgba(0,212,200,0.6); }
-
-            /* Mobile — keep the glass feel but make it genuinely readable
-               on a small, bright-daylight screen: less see-through card,
-               slightly less blur on the outer strip so text stays crisp. */
-            @media (max-width: 480px) {
-                #reviewSliderEmbed:not(:empty) { padding: 20px 14px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-                #reviewSliderEmbed .rs-card { width: 200px; height: 200px; background: rgba(245, 240, 220, 0.97); border-color: rgba(245, 240, 220, 0.7); }
-                #reviewSliderEmbed .rs-note { color: #2a1f3d; font-size: 10.5px; }
-                #reviewSliderEmbed .rs-title { color: #5b21b6; }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    try {
-        const res = await fetch('https://dropin-chat.3c-innertherapy.workers.dev/api/reviews/approved?for=vault');
-        const data = await res.json();
-        embedReviews = data.reviews || [];
-    } catch (e) {
-        console.warn('Could not load reviews for banner:', e);
-        return;
-    }
-
-    if (embedReviews.length === 0) return;
-
-    embedIndex = 0;
-    buildEmbedTrack();
-    if (embedTimer) clearInterval(embedTimer);
-    embedTimer = setInterval(() => {
-        embedIndex = (embedIndex + 1) % embedReviews.length;
-        updateEmbedPosition();
-    }, 6000);
-}
-
-// Builds every card once, laid out side by side — sliding between
-// them is then just a transform, giving a real slide-in motion
-// instead of the content instantly replacing itself.
-function buildEmbedTrack() {
-    const container = document.getElementById('reviewSliderEmbed');
-    if (!container) return;
-
-    const cardsHtml = embedReviews.map(r => {
-        const emojiHtml = (r.emojis || []).join(' ');
-        const hasNote = r.note && r.note.trim();
-        const fallbackQuote = (!hasNote && r.emojis && r.emojis.length)
-            ? r.emojis.map(e => REVIEW_EMOJI_LINES[e]).filter(Boolean).join(' ')
-            : '';
-        const emojiOnly = emojiHtml && !hasNote;
-        const identityLabel = r.identity === 'member' ? 'Community Member' : (r.identity === 'visitor' ? '3C Visitor' : '');
-        const starsHtml = r.stars
-            ? '<div class="rs-stars">'
-                + Array.from({ length: 5 }, (_, i) =>
-                    `<span class="${i < r.stars ? 'rs-star-filled' : 'rs-star-empty'}">★</span>`
-                  ).join('')
-              + '</div>'
-            : '';
-        const logos = REVIEW_LOGOS[r.ratedFor] || [];
-        const logoHtml = logos.map(src => `<img src="${src}" alt="">`).join('');
-        return `
-            <div class="rs-slide">
-                <div class="rs-card">
-                    <div class="rs-title">💝 From Our Visitors</div>
-                    ${emojiHtml ? `<div class="rs-emojis${emojiOnly ? ' rs-emoji-only' : ''}">${emojiHtml}</div>` : ''}
-                    ${hasNote ? `<div class="rs-note">${escapeHtml(r.note)}</div>` : (fallbackQuote ? `<div class="rs-note">${escapeHtml(fallbackQuote)}</div>` : '')}
-                    ${identityLabel ? `<div class="rs-meta">${identityLabel}</div>` : ''}
-                    ${starsHtml}
-                    ${logoHtml ? `<div class="rs-logos">${logoHtml}</div>` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    const dotsHtml = embedReviews.map((_, i) => `<div class="rs-dot ${i === 0 ? 'active' : ''}"></div>`).join('');
-
-    container.innerHTML = `
-        <div class="rs-track" id="rsTrack">${cardsHtml}</div>
-        <div class="rs-dots" id="rsDots">${dotsHtml}</div>
-    `;
-}
-
-function updateEmbedPosition() {
-    const track = document.getElementById('rsTrack');
-    const dots = document.getElementById('rsDots');
-    if (!track) return;
-    track.style.transform = `translateX(-${embedIndex * 100}%)`;
-    if (dots) {
-        dots.querySelectorAll('.rs-dot').forEach((d, i) => d.classList.toggle('active', i === embedIndex));
+function updateConnectionStatus(connected) {
+    const indicator = document.getElementById('connectionStatus');
+    if (indicator) {
+        indicator.className = 'status-indicator ' + (connected ? 'connected' : 'disconnected');
     }
 }
 
-// ==================== COPY SERIES LINK ====================
-// Copies a library URL — ?folder=X&highlight=Y — so visitors land
-// in the Vault first (traffic + view tracking) rather than skipping
-// straight to an external quiz app. Opens the full grid with that
-// one item glowing and scrolled into view, keeping the "browse
-// everything" feel intact rather than isolating a single item.
-function copySeriesLink(itemId) {
-    const item = seriesItemsCache.find(i => i.id === itemId);
-    if (!item) return;
-
-    const baseUrl = window.location.origin + window.location.pathname;
-    const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
-    const itemSlug = item.custom_url || item.slug || item.id;
-    const link = baseUrl + '?folder=' + encodeURIComponent(folderSlug) + '&highlight=' + encodeURIComponent(itemSlug);
-
-    navigator.clipboard.writeText(link).then(() => {
-        alert('✅ Link copied!\n\n' + item.title + '\n' + link);
-    }).catch(() => {
-        prompt('Copy this link:', link);
-    });
-}
-
-function nativeShareSeriesItem(itemId) {
-    const item = seriesItemsCache.find(i => i.id === itemId);
-    if (!item) return;
-    const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
-    const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
-    const itemSlug = item.custom_url || item.slug || item.id;
-    const link = `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
-    if (navigator.share) {
-        navigator.share({
-            title: item.title,
-            text: item.description || 'Think it. Do it. Own it.',
-            url: link,
-        }).catch(() => { /* cancelled */ });
-    } else {
-        copySeriesLink(itemId);
-    }
-}
-
-// ==================== OPEN SERIES ITEM ====================
-function openSeriesItem(itemId) {
-    const item = seriesItemsCache.find(i => i.id === itemId);
-    if (!item) return;
-
-    // Track that this item was opened — fire and forget, never
-    // blocks navigation. Shows up as "Views" in the admin panel.
-    if (typeof vaultClient !== 'undefined' && vaultClient.incrementSeriesViewCount) {
-        vaultClient.incrementSeriesViewCount(item.id).catch(() => {});
-    }
-
-    if (item.type === 'pdf') {
-        openPDFModal(item.url, item.title, item.id);
-        return;
-    }
-
-    if (item.type === 'flipbook') {
-        const isMobile = window.innerWidth <= 768;
-        const page = isMobile ? '../flipbook-viewer-mobile.html' : '../flipbook-viewer.html';
-        const url = item.url ? page + '?manifest=' + encodeURIComponent(item.url) : page + '?content=' + item.id;
-        window.location.href = url;
-        return;
-    }
-
-    if (item.type === 'presentation') {
-        const url = item.url ? '../presentation-viewer.html?manifest=' + encodeURIComponent(item.url) : '../presentation-viewer.html?content=' + item.id;
-        window.location.href = url;
-        return;
-    }
-
-    if (item.type === 'video') { openSeriesMedia(item, 'video'); return; }
-    if (item.type === 'audio') { openSeriesMedia(item, 'audio'); return; }
-    if (item.type === 'image' || item.type === 'gif') { openSeriesMedia(item, 'image'); return; }
-
-    // Quiz has its own exit button (fixed separately in quiz_app.js
-    // to return to document.referrer) — still same-tab navigation.
-    if (item.type === 'quiz') {
-        window.location.href = item.url || item.external_url || '#';
-        return;
-    }
-
-    // card-game, spin-wheel, landing-page, virtual-slideshow, link —
-    // these are external single-page apps with no close button of
-    // their own. Rather than navigate away entirely, load them in an
-    // iframe inside the same modal video/audio already use, so the
-    // vault's own X button controls closing — no changes needed to
-    // the destination site itself.
-    if (item.type === 'card-game' || item.type === 'spin-wheel' ||
-        item.type === 'landing-page' || item.type === 'virtual-slideshow' || item.type === 'link') {
-        openSeriesMedia(item, 'iframe');
-        return;
-    }
-
-    // Fallback for anything unrecognised — still same-tab, not a new one
-    window.location.href = item.url || item.external_url || '#';
-}
-
-// ==================== SERIES MEDIA MODAL ====================
-// Reuses #mediaModal (already in vault.html). Video/image size to
-// their own natural dimensions — no forced aspect ratio, no
-// letterboxing margins. Plyr's hide-controls + replay-on-end
-// behaviour (vault.html) picks up any <video> automatically via
-// its MutationObserver, so no extra wiring needed here.
-function openSeriesMedia(item, kind) {
-    const modal = document.getElementById('mediaModal');
-    const title = document.getElementById('mediaTitle');
-    const container = document.getElementById('mediaContainer');
-    if (!modal || !container) return;
-
-    // Iframe-embedded apps already show their own title on screen —
-    // showing ours too was just a duplicate sitting above it.
-    if (title) title.textContent = (kind === 'iframe') ? '' : (item.title || '');
-    container.innerHTML = '';
-
-    if (kind === 'video') {
-        container.innerHTML = '<video autoplay playsinline style="display:block; max-width:90vw; max-height:80vh; width:auto; height:auto; background:transparent; border-radius:8px;"><source src="' + item.url + '"></video>';
-    } else if (kind === 'audio') {
-        container.innerHTML = '<audio controls autoplay style="width:400px; max-width:90vw;"><source src="' + item.url + '"></audio>';
-    } else if (kind === 'image') {
-        container.innerHTML = '<img src="' + item.url + '" style="display:block; max-width:90vw; max-height:80vh; width:auto; height:auto; border-radius:8px;">';
-    } else if (kind === 'iframe') {
-        // No border, no radius, no background — the app itself already
-        // has its own bezel/frame/background designed in. This iframe
-        // is just an invisible window behind it.
-        // Sized by percentage (100% of its parent), not vh — vh measures
-        // against the full viewport including space a mobile browser's
-        // address bar hasn't collapsed out of yet, which was pushing
-        // content (like the app's own header) up out of view on phones.
-        // #mediaModal is already correctly sized via fixed positioning,
-        // so cascading percentage height down from it tracks the real
-        // visible area correctly on every device.
-        container.style.maxWidth = '100%';
-        container.style.maxHeight = '100%';
-        container.style.width = '100%';
-        container.style.height = '100%';
-        container.innerHTML = '<iframe src="' + (item.url || item.external_url) + '" style="width:100%; height:100%; border:none; background:transparent; display:block;" allow="autoplay; fullscreen"></iframe>';
-    }
-
-    modal.style.display = 'flex';
-}
-
-function closeMediaPlayer() {
-    const modal = document.getElementById('mediaModal');
-    const container = document.getElementById('mediaContainer');
-    if (container) {
-        container.querySelectorAll('video, audio').forEach(el => {
-            try { el.pause(); el.currentTime = 0; el.src = ''; } catch (e) {}
-        });
-        container.innerHTML = '';
-    }
-    if (modal) modal.style.display = 'none';
-}
-
-// Click outside the media content (on the dark backdrop) closes it
-document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('mediaModal');
-    if (modal) {
-        modal.addEventListener('click', (e) => { if (e.target === modal) closeMediaPlayer(); });
-    }
-});
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        const modal = document.getElementById('mediaModal');
-        if (modal && modal.style.display === 'flex') closeMediaPlayer();
-    }
-});
-
-// Apps running inside the iframe modal (Mirror Quest and similar)
-// can't just navigate to "go back" — that only changes what's shown
-// inside their own small window, not the modal around them. Instead
-// they post a message out to this page asking it to close the modal.
-// Pair this with a standard exit function inside each app:
-//
-//   function vaultExit() {
-//       if (window.parent && window.parent !== window) {
-//           window.parent.postMessage({ type: 'vault-close-modal' }, '*');
-//           return;
-//       }
-//       if (document.referrer) { window.location.href = document.referrer; }
-//       else { window.history.back(); }
-//   }
-//
-window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'vault-close-modal') {
-        closeMediaPlayer();
-    }
-});
-
-// ==================== OPEN FOLDER SIDEBAR ====================
-async function openFolderSidebar(folderId) {
-    const folder = library.folders.find(f => f.id === folderId);
-    if (!folder) return;
-    if (folder.isPublic === false) { console.warn('Attempted to access private folder via sidebar:', folder.title); window.location.href = '?folder=' + folder.slug; return; }
-    console.log('Opening folder sidebar for:', folder.title, 'ID:', folderId);
-    const subfolders = library.folders.filter(f => f.parentId === folderId).sort((a, b) => a.title.localeCompare(b.title));
-
-    let folderContent = [];
-    if (folder.displayStyle === 'collection') {
-        try {
-            const items = await vaultClient.getContentSeries(folderId);
-            folderContent = items.map(item => ({ id: item.id, title: item.title, slug: item.slug, type: item.type, folderId: item.folder_id, url: item.url, thumbnail: item.thumbnail_url, description: item.description, order: item.display_order }));
-            console.log('Loaded series folder content:', folderContent.length, 'items');
-        } catch (err) { console.error('Error loading series folder content:', err); }
-    } else {
-        try {
-            const { data, error } = await vaultClient.client.from('vault_content')
-                .select('id, folder_id, title, type, url, thumbnail_url, description, slug, display_order')
-                .eq('folder_id', folderId).order('display_order', { ascending: true });
-            console.log('Vault sidebar query result:', { data, error, count: data ? data.length : 0 });
-            if (!error && data) {
-                folderContent = data.map(item => ({ id: item.id, title: item.title, slug: item.slug, type: item.type, folderId: item.folder_id, url: item.url, thumbnail: item.thumbnail_url, description: item.description, order: item.display_order }));
-                console.log('Loaded vault folder content:', folderContent.length, 'items');
-            } else if (error) { console.error('Vault sidebar Supabase error:', error); }
-        } catch (err) { console.error('Error loading vault folder content:', err); }
-    }
-
-    document.getElementById('sidebarFolderTitle').innerHTML = `<div><h3 style="margin: 0; color: #9b59b6; font-size: 18px;">${folder.title}</h3><div style="font-size: 12px; color: #808080; margin-top: 4px;">${folder.tableName || folder.slug}</div></div>`;
-
-    let contentHtml = '';
-    if (subfolders.length > 0) {
-        subfolders.forEach(subfolder => {
-            const itemCount = subfolder.actualItemCount || 0;
-            contentHtml += `<div class="subfolder-card" onclick="window.location.href='?folder=${subfolder.slug}'"><div style="display: flex; align-items: center; gap: 10px;"><div style="font-size: 24px;">📂</div><div style="flex: 1;"><div style="font-weight: 600; color: #ffffff; font-size: 14px;">${subfolder.title}</div><div style="font-size: 11px; color: #808080;">${itemCount} items</div></div><div style="color: #9b59b6; font-size: 18px;">→</div></div></div>`;
-        });
-    }
-    if (folderContent.length > 0) {
-        const itemCount = folderContent.length;
-        const isCollection = folder.displayStyle === 'collection';
-        if (subfolders.length > 0) contentHtml += '<hr style="border: none; border-top: 1px solid rgba(155, 89, 182, 0.3); margin: 20px 0;">';
-        contentHtml += '<p style="color: #9b59b6; margin-top: 15px; font-size: 14px;">' + (isCollection ? '🎬' : '📄') + ' This folder has ' + itemCount + ' content item' + (itemCount !== 1 ? 's' : '') + '. Click to view:</p>';
-        contentHtml += '<button onclick="window.location.href=\'?folder=' + (folder.tableName || folder.slug) + '\'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 12px rgba(155, 89, 182, 0.4)\'" onmouseout="this.style.transform=\'\'; this.style.boxShadow=\'0 2px 8px rgba(155, 89, 182, 0.3)\'">' + (isCollection ? '🎬 View Collection (' : '📂 View Content (') + itemCount + ')</button>';
-    }
-    if (folderContent.length === 0 && subfolders.length === 0) contentHtml = '<p style="color: #999; text-align: center; padding: 40px;">No sub-folders or content yet.</p>';
-    document.getElementById('sidebarContent').innerHTML = contentHtml;
-    document.getElementById('folderSidebar').style.display = 'block';
-}
-
-function closeFolderSidebar() { document.getElementById('folderSidebar').style.display = 'none'; }
-
-// ==================== VIEW CONTENT ====================
-function viewContent(contentSlug) {
-    const content = findContentBySlug(contentSlug, currentFolder.id);
-    if (content) showViewer(content);
-}
-
-// ==================== SHARE PDF LINK ====================
-function sharePDFLink(contentId) {
-    const baseUrl = window.location.origin + window.location.pathname;
+function setupDragAndDrop() {
+    const uploadArea = document.getElementById('uploadArea');
+    if (!uploadArea) return;
     
-    // Determine view type based on content type
-    let viewType = 'pdf-only'; // default
-    if (currentContent) {
-        const type = currentContent.type;
-        if (type === 'flipbook') {
-            viewType = 'flipbook-only';
-        } else if (type === 'presentation') {
-            viewType = 'presentation-only';
-        } else if (type === 'pdf') {
-            viewType = 'pdf-only';
-        } else if (type === 'video') {
-            viewType = 'video-only';
-        } else if (type === 'image' || type === 'gif') {
-            viewType = 'image-only';
-        } else if (type === 'audio') {
-            viewType = 'audio-only';
-        } else if (type === 'landing-page') {
-            viewType = 'landing-page-only';
-        } else if (type === 'virtual-slideshow') {
-            viewType = 'virtual-slideshow-only';
-        } else if (type === 'quiz') {
-            viewType = 'quiz-only';
-        } else if (type === 'card-game') {
-            viewType = 'card-game-only';
-        } else if (type === 'spin-wheel') {
-            viewType = 'spin-wheel-only';
-        } else if (type === 'link') {
-            viewType = 'link-only';
-        }
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
     }
     
-    if (currentContent && currentFolder) {
-        const folderTableName  = currentFolder.tableName;
-        const contentCustomUrl = currentContent.customUrl || currentContent.slug;
-        return baseUrl + '?folder=' + folderTableName + '&url=' + contentCustomUrl + '&view=' + viewType;
-    }
-    return baseUrl + '?content=' + contentId + '&view=' + viewType;
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, () => {
+            uploadArea.classList.add('dragover');
+        }, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, () => {
+            uploadArea.classList.remove('dragover');
+        }, false);
+    });
+    
+    uploadArea.addEventListener('drop', handleDrop, false);
 }
 
-function buildShareWorkerLink(contentId) {
-    // Share button only — routes through the share-preview Worker,
-    // separate from sharePDFLink() (Copy Link), which stays on the
-    // original direct-link format.
-    const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
-    if (currentContent && currentFolder) {
-        const folderSlug = currentFolder.slug || currentFolder.tableName;
-        const itemSlug = currentContent.customUrl || currentContent.slug || currentContent.id;
-        return `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
-    }
-    return sharePDFLink(contentId);
-}
-
-// ==================== SHOW VIEWER ====================
-function showViewer(content, pdfOnlyMode) {
-    if (pdfOnlyMode === undefined) pdfOnlyMode = false;
-    currentContent = content;
-    let viewerHtml = '';
-
-    const shareButton = pdfOnlyMode ? '' : '<button onclick="nativeShareContent()" style="background: linear-gradient(135deg, #00d4c8, #00a89e); color: #0a0416; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,212,200,0.3);" title="Share">&#8599;</button><button onclick="copyShareLink()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 6px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);" title="Copy Link">&#8853;</button>';
-
-    if (content.type === 'pdf') {
-        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%84%3C/text%3E%3C/svg%3E';
-        const safeUrl = content.url.replace(/`/g, '\\`'), safeTitle = content.title.replace(/`/g, '\\`');
-        viewerHtml = `<div style="text-align: center; cursor: pointer;" onclick="openPDFModal(\`${safeUrl}\`, \`${safeTitle}\`, \`${content.id}\`)"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><div style="font-size: 18px; color: #9b59b6; font-weight: 600; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">📄 Click to view PDF</div></div>`;
-    } else if (content.type === 'flipbook') {
-        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%96%3C/text%3E%3C/svg%3E';
-        const isMobile = window.innerWidth <= 768;
-        const flipbookViewerPage = isMobile ? '../flipbook-viewer-mobile.html' : '../flipbook-viewer.html';
-        const flipbookUrl = content.url ? flipbookViewerPage + '?manifest=' + encodeURIComponent(content.url) : flipbookViewerPage + '?content=' + content.id;
-        viewerHtml = `<div style="text-align: center;"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="${flipbookUrl}" onclick="event.stopPropagation(); window.location.href='${flipbookUrl}'; return false;" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📖</span>Click to View Flipbook</a></div>`;
-    } else if (content.type === 'presentation') {
-        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%8A%3C/text%3E%3C/svg%3E';
-        const presentationUrl = content.url ? '../presentation-viewer.html?manifest=' + encodeURIComponent(content.url) : '../presentation-viewer.html?content=' + content.id;
-        viewerHtml = `<div style="text-align: center;"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="${presentationUrl}" onclick="event.stopPropagation(); window.location.href='${presentationUrl}'; return false;" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📊</span>Click to View Presentation</a></div>`;
-    } else if (content.type === 'video') {
-        const isDirectVideo = /\.(mp4|webm|mov|ogg|m4v)(\?|#|$)/i.test(content.url);
-        viewerHtml = (content.url.startsWith('data:') || isDirectVideo) ?
-            '<div style="position:relative;width:fit-content;max-width:100%;margin:0 auto;background:transparent;border-radius:16px;overflow:hidden;">' +
-            '<video id="vaultVideo" autoplay playsinline style="display:block;max-width:100%;height:auto;max-height:90vh;object-fit:contain;background:transparent;"><source src="' + content.url + '"></video>' +
-            '<div id="vaultPlayOverlay" onclick="var v=document.getElementById(\'vaultVideo\');v.play();this.style.display=\'none\';" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;cursor:pointer;background:transparent;">' +
-            '<div style="width:60px;height:60px;background:rgba(155,89,182,0.7);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;color:white;backdrop-filter:blur(4px);">▸</div></div></div>' :
-            '<iframe src="' + content.url + '" style="width:100%;height:90vh;border:none;display:block;" allowfullscreen></iframe>';
-    } else if (content.type === 'image' || content.type === 'gif') {
-        viewerHtml = '<div style="display: flex; justify-content: center; padding: 20px;"><img src="' + content.url + '" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>';
-    } else if (content.type === 'audio') {
-        viewerHtml = '<div style="display: flex; justify-content: center; padding: 40px;"><audio controls style="width: 100%; max-width: 600px; height: 54px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"><source src="' + content.url + '"></audio></div>';
-    } else if (content.type === 'quiz' || content.type === 'card-game' || content.type === 'spin-wheel' || content.type === 'landing-page' || content.type === 'virtual-slideshow' || content.type === 'link') {
-        const linkLabels = { 'quiz': 'Click to Open Quiz', 'card-game': 'Click to Open Card Game', 'spin-wheel': 'Click to Spin the Wheel', 'landing-page': 'Click to Open', 'virtual-slideshow': 'Click to Launch Virtual Slideshow', 'link': 'Click to Open Link' };
-        const linkIcons  = { 'quiz': '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', 'virtual-slideshow': '🎞️', 'link': '🔗' };
-        const linkLabel  = linkLabels[content.type] || '🔗 Click to Open';
-        const linkIcon   = linkIcons[content.type]  || '🔗';
-        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%94%97%3C/text%3E%3C/svg%3E';
-        const target = content.url || content.externalUrl || '#';
-        viewerHtml = '<div style="text-align: center;"><img src="' + thumbnailSrc + '" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="' + target + '" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">' + linkIcon + '</span>' + linkLabel + '</a></div>';
-    } else {
-        // Unknown type — thumbnail + generic open button
-        let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%8E%3C/text%3E%3C/svg%3E';
-        const target = content.url || content.externalUrl || '#';
-        viewerHtml = '<div style="text-align: center;"><img src="' + thumbnailSrc + '" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="' + target + '" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📎</span>Click to Open</a></div>';
-    }
-
-    const backButton = !pdfOnlyMode ? '<button onclick="hideContentViewer()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>' : '';
-
-    const viewer = document.getElementById('viewer');
-    if (pdfOnlyMode) viewer.innerHTML = '<div id="viewerContent" style="max-width: 800px; margin: 0 auto; padding: 20px;"></div>';
-    let contentArea = document.getElementById('viewerContent');
-
-    if (contentArea) {
-        contentArea.style.display = 'block';
-        contentArea.classList.add('active');
-        const leftSidebar = document.getElementById('leftSidebar');
-        if (leftSidebar && window.innerWidth <= 768) leftSidebar.classList.add('hidden');
-    }
-
-    const descHtml = content.description ? '<div class="viewer-desc">' + content.description + '</div>' : '';
-
-    contentArea.innerHTML = backButton + '<h2 style="font-size: 18px;">' + content.title + shareButton + '</h2>' + descHtml + viewerHtml + `
-        <div class="comments-section" style="margin-top: 40px;">
-            <div class="comments-header"><h3>💬 Comments</h3><span class="comment-count" id="commentCount">0</span></div>
-            <div class="comment-form">
-                <div id="commentSuccessMsg" class="comment-success" style="display: none;">✅ Thank you! Your comment has been posted successfully.</div>
-                <input type="text" id="commentAuthorName" placeholder="Your Name *" required>
-                <input type="email" id="commentAuthorEmail" placeholder="Your Email (optional, for notifications)">
-                <textarea id="commentText" placeholder="Write your comment here... *" required></textarea>
-                <button onclick="submitComment()" id="submitCommentBtn">Post Comment</button>
-            </div>
-            <div class="comments-list" id="commentsList"><div class="no-comments">No comments yet. Be the first to comment!</div></div>
-        </div>
-    `;
-    loadComments(content.id);
-
-    // Telegram webview autoplay fallback — show play overlay only if autoplay blocked at start
-    const vaultVid = document.getElementById('vaultVideo');
-    const vaultOverlay = document.getElementById('vaultPlayOverlay');
-    if (vaultVid && vaultOverlay) {
-        vaultVid.play().then(() => {
-            vaultOverlay.style.display = 'none';
-        }).catch(() => {
-            vaultOverlay.style.display = 'flex';
-        });
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    
+    if (files.length > 0) {
+        currentFile = files[0];
+        displayFileInfo(currentFile);
     }
 }
 
-// ==================== COPY SHARE LINK ====================
-function copyShareLink() {
-    if (!currentContent) return;
-    const shareLink = sharePDFLink(currentContent.id);
-    navigator.clipboard.writeText(shareLink).then(() => { alert('✅ Link copied to clipboard!\n\n' + shareLink); }).catch(err => { prompt('Copy this link:', shareLink); });
+function setupFileHandlers() {
+    const fileUpload = document.getElementById('fileUpload');
+    if (!fileUpload) return;
+    
+    fileUpload.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            currentFile = e.target.files[0];
+            displayFileInfo(currentFile);
+        }
+    });
 }
 
-function nativeShareContent() {
-    if (!currentContent) return;
-    const shareLink = buildShareWorkerLink(currentContent.id);
-    if (navigator.share) {
-        navigator.share({
-            title: currentContent.title,
-            text: currentContent.description || 'Think it. Do it. Own it.',
-            url: shareLink,
-        }).catch(() => { /* cancelled */ });
-    } else {
-        copyShareLink();
-    }
+function displayFileInfo(file) {
+    const info = document.getElementById('fileInfo');
+    if (!info) return;
+    const size = formatFileSize(file.size);
+    info.textContent = `📄 ${file.name} (${size})`;
 }
 
-// ==================== PDF MODAL ====================
-function openPDFModal(pdfUrl, title, contentId) {
-    const modal = document.getElementById('pdfModal'), titleEl = document.getElementById('pdfTitle');
-    if (!modal || !titleEl) return;
-    titleEl.textContent = title;
-    modal.classList.add('active');
-    if (typeof window.loadPdfInViewer === 'function') window.loadPdfInViewer(pdfUrl);
-    else if (typeof window.openEnhancedPDF === 'function') window.openEnhancedPDF(pdfUrl, title);
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
-
-function closePDFModal() { const modal = document.getElementById('pdfModal'); if (modal) modal.classList.remove('active'); }
-
-// ==================== HIDE CONTENT VIEWER ====================
-function hideContentViewer() {
-    const viewer = document.querySelector('.right-viewer'), leftSidebar = document.getElementById('leftSidebar');
-    if (viewer) viewer.classList.remove('active');
-    if (leftSidebar) leftSidebar.classList.remove('hidden');
-    if (window.innerWidth > 768) window.location.href = 'vault.html';
-}
-
-// ==================== LAZY LOADING ====================
-let thumbnailObserver;
-function initLazyLoading() {
-    if ('IntersectionObserver' in window) {
-        thumbnailObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const thumbnail = entry.target, bgImage = thumbnail.getAttribute('data-bg');
-                    if (bgImage) {
-                        const img = new Image(); img.decoding = 'async';
-                        img.onload = () => { thumbnail.style.backgroundImage = 'url(\'' + bgImage + '\')'; thumbnail.style.backgroundSize = 'cover'; thumbnail.style.backgroundPosition = 'center'; };
-                        img.src = bgImage; thumbnail.removeAttribute('data-bg'); thumbnailObserver.unobserve(thumbnail);
-                    }
-                }
-            });
-        }, { rootMargin: '200px', threshold: 0.01 });
-    }
-}
-function observeThumbnails() { if (thumbnailObserver) document.querySelectorAll('.content-thumbnail[data-bg]').forEach(t => thumbnailObserver.observe(t)); }
-initLazyLoading();
-
-// ==================== COMMENTS ====================
-async function loadComments(contentId) {
-    try {
-        console.log('Loading vault comments for content:', contentId);
-        const { data: comments, error } = await vaultClient.client.from('vault_comments').select('*').eq('content_id', contentId).eq('is_approved', true).order('created_at', { ascending: true });
-        if (error) throw error;
-        const count = comments ? comments.length : 0;
-        const commentCountEl = document.getElementById('commentCount');
-        if (commentCountEl) commentCountEl.textContent = count;
-        const commentsList = document.getElementById('commentsList');
-        if (!commentsList) return;
-        if (count === 0) { commentsList.innerHTML = '<div class="no-comments">No comments yet. Be the first to comment!</div>'; return; }
-        commentsList.innerHTML = comments.map(comment => '<div class="comment-item"><div class="comment-header"><span class="comment-author">' + escapeHtml(comment.author_name) + '</span><span class="comment-date">' + formatDate(comment.created_at) + '</span></div><div class="comment-text">' + escapeHtml(comment.comment_text) + '</div></div>').join('');
-    } catch (error) { console.error('Error loading vault comments:', error); const cl = document.getElementById('commentsList'); if (cl) cl.innerHTML = '<div class="no-comments">Error loading comments.</div>'; }
-}
-
-async function submitComment() {
-    const authorName = document.getElementById('commentAuthorName').value.trim();
-    const authorEmail = document.getElementById('commentAuthorEmail').value.trim();
-    const commentText = document.getElementById('commentText').value.trim();
-    const submitBtn = document.getElementById('submitCommentBtn');
-    if (!authorName || !commentText) { alert('Please fill in your name and comment.'); return; }
-    if (!currentContent || !currentContent.id) { alert('No content selected for commenting.'); return; }
-    try {
-        submitBtn.disabled = true; submitBtn.textContent = 'Posting...';
-        const { error } = await vaultClient.client.from('vault_comments').insert([{ content_id: currentContent.id, author_name: authorName, author_email: authorEmail || null, comment_text: commentText, is_approved: true }]);
-        if (error) throw error;
-        const successMsg = document.getElementById('commentSuccessMsg');
-        if (successMsg) { successMsg.style.display = 'block'; setTimeout(() => { successMsg.style.display = 'none'; }, 5000); }
-        document.getElementById('commentAuthorName').value = ''; document.getElementById('commentAuthorEmail').value = ''; document.getElementById('commentText').value = '';
-        await loadComments(currentContent.id); console.log('Vault comment submitted');
-    } catch (error) { console.error('Error submitting vault comment:', error); alert('Error submitting comment: ' + (error.message || error.toString()) + '\n\nPlease try again or contact support.'); }
-    finally { submitBtn.disabled = false; submitBtn.textContent = 'Post Comment'; }
-}
-
-function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
 
 function formatDate(dateString) {
-    const date = new Date(dateString), now = new Date(), diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000), diffHours = Math.floor(diffMs / 3600000), diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return diffMins + ' minute' + (diffMins > 1 ? 's' : '') + ' ago';
-    if (diffHours < 24) return diffHours + ' hour' + (diffHours > 1 ? 's' : '') + ' ago';
-    if (diffDays < 7) return diffDays + ' day' + (diffDays > 1 ? 's' : '') + ' ago';
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 }
 
-// ==================== PRIVATE FOLDER PASSWORD ====================
-
-function isOwner() {
-    if (!currentUser || !currentUser.email) return false;
-    const ownerEmail = CONFIG && CONFIG.app ? CONFIG.app.ownerEmail : null;
-    if (!ownerEmail) return false;
-    return currentUser.email.toLowerCase() === ownerEmail.toLowerCase();
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-async function checkCurrentUser() {
-    try {
-        if (!vaultClient || !vaultClient.client) return;
-        const result = await vaultClient.client.auth.getUser();
-        currentUser = result.data.user;
-        if (currentUser) { console.log('Vault: Logged in as:', currentUser.email); if (isOwner()) console.log('Owner access granted'); }
-    } catch (error) { console.error('Error checking vault user:', error); currentUser = null; }
+function getTypeIcon(type) {
+    const icons = {
+        pdf: '📄',
+        flipbook: '📖',
+        presentation: '📊',
+        video: '🎥',
+        image: '🖼️',
+        audio: '🎵',
+        link: '🔗',
+        'virtual-slideshow': '🎞️'
+    };
+    return icons[type] || '📄';
 }
 
-function isFolderPrivate(folder) { return folder && folder.is_public === false; }
-
-function promptForFolderPassword(folder) {
-    pendingPrivateFolder = folder;
-    const modal = document.getElementById('passwordPromptModal'), folderNameEl = document.getElementById('passwordPromptFolderName'), inputEl = document.getElementById('passwordPromptInput'), errorEl = document.getElementById('passwordError');
-    folderNameEl.textContent = 'Enter password to access: ' + folder.title;
-    inputEl.value = ''; errorEl.style.display = 'none'; modal.style.display = 'flex'; inputEl.focus();
-    inputEl.onkeypress = (e) => { if (e.key === 'Enter') submitFolderPassword(); };
+function truncateURL(url, maxLength = 50) {
+    if (!url) return '';
+    if (url.length <= maxLength) return url;
+    return url.substring(0, maxLength) + '...';
 }
 
-async function submitFolderPassword() {
-    if (!pendingPrivateFolder) return;
-    const inputEl = document.getElementById('passwordPromptInput'), errorEl = document.getElementById('passwordError'), password = inputEl.value.trim();
-    if (!password) { errorEl.textContent = 'Please enter a password'; errorEl.style.display = 'block'; return; }
-    try {
-        const { data: passwords, error } = await vaultClient.client.from('vault_folder_passwords').select('*').eq('folder_id', pendingPrivateFolder.id).eq('is_active', true);
-        if (error) throw error;
-        if (!passwords || passwords.length === 0) { errorEl.textContent = 'No active passwords for this folder'; errorEl.style.display = 'block'; return; }
-        let passwordValid = false;
-        for (const pwd of passwords) {
-            if (pwd.expires_at && new Date(pwd.expires_at) < new Date()) continue;
-            const isValid = await PasswordUtils.verifyPassword(password, pwd.password_hash);
-            if (isValid) { passwordValid = true; break; }
+function previewThumbnail(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    currentThumbnail = file;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const preview = document.getElementById('thumbnailPreview');
+        if (preview) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
         }
-        if (passwordValid) { PasswordUtils.grantAccess(pendingPrivateFolder.id); closePasswordPrompt(); window.location.href = '?folder=' + pendingPrivateFolder.slug; }
-        else { errorEl.textContent = '❌ Invalid password'; errorEl.style.display = 'block'; inputEl.value = ''; inputEl.focus(); }
-    } catch (error) { console.error('Error validating vault password:', error); errorEl.textContent = 'Error validating password'; errorEl.style.display = 'block'; }
+    };
+    reader.readAsDataURL(file);
 }
 
-function closePasswordPrompt() { const modal = document.getElementById('passwordPromptModal'); if (modal) modal.style.display = 'none'; pendingPrivateFolder = null; }
-function checkPrivateFolderAccess(folder) { if (!isFolderPrivate(folder)) return true; return PasswordUtils.hasAccess(folder.id); }
+async function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// ==================== GLOBAL ERROR HANDLER ====================
+window.onerror = function(message, source, lineno, colno, error) {
+    console.error('Global error caught:', { message, source, lineno, colno, error });
+    return false;
+};
+
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Unhandled promise rejection:', event.reason);
+});
+
+// ==================== INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🚀 Admin panel initializing...');
+    debugLog('🚀 Admin panel initializing...');
+    
+    try {
+        // Load saved Supabase credentials
+        loadSupabaseCredentials();
+        
+        // Setup drag and drop
+        setupDragAndDrop();
+        
+        // Setup file upload handlers
+        setupFileHandlers();
+        
+        // Try to connect if credentials exist
+        const urlInput = document.getElementById('supabaseUrl');
+        const keyInput = document.getElementById('supabaseKey');
+        
+        if (urlInput && keyInput) {
+            const url = urlInput.value;
+            const key = keyInput.value;
+            
+            if (url && key) {
+                console.log('Auto-connecting with saved credentials...');
+                await connectSupabase();
+            }
+        }
+        
+        console.log('✅ Admin panel initialized');
+    } catch (error) {
+        console.error('❌ Initialization error:', error);
+        debugLog('❌ Initialization error: ' + (error.message || error.toString()));
+    }
+});
+
+// ==================== SUPABASE CONNECTION ====================
+function loadSupabaseCredentials() {
+    const url = localStorage.getItem('supabase_url') || '';
+    const key = localStorage.getItem('supabase_key') || '';
+    
+    const urlInput = document.getElementById('supabaseUrl');
+    const keyInput = document.getElementById('supabaseKey');
+    
+    if (urlInput) urlInput.value = url;
+    if (keyInput) keyInput.value = key;
+}
+
+function saveSupabaseCredentials(url, key) {
+    localStorage.setItem('supabase_url', url);
+    localStorage.setItem('supabase_key', key);
+}
+
+async function connectSupabase() {
+    const urlInput = document.getElementById('supabaseUrl');
+    const keyInput = document.getElementById('supabaseKey');
+    
+    if (!urlInput || !keyInput) {
+        showAlert('error', 'Supabase connection fields not found');
+        return;
+    }
+    
+    const url = urlInput.value.trim();
+    const key = keyInput.value.trim();
+    
+    if (!url || !key) {
+        showAlert('error', 'Please enter both Supabase URL and Anon Key');
+        return;
+    }
+    
+    try {
+        debugLog('🔌 Connecting to Supabase...');
+        console.log('Attempting connection with URL:', url);
+        
+        await supabaseClient.init(url, key);
+        
+        // Also init vault client with same credentials
+        if (typeof vaultClient !== 'undefined') {
+            await vaultClient.init(url, key);
+            console.log('✅ Vault client also initialized');
+        }
+        
+        saveSupabaseCredentials(url, key);
+        updateConnectionStatus(true);
+        showAlert('success', '✅ Connected to Supabase successfully!');
+        
+        // Load data
+        debugLog('📥 Loading data from Supabase...');
+        await loadAllData();
+        
+        debugLog('✅ Supabase connected and data loaded');
+    } catch (error) {
+        console.error('Connection error:', error);
+        debugLog('❌ Supabase connection failed: ' + (error.message || error.toString()));
+        updateConnectionStatus(false);
+        showAlert('error', 'Connection failed: ' + (error.message || error.toString()));
+    }
+}
+
+async function testConnection() {
+    try {
+        if (!supabaseClient.isConnected) {
+            showAlert('error', 'Please connect to Supabase first');
+            return;
+        }
+        
+        debugLog('🧪 Testing connection...');
+        await supabaseClient.testConnection();
+        showAlert('success', '✅ Connection test successful!');
+        debugLog('✅ Connection test passed');
+    } catch (error) {
+        console.error('Test connection error:', error);
+        debugLog('❌ Connection test failed: ' + (error.message || error.toString()));
+        showAlert('error', '❌ Connection test failed: ' + (error.message || error.toString()));
+    }
+}
+
+function updateConnectionStatus(connected) {
+    const indicator = document.getElementById('connectionStatus');
+    if (indicator) {
+        indicator.className = 'status-indicator ' + (connected ? 'connected' : 'disconnected');
+    }
+}
+
+// ==================== DATA LOADING ====================
+async function loadAllData() {
+    try {
+        // Always reset destination dropdowns to library on data reload
+        // prevents browser remembering vault selection from previous session
+        const contentDest = document.getElementById('contentDestination');
+        const folderDest  = document.getElementById('folderDestination');
+        if (contentDest) contentDest.value = 'library';
+        if (folderDest)  folderDest.value  = 'library';
+
+        // Load library folders
+        folders = await supabaseClient.getFolders();
+
+        // Load vault folders
+        if (typeof vaultClient !== 'undefined' && vaultClient.isConnected) {
+            try {
+                vaultFolders = await vaultClient.getFolders();
+                console.log('🥷 Vault folders loaded:', vaultFolders.length);
+                displayVaultFoldersGrid();
+            } catch (e) {
+                console.error('❌ Could not load vault folders:', e.message);
+                showAlert('error', '❌ Vault folders failed to load: ' + e.message + ' — Run the GRANT SQL in Supabase.');
+                vaultFolders = [];
+                displayVaultFoldersGrid();
+            }
+        }
+
+        updateFolderSelects();
+        displayFolders();
+        
+        // Load content
+        await loadContent();
+        
+        // Load stats
+        await loadStats();
+        
+        debugLog('📊 Data loaded: ' + folders.length + ' folders, ' + allContent.length + ' content items, ' + vaultFolders.length + ' vault folders');
+    } catch (error) {
+        debugLog('❌ Error loading data: ' + error.message);
+        showAlert('error', 'Error loading data: ' + error.message);
+    }
+}
+
+async function loadStats() {
+    try {
+        const stats = await supabaseClient.getStats();
+        const statFolders = document.getElementById('statFolders');
+        const statContent = document.getElementById('statContent');
+        const statViews = document.getElementById('statViews');
+        
+        if (statFolders) statFolders.textContent = stats.totalFolders;
+        if (statContent) statContent.textContent = stats.totalContent;
+        if (statViews) statViews.textContent = stats.totalViews;
+    } catch (error) {
+        debugLog('Error loading stats: ' + error.message);
+    }
+}
+
+async function loadContent() {
+    try {
+        console.log('📥 Loading content for', folders.length, 'folders...');
+        // Load all content from all folders
+        allContent = [];
+        allSeriesContent = [];
+        for (const folder of folders) {
+            try {
+                if (folder.display_style === 'collection') {
+                    console.log('Loading SERIES content for folder:', folder.title, '(ID:', folder.id, ')');
+                    const seriesItems = await supabaseClient.getContentPublicSeries(folder.id);
+                    console.log('  → Found', seriesItems.length, 'series items in', folder.title);
+                    allSeriesContent.push(...seriesItems);
+                } else {
+                    console.log('Loading content for folder:', folder.title, '(ID:', folder.id, ')');
+                    const content = await supabaseClient.getContentByFolder(folder.id);
+                    console.log('  → Found', content.length, 'items in', folder.title);
+                    allContent.push(...content);
+                }
+            } catch (folderError) {
+                console.error('Error loading content for folder', folder.title, ':', folderError);
+                // Continue with other folders even if one fails
+            }
+        }
+        
+        console.log('✅ Total content loaded:', allContent.length, '(+', allSeriesContent.length, 'series items)');
+        displayContent();
+    } catch (error) {
+        debugLog('Error loading content: ' + error.message);
+        console.error('Error loading content:', error);
+    }
+}
+
+// ==================== UI HELPER FUNCTIONS ====================
+function updateFolderTypeUI() {
+    const folderType = document.getElementById('folderType').value;
+    const parentGroup = document.getElementById('parentFolderGroup');
+    
+    if (folderType === 'sub_root') {
+        parentGroup.style.display = 'block';
+        // Rebuild parent dropdown with correct folder list for current destination
+        updateFolderSelects();
+    } else {
+        parentGroup.style.display = 'none';
+        document.getElementById('parentFolder').value = '';
+    }
+    
+    suggestCustomURL();
+}
+
+function suggestCustomURL() {
+    const title = document.getElementById('folderTitle').value.trim();
+    const folderType = document.getElementById('folderType').value;
+    const parentId = document.getElementById('parentFolder').value;
+    const customURLInput = document.getElementById('folderCustomURL');
+    const preview = document.getElementById('urlPreview');
+    
+    if (!title) {
+        preview.textContent = 'URL: (will be auto-generated)';
+        return;
+    }
+    
+    // Generate suggestion
+    let suggestion = title.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/-+/g, '_');
+    
+    if (folderType === 'sub_root' && parentId) {
+        const parentFolder = folders.find(f => f.id === parentId);
+        if (parentFolder) {
+            const parentURL = parentFolder.custom_url || parentFolder.slug;
+            suggestion = `${parentURL}_sub.01`;
+        }
+    }
+    
+    // Only show suggestion if custom URL is empty
+    if (!customURLInput.value) {
+        preview.textContent = `Suggested URL: ${suggestion}`;
+    } else {
+        preview.textContent = `Custom URL: ${customURLInput.value}`;
+    }
+}
+
+function suggestContentURL() {
+    const title = document.getElementById('contentTitle').value.trim();
+    const folderId = document.getElementById('contentFolder').value;
+    const customURLInput = document.getElementById('contentCustomURL');
+    const preview = document.getElementById('contentUrlPreview');
+    
+    if (!title || !folderId) {
+        preview.textContent = 'URL: (will be auto-generated)';
+        return;
+    }
+    
+    const folder = folders.find(f => f.id === folderId);
+    if (folder) {
+        const folderURL = folder.custom_url || folder.slug;
+        const suggestion = `${folderURL}_content.01`;
+        
+        if (!customURLInput.value) {
+            preview.textContent = `Suggested URL: ${suggestion}`;
+        } else {
+            preview.textContent = `Custom URL: ${customURLInput.value}`;
+        }
+    }
+}
+
+// ==================== FOLDER OPERATIONS ====================
+async function createFolder() {
+    console.log('🔨 createFolder() called');
+    
+    if (!supabaseClient.isConnected) {
+        showAlert('error', 'Please connect to Supabase first');
+        console.error('Supabase not connected');
+        return;
+    }
+    
+    const title = document.getElementById('folderTitle').value.trim();
+    const tableName = document.getElementById('folderTableName').value.trim();
+    const visibility = document.getElementById('folderVisibility').value;
+    const description = document.getElementById('folderDescription').value.trim();
+    const folderType = document.getElementById('folderType').value;
+    const parentId = document.getElementById('parentFolder').value || null;
+    const customURL = document.getElementById('folderCustomURL').value.trim() || null;
+    const displayStyle = document.getElementById('folderDisplayStyle')?.value || 'default';
+    
+    console.log('📋 Form values:', { title, tableName, visibility, description, folderType, parentId, customURL });
+    
+    if (!title) {
+        showAlert('error', 'Please enter a folder title');
+        return;
+    }
+    
+    if (!tableName) {
+        showAlert('error', 'Please enter a table name');
+        return;
+    }
+    
+    // Validate table name (lowercase, underscores, numbers, dots)
+    if (!/^[a-z0-9_.]+$/.test(tableName)) {
+        showAlert('error', 'Table name must be lowercase letters, numbers, underscores, and dots only (e.g., anica_chats, roadmap_lv1, roadmap_lv.01)');
+        return;
+    }
+    
+    // Validate folder type and parent
+    if (folderType === 'sub_root' && !parentId) {
+        showAlert('error', 'Sub-root folders require a parent folder');
+        return;
+    }
+    
+    // Validate custom URL format
+    if (customURL && !/^[a-z0-9_.-]+$/.test(customURL)) {
+        showAlert('error', 'Custom URL can only contain lowercase letters, numbers, underscores, dots, and hyphens (e.g., roadmap_lv1, roadmap_lv.01)');
+        return;
+    }
+    
+    console.log('✅ All validations passed, proceeding to create folder...');
+    
+    try {
+        console.log('📁 Creating folder...');
+        debugLog('📁 Creating folder: ' + title + ' (type: ' + folderType + ', table: ' + tableName + ', visibility: ' + visibility + ', parent: ' + (parentId || 'root') + ', custom URL: ' + (customURL || 'auto') + ')');
+        const isPublic = visibility === 'public';
+
+        // ── Route by destination ──
+        const destination = document.getElementById('folderDestination')?.value || 'library';
+        let folder;
+
+        if (destination === 'vault') {
+            // Guard — vault client must be loaded and connected
+            if (typeof vaultClient === 'undefined' || !vaultClient.isConnected) {
+                showAlert('error', '❌ Vault client not connected. Make sure vault/vault-supabase-client.js is deployed and refresh the page.');
+                return;
+            }
+            console.log('🥷 Creating vault folder in vault_folders...');
+            folder = await vaultClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL, displayStyle);
+            const displayURL = folder.custom_url || folder.slug;
+            showAlert('success', `✅ Vault folder created: ${displayURL} → vault_folders${displayStyle === 'collection' ? ' (Collection style)' : ''}`);
+        } else {
+            folder = await supabaseClient.createFolder(title, description, tableName, isPublic, parentId, folderType, customURL, displayStyle);
+            const folderTypeLabel = folderType === 'sub_root' ? 'Sub-root folder' : 'Root folder';
+            const displayURL = folder.custom_url || folder.slug;
+            showAlert('success', `✅ ${folderTypeLabel} created: ${displayURL} → ${isPublic ? 'content_public' : 'content_private'}.${tableName}${displayStyle === 'collection' ? ' (Collection style)' : ''}`);
+        }
+        
+        // Reset form
+        document.getElementById('folderTitle').value = '';
+        document.getElementById('folderTableName').value = '';
+        document.getElementById('folderVisibility').value = 'public';
+        document.getElementById('folderDescription').value = '';
+        document.getElementById('folderType').value = 'root';
+        document.getElementById('parentFolder').value = '';
+        document.getElementById('folderCustomURL').value = '';
+        document.getElementById('urlPreview').textContent = 'URL: (will be auto-generated)';
+        if (document.getElementById('folderDisplayStyle')) document.getElementById('folderDisplayStyle').value = 'default';
+        updateFolderTypeUI();
+        
+        // Reload data
+        console.log('🔄 Reloading data...');
+        await loadAllData();
+    } catch (error) {
+        console.error('❌ Error creating folder:', error);
+        debugLog('❌ Error creating folder: ' + error.message);
+        showAlert('error', 'Error creating folder: ' + error.message);
+    }
+}
+
+function editFolder(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    
+    // Populate parent folder dropdown for edit - show all folders hierarchically
+    const editParentSelect = document.getElementById('editParentFolder');
+    editParentSelect.innerHTML = '<option value="">-- Select Parent Folder --</option>';
+    const rootFolders = folders.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
+    
+    // Helper function to check if a folder is a descendant of the current folder
+    const isDescendant = (potentialDescendant, ancestorId) => {
+        if (potentialDescendant.id === ancestorId) return true;
+        if (!potentialDescendant.parent_id) return false;
+        const parent = folders.find(f => f.id === potentialDescendant.parent_id);
+        return parent ? isDescendant(parent, ancestorId) : false;
+    };
+    
+    // Helper function to recursively add folders
+    const addFolderOption = (f, indent = '') => {
+        // Don't allow selecting itself or its descendants as parent
+        if (f.id !== folder.id && !isDescendant(f, folder.id)) {
+            const option = document.createElement('option');
+            option.value = f.id;
+            option.textContent = `${indent}${f.folder_type === 'root' ? '📁' : '📂'} ${f.title}`;
+            editParentSelect.appendChild(option);
+            
+            // Add subfolders recursively
+            const subfolders = folders.filter(sf => sf.parent_id === f.id).sort((a, b) => a.title.localeCompare(b.title));
+            subfolders.forEach(sf => {
+                addFolderOption(sf, indent + '  └─ ');
+            });
+        }
+    };
+    
+    rootFolders.forEach(f => {
+        addFolderOption(f);
+    });
+    
+    // Fill all form fields
+    document.getElementById('editFolderId').value = folder.id;
+    document.getElementById('editFolderTitle').value = folder.title;
+    document.getElementById('editFolderType').value = folder.folder_type || 'root';
+    document.getElementById('editParentFolder').value = folder.parent_id || '';
+    document.getElementById('editFolderCustomURL').value = folder.custom_url || '';
+    document.getElementById('editFolderTableName').value = folder.table_name || '';
+    document.getElementById('editFolderDescription').value = folder.description || '';
+    document.getElementById('editFolderPublic').checked = folder.is_public !== false;
+    
+    // Update UI based on folder type
+    updateEditFolderTypeUI();
+    
+    // Show current URL
+    const displayURL = folder.custom_url || folder.slug;
+    document.getElementById('editUrlPreview').textContent = `Current URL: ${displayURL}`;
+    
+    document.getElementById('editFolderModal').classList.add('active');
+}
+
+async function updateFolder() {
+    const id = document.getElementById('editFolderId').value;
+    const title = document.getElementById('editFolderTitle').value.trim();
+    const folderType = document.getElementById('editFolderType').value;
+    const parentId = document.getElementById('editParentFolder').value || null;
+    const customUrl = document.getElementById('editFolderCustomURL').value.trim() || null;
+    const tableName = document.getElementById('editFolderTableName').value.trim();
+    const description = document.getElementById('editFolderDescription').value.trim();
+    const isPublic = document.getElementById('editFolderPublic').checked;
+    
+    if (!title) {
+        showAlert('error', 'Please enter a folder title');
+        return;
+    }
+    
+    if (!tableName) {
+        showAlert('error', 'Please enter a table name');
+        return;
+    }
+    
+    if (folderType === 'sub_root' && !parentId) {
+        showAlert('error', 'Sub-root folders require a parent folder');
+        return;
+    }
+    
+    try {
+        await supabaseClient.updateFolder(id, { 
+            title, 
+            folder_type: folderType,
+            parent_id: parentId,
+            custom_url: customUrl,
+            table_name: tableName,
+            description,
+            is_public: isPublic
+        });
+        showAlert('success', '✅ Folder updated successfully!');
+        closeEditFolderModal();
+        await loadAllData();
+    } catch (error) {
+        showAlert('error', 'Error updating folder: ' + error.message);
+    }
+}
+
+async function deleteFolder(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    
+    if (!confirm(`Delete folder "${folder.title}" and all its content?`)) {
+        return;
+    }
+    
+    try {
+        // Detect if vault folder
+        const isVault = vaultFolders.some(f => f.id === folderId);
+        if (isVault) {
+            await vaultClient.deleteFolder(folderId);
+        } else {
+            await supabaseClient.deleteFolder(folderId);
+        }
+        showAlert('success', '✅ Folder deleted');
+        await loadAllData();
+    } catch (error) {
+        showAlert('error', 'Error deleting folder: ' + error.message);
+    }
+}
+
+function closeEditFolderModal() {
+    document.getElementById('editFolderModal').classList.remove('active');
+}
+
+function updateEditFolderTypeUI() {
+    const folderType = document.getElementById('editFolderType').value;
+    const parentGroup = document.getElementById('editParentFolderGroup');
+    if (folderType === 'sub_root') {
+        parentGroup.style.display = 'block';
+    } else {
+        parentGroup.style.display = 'none';
+        document.getElementById('editParentFolder').value = '';
+    }
+    suggestEditCustomURL();
+}
+
+function suggestEditCustomURL() {
+    const title = document.getElementById('editFolderTitle').value.trim();
+    const folderType = document.getElementById('editFolderType').value;
+    const parentId = document.getElementById('editParentFolder').value;
+    const customURLInput = document.getElementById('editFolderCustomURL');
+    const preview = document.getElementById('editUrlPreview');
+    
+    if (!title) {
+        preview.textContent = 'URL: (will be auto-generated)';
+        return;
+    }
+    
+    let suggestion = title.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/-+/g, '_');
+    
+    if (folderType === 'sub_root' && parentId) {
+        const parentFolder = folders.find(f => f.id === parentId);
+        if (parentFolder) {
+            const parentURL = parentFolder.custom_url || parentFolder.slug;
+            suggestion = `${parentURL}_sub.01`;
+        }
+    }
+    
+    if (!customURLInput.value) {
+        preview.textContent = `Suggested URL: ${suggestion}`;
+    } else {
+        preview.textContent = `Custom URL: ${customURLInput.value}`;
+    }
+}
+
+function updateEditURLPreview() {
+    const customURL = document.getElementById('editFolderCustomURL').value.trim();
+    const preview = document.getElementById('editUrlPreview');
+    
+    if (customURL) {
+        preview.textContent = `Custom URL: ${customURL}`;
+    } else {
+        suggestEditCustomURL();
+    }
+}
+
+// ==================== CONTENT OPERATIONS ====================
+async function saveContent(event) {
+    event.preventDefault();
+    
+    const editMode = document.getElementById('editMode').value === 'true';
+    const contentId = document.getElementById('contentId').value;
+    
+    const folderId = document.getElementById('contentFolder').value;
+    const title = document.getElementById('contentTitle').value.trim();
+    const type = document.getElementById('contentType').value;
+    const urlInput = document.getElementById('contentUrl').value.trim();
+    const externalUrl = document.getElementById('externalUrl').value.trim();
+    const description = document.getElementById('contentDescription').value.trim();
+    const customURL = document.getElementById('contentCustomURL').value.trim() || null;
+    
+    if (!folderId) {
+        showAlert('error', 'Please select a folder');
+        return;
+    }
+    
+    if (!title) {
+        showAlert('error', 'Please enter a content title');
+        return;
+    }
+        if (!type) {
+        showAlert('error', 'Please enter a content type');
+        return;
+    }
+    
+    try {
+        let fileUrl = urlInput;
+        let thumbnailUrl = null;
+        
+        // Check if R2 is enabled
+        const useR2 = CONFIG && CONFIG.features && CONFIG.features.useCloudflareR2;
+        
+        // Handle file upload
+        if (currentFile) {
+            // Special handling for flipbook JSON files
+            if (type === 'flipbook' && currentFile.type === 'application/json') {
+                debugLog('📖 Processing flipbook JSON file...');
+                try {
+                    const jsonText = await currentFile.text();
+                    JSON.parse(jsonText); // Validate JSON is valid
+                    
+                    // Upload JSON file to Cloudflare R2 (MUST be Cloudflare URL, not base64)
+                    debugLog('📤 Uploading flipbook JSON to R2...');
+                    if (useR2) {
+                        try {
+                            const result = await r2Storage.uploadFlipbook(currentFile);
+                            fileUrl = result.url;
+                            debugLog('✅ Flipbook JSON uploaded to R2: ' + fileUrl);
+                        } catch (error) {
+                            debugLog('❌ R2 upload failed: ' + error.message);
+                            showAlert('error', 'Failed to upload JSON to Cloudflare R2: ' + error.message);
+                            return;
+                        }
+                    } else {
+                        showAlert('error', 'Cloudflare R2 is required for flipbook uploads');
+                        return;
+                    }
+                    
+                    debugLog('✅ Flipbook JSON parsed and stored');
+                } catch (error) {
+                    debugLog('❌ Failed to parse JSON: ' + error.message);
+                    showAlert('error', 'Invalid JSON file: ' + error.message);
+                    return;
+                }
+            } else if (type === 'presentation' && currentFile.type === 'application/json') {
+                // Special handling for presentation JSON files
+                console.log('📖 Processing presentation JSON file...');
+                debugLog('📖 Processing presentation JSON file...');
+                try {
+                    const jsonText = await currentFile.text();
+                    JSON.parse(jsonText); // Validate JSON is valid
+                    
+                    // Upload JSON file to Cloudflare R2 (MUST be Cloudflare URL, not base64)
+                    console.log('📤 Uploading presentation JSON to R2...');
+                    debugLog('📤 Uploading presentation JSON to R2...');
+                    if (useR2) {
+                        try {
+                            const result = await r2Storage.uploadPresentation(currentFile);
+                            fileUrl = result.url;
+                            console.log('✅ Presentation JSON uploaded to R2:', fileUrl);
+                            debugLog('✅ Presentation JSON uploaded to R2: ' + fileUrl);
+                        } catch (error) {
+                            console.error('❌ R2 upload failed:', error);
+                            debugLog('❌ R2 upload failed: ' + error.message);
+                            showAlert('error', 'Failed to upload JSON to Cloudflare R2: ' + error.message);
+                            return;
+                        }
+                    } else {
+                        showAlert('error', 'Cloudflare R2 is required for presentation uploads');
+                        return;
+                    }
+                    
+                    console.log('✅ Presentation JSON parsed and stored');
+                    debugLog('✅ Presentation JSON parsed and stored');
+                } catch (error) {
+                    console.error('❌ Failed to parse JSON:', error);
+                    debugLog('❌ Failed to parse JSON: ' + error.message);
+                    showAlert('error', 'Invalid JSON file: ' + error.message);
+                    return;
+                }
+            } else {
+                // Regular file upload for non-flipbook content (PDF, images, etc.)
+                debugLog('📤 Uploading file to R2...');
+                if (useR2) {
+                    try {
+                        const result = await r2Storage.uploadContent(currentFile);
+                        fileUrl = result.url;
+                        debugLog('✅ File uploaded: ' + fileUrl);
+                    } catch (error) {
+                        debugLog('❌ R2 upload failed, using base64 fallback');
+                        fileUrl = await fileToBase64(currentFile);
+                    }
+                } else {
+                    fileUrl = await fileToBase64(currentFile);
+                }
+            }
+        }
+        
+        // Handle thumbnail upload (only if new thumbnail provided)
+        if (currentThumbnail) {
+            debugLog('📤 Uploading thumbnail...');
+            if (useR2) {
+                try {
+                    const result = await r2Storage.uploadThumbnail(currentThumbnail);
+                    thumbnailUrl = result.url;
+                } catch (error) {
+                    thumbnailUrl = await fileToBase64(currentThumbnail);
+                }
+            } else {
+                thumbnailUrl = await fileToBase64(currentThumbnail);
+            }
+        } else if (editMode && !thumbnailUrl) {
+            // Preserve existing thumbnail if editing and no new thumbnail uploaded
+            const existingContent = allContent.find(c => c.id === contentId);
+            if (existingContent) {
+                thumbnailUrl = existingContent.thumbnail_url;
+            }
+        }
+        
+        if (!fileUrl && !externalUrl) {
+            showAlert('error', 'Please upload a file or enter a URL');
+            return;
+        }
+        
+        const contentData = {
+            folder_id: folderId,
+            title: title,
+            type: type,
+            url: fileUrl || (editMode && !currentFile ? allContent.find(c => c.id === contentId)?.url : null),
+            external_url: externalUrl || null,
+            thumbnail_url: thumbnailUrl || (editMode && !currentThumbnail ? allContent.find(c => c.id === contentId)?.thumbnail_url : null),
+            description: description,
+            file_size: currentFile ? currentFile.size : (editMode ? allContent.find(c => c.id === contentId)?.file_size : null),
+            custom_url: customURL
+        };
+        
+        if (editMode) {
+            if (editingSeriesContent) {
+                const isVaultFolder = vaultFolders.some(f => f.id === folderId);
+                if (isVaultFolder) {
+                    debugLog('✏️ Updating vault series content: ' + contentId);
+                    await vaultClient.updateSeriesContent(contentId, contentData);
+                } else {
+                    debugLog('✏️ Updating library series content: ' + contentId);
+                    await supabaseClient.updateSeriesContent(contentId, contentData);
+                }
+                showAlert('success', `✅ Series content updated`);
+            } else {
+                // Detect if this is a vault content item by checking folder ownership
+                const isVault = vaultFolders.some(f => f.id === folderId);
+                if (isVault) {
+                    debugLog('✏️ Updating vault content: ' + contentId);
+                    await vaultClient.updateContent(contentId, contentData);
+                } else {
+                    debugLog('✏️ Updating library content: ' + contentId);
+                    await supabaseClient.updateContent(contentId, contentData, folderId);
+                }
+                const displayURL = customURL || 'auto-generated';
+                showAlert('success', `✅ Content updated (URL: ${displayURL})`);
+            }
+        } else {
+            // ── Route by destination ──
+            const destination = document.getElementById('contentDestination')?.value || 'library';
+            let result;
+            if (destination === 'vault') {
+                // Guard — vault client must be loaded and connected
+                if (typeof vaultClient === 'undefined' || !vaultClient.isConnected) {
+                    showAlert('error', '❌ Vault client not connected. Make sure vault/vault-supabase-client.js is deployed and refresh the page.');
+                    return;
+                }
+                const targetFolder = vaultFolders.find(f => f.id === folderId);
+                const isSeriesFolder = targetFolder && targetFolder.display_style === 'collection';
+                if (isSeriesFolder) {
+                    debugLog('🎬 Creating series content: ' + title);
+                    result = await vaultClient.createSeriesContent(contentData);
+                    showAlert('success', `✅ Series content saved to "${targetFolder.title}"`);
+                } else {
+                    debugLog('🥷 Creating vault content: ' + title);
+                    result = await vaultClient.createContent(contentData);
+                    const displayURL = result.custom_url || result.slug;
+                    showAlert('success', `✅ Content saved (URL: ${displayURL})`);
+                }
+            } else {
+                const targetFolder = folders.find(f => f.id === folderId);
+                const isSeriesFolder = targetFolder && targetFolder.display_style === 'collection';
+                if (isSeriesFolder) {
+                    debugLog('🎬 Creating library series content: ' + title);
+                    result = await supabaseClient.createSeriesContent(contentData);
+                    showAlert('success', `✅ Series content saved to "${targetFolder.title}"`);
+                } else {
+                    debugLog('➕ Creating library content: ' + title);
+                    result = await supabaseClient.createContent(contentData);
+                    const displayURL = result.custom_url || result.slug;
+                    showAlert('success', `✅ Content saved (URL: ${displayURL})`);
+                }
+            }
+        }
+        
+        // Reset form
+        resetContentForm();
+        
+        // Reload data
+        await loadAllData();
+        
+        // Scroll to top of page to show the form section is closed
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+    } catch (error) {
+        debugLog('❌ Error saving content: ' + error.message);
+        showAlert('error', 'Error saving content: ' + error.message);
+    }
+}
+
+function editContent(contentId) {
+    const content = allContent.find(c => c.id === contentId);
+    if (!content) return;
+    
+    // Switch to edit mode
+    document.getElementById('editMode').value = 'true';
+    document.getElementById('contentId').value = content.id;
+    document.getElementById('contentFormTitle').textContent = '✏️ Edit Content';
+    document.getElementById('saveButton').textContent = '💾 Update Content';
+    
+    // Fill form with ALL existing data
+    document.getElementById('contentFolder').value = content.folder_id;
+    document.getElementById('contentTitle').value = content.title;
+    document.getElementById('contentType').value = content.type;
+    document.getElementById('contentUrl').value = content.url || '';
+    document.getElementById('externalUrl').value = content.external_url || '';
+    document.getElementById('contentDescription').value = content.description || '';
+    document.getElementById('contentCustomURL').value = content.custom_url || '';
+    
+    // Store existing URLs so they don't get lost if user doesn't re-upload
+    currentFile = null; // Clear file input
+    currentThumbnail = null; // Clear thumbnail input
+    
+    // Show thumbnail if exists
+    if (content.thumbnail_url) {
+        const preview = document.getElementById('thumbnailPreview');
+        preview.src = content.thumbnail_url;
+        preview.style.display = 'block';
+    }
+    
+    // Scroll to form
+    document.getElementById('contentForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function deleteContent(contentId) {
+    const content = allContent.find(c => c.id === contentId);
+    if (!content) return;
+    
+    if (!confirm(`Delete content "${content.title}"?`)) {
+        return;
+    }
+    
+    try {
+        // Detect if vault content by checking folder ownership
+        const isVault = vaultFolders.some(f => f.id === content.folder_id);
+        if (isVault) {
+            await vaultClient.deleteContent(contentId);
+        } else {
+            await supabaseClient.deleteContent(contentId, content.folder_id);
+        }
+        showAlert('success', '✅ Content deleted');
+        await loadAllData();
+    } catch (error) {
+        showAlert('error', 'Error deleting content: ' + error.message);
+    }
+}
+
+async function moveContentUp(contentId) {
+    try {
+        await supabaseClient.moveContentUp(contentId);
+        await loadContent();
+    } catch (error) {
+        showAlert('error', 'Error moving content: ' + error.message);
+    }
+}
+
+async function moveContentDown(contentId) {
+    try {
+        await supabaseClient.moveContentDown(contentId);
+        await loadContent();
+    } catch (error) {
+        showAlert('error', 'Error moving content: ' + error.message);
+    }
+}
+
+function resetContentForm() {
+    document.getElementById('editMode').value = 'false';
+    document.getElementById('contentId').value = '';
+    document.getElementById('contentFormTitle').textContent = '➕ Add Content';
+    document.getElementById('saveButton').textContent = '💾 Save Content';
+    
+    document.getElementById('contentForm').reset();
+    document.getElementById('fileInfo').textContent = '';
+    document.getElementById('thumbnailPreview').style.display = 'none';
+    document.getElementById('contentCustomURL').value = '';
+    document.getElementById('contentUrlPreview').textContent = 'URL: (will be auto-generated)';
+    
+    currentFile = null;
+    currentThumbnail = null;
+    editingSeriesContent = false;
+}
+
+// ==================== UI DISPLAY ====================
+function updateFolderSelects() {
+    const selects = ['contentFolder', 'filterFolder', 'parentFolder'];
+    
+    // Determine which folder list to use for content/filter dropdowns
+    const contentDest = document.getElementById('contentDestination')?.value || 'library';
+    const folderDest  = document.getElementById('folderDestination')?.value || 'library';
+    const activeFolders = contentDest === 'vault' ? vaultFolders : folders;
+
+    selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        const currentValue = select.value;
+        const isParentSelect = selectId === 'parentFolder';
+        
+        // parentFolder uses vault folders when folder destination is vault
+        const folderList = isParentSelect
+            ? (folderDest === 'vault' ? vaultFolders : folders)
+            : activeFolders;
+
+        // Keep first option
+        const firstOption = select.options[0];
+        select.innerHTML = '';
+        select.appendChild(firstOption);
+        
+        if (folderList.length === 0) return;
+        
+        // For parent folder dropdown, show all folders hierarchically (root and sub-folders)
+        if (isParentSelect) {
+            const rootFolders = folderList.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
+            
+            const addFolderWithChildren = (folder, indent = '') => {
+                const option = document.createElement('option');
+                option.value = folder.id;
+                option.textContent = `${indent}${folder.folder_type === 'root' ? '📁' : '📂'} ${folder.title}`;
+                select.appendChild(option);
+                
+                const subfolders = folderList.filter(f => f.parent_id === folder.id).sort((a, b) => a.title.localeCompare(b.title));
+                subfolders.forEach(subfolder => {
+                    addFolderWithChildren(subfolder, indent + '  └─ ');
+                });
+            };
+            
+            rootFolders.forEach(folder => {
+                addFolderWithChildren(folder);
+            });
+        } else {
+            // Content/filter folder dropdown — grouped by root
+            const rootFolders = folderList.filter(f => !f.parent_id && f.folder_type === 'root').sort((a, b) => a.title.localeCompare(b.title));
+            
+            const addFolderWithChildrenAndCount = (folder, indent = '') => {
+                const option = document.createElement('option');
+                option.value = folder.id;
+                const contentCount = folder.actual_item_count || folder.item_count || 0;
+                const prefix = folder.folder_type === 'root' ? '📁' : '📂';
+                option.textContent = `${indent}${prefix} ${folder.title} (${contentCount} items)`;
+                select.appendChild(option);
+                
+                const subfolders = folderList.filter(f => f.parent_id === folder.id).sort((a, b) => a.title.localeCompare(b.title));
+                subfolders.forEach(subfolder => {
+                    addFolderWithChildrenAndCount(subfolder, indent + '  └─ ');
+                });
+            };
+            
+            rootFolders.forEach(rootFolder => {
+                addFolderWithChildrenAndCount(rootFolder);
+            });
+        }
+        
+        // Restore selection
+        if (currentValue) {
+            select.value = currentValue;
+        }
+    });
+}
+
+function displayFolders() {
+    displayFoldersGrid();
+}
+
+function displayContent() {
+    displayFoldersGrid();
+}
+
+function displayFoldersGrid() {
+    const publicContainer = document.getElementById('folderContentList');
+    const privateContainer = document.getElementById('privateFolderContentList');
+    
+    if (!publicContainer || !privateContainer) {
+        console.error('Folder containers not found');
+        return;
+    }
+    
+    if (folders.length === 0) {
+        publicContainer.innerHTML = '<p style="color: #999;">No public folders created yet.</p>';
+        privateContainer.innerHTML = '<p style="color: #999;">No private folders created yet.</p>';
+        return;
+    }
+    
+    // Separate public and private folders
+    // Note: is_public defaults to true, so we check explicitly for false
+    const publicRootFolders = folders.filter(f => {
+        const isRoot = !f.parent_id && f.folder_type === 'root';
+        const isPublic = f.is_public !== false; // true or null = public
+        console.log(`Folder "${f.title}": is_public=${f.is_public}, isRoot=${isRoot}, isPublic=${isPublic}`);
+        return isRoot && isPublic;
+    }).sort((a, b) => a.title.localeCompare(b.title));
+    
+    const privateRootFolders = folders.filter(f => {
+        const isRoot = !f.parent_id && f.folder_type === 'root';
+        const isPrivate = f.is_public === false; // explicitly false = private
+        return isRoot && isPrivate;
+    }).sort((a, b) => a.title.localeCompare(b.title));
+    
+    console.log('📊 Public folders:', publicRootFolders.length, publicRootFolders.map(f => f.title));
+    console.log('📊 Private folders:', privateRootFolders.length, privateRootFolders.map(f => f.title));
+    
+    // Render PUBLIC folders
+    if (publicRootFolders.length === 0) {
+        publicContainer.innerHTML = '<p style="color: #999;">No public folders created yet.</p>';
+    } else {
+        let publicHtml = '<div class="folders-grid">';
+        publicRootFolders.forEach(folder => {
+            const contentCount = folder.display_style === 'collection'
+                ? allSeriesContent.filter(c => c.folder_id === folder.id).length
+                : allContent.filter(c => c.folder_id === folder.id).length;
+            const subfolders = folders.filter(f => f.parent_id === folder.id);
+            const subfoldersCount = subfolders.length;
+            const displayURL = folder.table_name;
+            const styleBadge = folder.display_style === 'collection'
+                ? '<div style="position:absolute; top:8px; right:8px; background:rgba(0,212,200,0.2); color:#00d4c8; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:600;">🎬 Collection</div>'
+                : '';
+            
+            let countLabel = subfoldersCount > 0 
+                ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`
+                : `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
+            
+            publicHtml += `
+                <div class="folder-grid-card" onclick="openFolderSidebar('${folder.id}')" style="position:relative;">
+                    ${styleBadge}
+                    <div class="folder-icon">📁</div>
+                    <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
+                    <div class="folder-grid-meta">${countLabel}</div>
+                    <div class="folder-grid-url">${displayURL}</div>
+                </div>
+            `;
+        });
+        publicHtml += '</div>';
+        publicContainer.innerHTML = publicHtml;
+    }
+    
+    // Render PRIVATE folders
+    if (privateRootFolders.length === 0) {
+        privateContainer.innerHTML = '<p style="color: #999;">No private folders created yet. Set is_public=false when creating a folder.</p>';
+    } else {
+        let privateHtml = '<div class="folders-grid">';
+        privateRootFolders.forEach(folder => {
+            const contentCount = allContent.filter(c => c.folder_id === folder.id).length;
+            const subfolders = folders.filter(f => f.parent_id === folder.id);
+            const subfoldersCount = subfolders.length;
+            const displayURL = folder.table_name;
+            
+            let countLabel = subfoldersCount > 0 
+                ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${contentCount} item${contentCount !== 1 ? 's' : ''}`
+                : `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
+            
+            privateHtml += `
+                <div class="folder-grid-card" onclick="openFolderSidebar('${folder.id}')" style="border-color: #e74c3c;">
+                    <div class="folder-icon">🔒</div>
+                    <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
+                    <div class="folder-grid-meta">${countLabel}</div>
+                    <div class="folder-grid-url">${displayURL}</div>
+                    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(231, 76, 60, 0.2);">
+                        <button onclick="event.stopPropagation(); managePasswords('${folder.id}')" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer;">🔑 Passwords</button>
+                    </div>
+                </div>
+            `;
+        });
+        privateHtml += '</div>';
+        privateContainer.innerHTML = privateHtml;
+    }
+}
+
+// ==================== VAULT FOLDERS DISPLAY ====================
+function displayVaultFoldersGrid() {
+    const container = document.getElementById('vaultFolderContentList');
+    if (!container) return;
+
+    if (vaultFolders.length === 0) {
+        container.innerHTML = '<p style="color: #999;">No vault folders created yet. Select 🥷 Aurion Vault as destination and create a folder above.</p>';
+        return;
+    }
+
+    // Root vault folders only
+    const rootFolders = vaultFolders.filter(f =>
+        !f.parent_id && f.folder_type === 'root'
+    ).sort((a, b) => a.title.localeCompare(b.title));
+
+    if (rootFolders.length === 0) {
+        container.innerHTML = '<p style="color: #999;">No vault root folders yet.</p>';
+        return;
+    }
+
+    let html = '<div class="folders-grid">';
+    rootFolders.forEach(folder => {
+        const subfolders = vaultFolders.filter(f => f.parent_id === folder.id);
+        const subfoldersCount = subfolders.length;
+        const itemCount = folder.actual_item_count || 0;
+        const displayURL = folder.table_name || folder.slug;
+        const styleBadge = folder.display_style === 'collection'
+            ? '<div style="position:absolute; top:8px; right:8px; background:rgba(0,212,200,0.2); color:#00d4c8; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:600;">🎬 Collection</div>'
+            : '';
+
+        const countLabel = subfoldersCount > 0
+            ? `${subfoldersCount} subfolder${subfoldersCount !== 1 ? 's' : ''}, ${itemCount} item${itemCount !== 1 ? 's' : ''}`
+            : `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
+
+        html += `
+            <div class="folder-grid-card" onclick="openVaultFolderSidebar('${folder.id}')"
+                 style="border-color: rgba(109, 40, 217, 0.5); position:relative;">
+                ${styleBadge}
+                <div class="folder-icon">📁</div>
+                <div class="folder-grid-title">${escapeHtml(folder.title)}</div>
+                <div class="folder-grid-meta">${countLabel}</div>
+                <div class="folder-grid-url">${displayURL}</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function openVaultFolderSidebar(folderId) {
+    const folder = vaultFolders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    const subfolders = vaultFolders.filter(f => f.parent_id === folderId)
+        .sort((a, b) => a.title.localeCompare(b.title));
+
+    const sidebar = document.getElementById('folderSidebar');
+    const sidebarTitle = document.getElementById('sidebarFolderTitle');
+    const sidebarContent = document.getElementById('sidebarContent');
+
+    sidebarTitle.innerHTML = `
+        <div style="flex: 1;">
+            <h3 style="margin: 0; color: #c084fc; font-size: 18px;">${escapeHtml(folder.title)}</h3>
+            <div style="font-size: 12px; color: #808080; margin-top: 4px;">Table: <strong style="color: #8b5cf6;">${folder.table_name || folder.slug}</strong></div>
+            ${folder.description ? `<div style="font-size: 12px; color: #999; margin-top: 2px;">${escapeHtml(folder.description)}</div>` : ''}
+            <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 11px; color: #808080;">Landing Style:</label>
+                <select onchange="setVaultFolderDisplayStyle('${folder.id}', this.value)" style="font-size: 12px; padding: 4px 8px; background: rgba(139,92,246,0.15); color: #c084fc; border: 1px solid rgba(139,92,246,0.4); border-radius: 4px;">
+                    <option value="default" ${folder.display_style !== 'collection' ? 'selected' : ''}>Default</option>
+                    <option value="collection" ${folder.display_style === 'collection' ? 'selected' : ''}>Collection / Series</option>
+                </select>
+            </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button onclick="deleteVaultFolder('${folder.id}')" style="padding: 6px 12px; font-size: 12px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">🗑️ Delete</button>
+            <button onclick="closeFolderSidebar();" style="padding: 6px 12px; font-size: 16px;">×</button>
+        </div>
+    `;
+
+    sidebarContent.innerHTML = '<p style="color:#999; text-align:center; padding:20px;">Loading...</p>';
+    sidebar.classList.add('active');
+
+    let contentHtml = '';
+
+    // Sub-folders — clickable same as library
+    if (subfolders.length > 0) {
+        contentHtml += `<div style="margin-bottom: 20px;"><h4 style="color:#c084fc; font-size:14px; margin-bottom:12px; border-bottom:1px solid rgba(192,132,252,0.2); padding-bottom:8px;">📂 Sub-folders</h4>`;
+        subfolders.forEach(sf => {
+            const sfItems = sf.actual_item_count || 0;
+            contentHtml += `
+                <div class="subfolder-card" onclick="openVaultFolderSidebar('${sf.id}')"
+                     style="background:rgba(40,40,40,0.5); border:1px solid rgba(192,132,252,0.3); border-radius:8px; padding:12px; margin-bottom:8px; cursor:pointer; transition:all 0.2s;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="font-size:24px;">📂</div>
+                        <div style="flex:1;">
+                            <div style="font-weight:600; color:#ffffff; font-size:14px;">${escapeHtml(sf.title)}</div>
+                            <div style="font-size:11px; color:#808080;">${sfItems} item${sfItems !== 1 ? 's' : ''} · ${sf.table_name || sf.slug}</div>
+                        </div>
+                        <div style="color:#8b5cf6; font-size:18px;">→</div>
+                    </div>
+                </div>
+            `;
+        });
+        contentHtml += '</div>';
+    }
+
+    // Content items — collection folders use content_series, everything
+    // else uses vault_content exactly as before
+    if (folder.display_style === 'collection') {
+        try {
+            const items = await vaultClient.getContentSeries(folderId);
+            if (items.length > 0) {
+                contentHtml += `<div><h4 style="color:#c084fc; font-size:14px; margin-bottom:12px; border-bottom:1px solid rgba(192,132,252,0.2); padding-bottom:8px;">🎬 Series Content (${items.length})</h4>`;
+                const iconMap = {
+                    pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵',
+                    gif: '🎞️', flipbook: '📖', presentation: '📊', other: '📎'
+                };
+                items.forEach(item => {
+                    const icon = iconMap[item.type] || iconMap.other;
+                    const thumbnailHtml = item.thumbnail_url
+                        ? `<img src="${item.thumbnail_url}" style="width:100%; max-width:150px; height:auto; border-radius:8px; object-fit:cover;" alt="Thumbnail">`
+                        : `<div style="width:100%; max-width:150px; height:200px; background:#1a0d35; display:flex; align-items:center; justify-content:center; color:#999; font-size:48px; border-radius:8px;">${icon}</div>`;
+                    contentHtml += `
+                        <div class="content-card" style="margin-bottom:10px;">
+                            ${thumbnailHtml}
+                            <div class="content-info">
+                                <div class="content-title">${escapeHtml(item.title)}</div>
+                                <div class="content-meta">Type: ${item.type.toUpperCase()} | Views: ${item.view_count || 0}</div>
+                                ${item.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(item.url)}" target="_blank" style="color:#007bff;">${truncateURL(item.url)}</a></div>` : '<div class="content-meta" style="color:#dc3545;">⚠️ No URL</div>'}
+                                ${item.description ? `<div class="content-meta">${escapeHtml(item.description)}</div>` : ''}
+                            </div>
+                            <div class="content-actions">
+                                <button onclick="editSeriesContentItem('${item.id}', '${folderId}')">Edit</button>
+                                <button class="delete" onclick="deleteSeriesContentItem('${item.id}', '${folderId}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                contentHtml += '</div>';
+            } else {
+                contentHtml += '<p style="color:#999; text-align:center; padding:20px;">No series content yet. Set Destination to Aurion Vault and Folder to this one when adding content below.</p>';
+            }
+        } catch (e) {
+            console.error('Error loading series content:', e);
+            contentHtml += '<p style="color:#e74c3c;">Error loading series content.</p>';
+        }
+
+        // Legacy vault_content items — old content added before this
+        // folder was switched to Collection style. Invisible on the
+        // live grid (which only reads content_series) until moved.
+        try {
+            const legacyItems = await vaultClient.getContentByFolder(folderId);
+            if (legacyItems.length > 0) {
+                contentHtml += `<div style="margin-top:24px;"><h4 style="color:#f0ad4e; font-size:14px; margin-bottom:6px; border-bottom:1px solid rgba(240,173,78,0.25); padding-bottom:8px;">⚠️ Legacy Content (${legacyItems.length}) — not shown on the live grid</h4>
+                    <p style="color:#999; font-size:11px; margin-bottom:12px;">Added before this folder became a Collection. Move each one to bring it into the grid, or delete if it's no longer needed.</p>`;
+                const legacyIconMap = {
+                    pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵',
+                    gif: '🎞️', flipbook: '📖', presentation: '📊',
+                    quiz: '🧠', 'card-game': '🃏', 'spin-wheel': '🎡',
+                    'landing-page': '🚀', 'virtual-slideshow': '🎞️', link: '🔗', other: '📎'
+                };
+                legacyItems.forEach(item => {
+                    const icon = legacyIconMap[item.type] || legacyIconMap.other;
+                    const thumbnailHtml = item.thumbnail_url
+                        ? `<img src="${item.thumbnail_url}" style="width:100%; max-width:150px; height:auto; border-radius:8px; object-fit:cover;" alt="Thumbnail">`
+                        : `<div style="width:100%; max-width:150px; height:200px; background:#1a0d35; display:flex; align-items:center; justify-content:center; color:#999; font-size:48px; border-radius:8px;">${icon}</div>`;
+                    contentHtml += `
+                        <div class="content-card" style="margin-bottom:10px; opacity:0.85;">
+                            ${thumbnailHtml}
+                            <div class="content-info">
+                                <div class="content-title">${escapeHtml(item.title)}</div>
+                                <div class="content-meta">Type: ${item.type.toUpperCase()}</div>
+                                ${item.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(item.url)}" target="_blank" style="color:#007bff;">${truncateURL(item.url)}</a></div>` : ''}
+                            </div>
+                            <div class="content-actions">
+                                <button onclick="moveVaultContentToSeries('${item.id}', '${folderId}')" style="background:linear-gradient(135deg,#00d4c8,#00a89e); color:#0a0416; font-weight:600;">→ Move to Collection</button>
+                                <button onclick="editVaultContent('${item.id}')">Edit</button>
+                                <button class="delete" onclick="deleteVaultContent('${item.id}', '${folderId}')">Delete</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                contentHtml += '</div>';
+            }
+        } catch (e) {
+            console.error('Error loading legacy vault content:', e);
+        }
+    } else {
+    // Content items — load from vault_content
+    try {
+        const items = await vaultClient.getContentByFolder(folderId);
+        if (items.length > 0) {
+            contentHtml += `<div><h4 style="color:#c084fc; font-size:14px; margin-bottom:12px; border-bottom:1px solid rgba(192,132,252,0.2); padding-bottom:8px;">📄 Content Items</h4>`;
+
+            items.forEach((item, index) => {
+                // Thumbnail
+                const iconMap = {
+                    quiz: '🧠', 'card-game': '🃏', 'spin-wheel': '🎡',
+                    'landing-page': '🚀', flipbook: '📖', presentation: '📊',
+                    pdf: '📄', video: '🎥', image: '🖼️', audio: '🎵',
+                    gif: '🎞️', link: '🔗', 'virtual-slideshow': '🎞️'
+                };
+                const icon = iconMap[item.type] || '📄';
+                const thumbnailHtml = item.thumbnail_url
+                    ? `<img src="${item.thumbnail_url}" style="width:100%; max-width:150px; height:auto; border-radius:8px; object-fit:cover;" alt="Thumbnail">`
+                    : `<div style="width:100%; max-width:150px; height:200px; background:#1a0d35; display:flex; align-items:center; justify-content:center; color:#999; font-size:48px; border-radius:8px;">${icon}</div>`;
+
+                // View link — routes to appropriate viewer based on content type
+                let viewLink = '';
+                if (item.url) {
+                    const linkLabels = {
+                        quiz: '🧠 Click to launch quiz',
+                        'card-game': '🃏 Click to launch card game',
+                        'spin-wheel': '🎡 Click to launch wheel',
+                        'landing-page': '🚀 Click to open',
+                        'virtual-slideshow': '🎞️ Click to launch Virtual Slideshow',
+                        flipbook: '📖 Click to view flipbook',
+                        presentation: '📊 Click to view presentation',
+                        pdf: '📄 Click to view PDF',
+                        video: '🎥 Click to view video',
+                        image: '🖼️ Click to view image',
+                        audio: '🎵 Click to view audio',
+                        gif: '🎞️ Click to view GIF',
+                        link: '🔗 Click to open link'
+                    };
+                    const label = linkLabels[item.type] || '🔗 Click to open';
+                    
+                    // Construct proper viewer URL based on content type
+                    let viewerUrl = '';
+                    let targetAttr = 'target="_blank"';
+                    
+                    if (item.type === 'flipbook') {
+                        // Route to flipbook viewer in root
+                        viewerUrl = `../flipbook-viewer.html?manifest=${encodeURIComponent(item.url)}`;
+                    } else if (item.type === 'presentation') {
+                        // Route to presentation viewer in root
+                        viewerUrl = `../presentation-viewer.html?manifest=${encodeURIComponent(item.url)}`;
+                    } else if (item.type === 'pdf') {
+                        // Route to interactive PDF viewer in root
+                        viewerUrl = `../interactive-pdf-viewer.html?url=${encodeURIComponent(item.url)}`;
+                    } else if (item.type === 'landing-page') {
+                        // Landing pages open directly in new tab
+                        viewerUrl = item.url;
+                    } else if (item.type === 'virtual-slideshow') {
+                        // Virtual Slideshow opens landing.html directly in new tab
+                        viewerUrl = item.url;
+                    } else if (item.type === 'video' || item.type === 'image' || item.type === 'audio' || item.type === 'gif') {
+                        // Media files open directly in new tab
+                        viewerUrl = item.url;
+                    } else {
+                        // Default: open URL directly (quiz, card-game, spin-wheel, link, etc.)
+                        viewerUrl = item.url;
+                    }
+                    
+                    viewLink = `<div class="content-meta" style="margin-top:8px;">
+                        <a href="${viewerUrl}" ${targetAttr} style="color:#8b5cf6; font-weight:600; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                            ${label}
+                        </a>
+                    </div>`;
+                }
+
+                const canMoveUp   = index > 0;
+                const canMoveDown = index < items.length - 1;
+                const isInteractive = (item.type === 'flipbook' || item.type === 'presentation') && item.url ? ' 📖 Interactive' : '';
+
+                contentHtml += `
+                    <div class="content-card" style="margin-bottom:10px;">
+                        ${thumbnailHtml}
+                        <div class="content-info">
+                            <div class="content-title">${escapeHtml(item.title)}${isInteractive}</div>
+                            <div class="content-meta">Type: ${item.type.toUpperCase()} | Views: ${item.view_count || 0}</div>
+                            <div class="content-meta">🔗 URL: <strong style="color:#007bff;">${item.custom_url || item.slug || 'auto-generated'}</strong></div>
+                            ${item.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(item.url)}" target="_blank" style="color:#007bff;">${truncateURL(item.url)}</a></div>` : '<div class="content-meta" style="color:#dc3545;">⚠️ No URL</div>'}
+                            ${item.description ? `<div class="content-meta">${escapeHtml(item.description)}</div>` : ''}
+                            ${viewLink}
+                        </div>
+                        <div class="content-actions">
+                            ${canMoveUp   ? `<button onclick="moveVaultContentUp('${item.id}', '${folderId}')">↑</button>` : ''}
+                            ${canMoveDown ? `<button onclick="moveVaultContentDown('${item.id}', '${folderId}')">↓</button>` : ''}
+                            <button onclick="editVaultContent('${item.id}')">Edit</button>
+                            <button class="delete" onclick="deleteVaultContent('${item.id}', '${folderId}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+            });
+            contentHtml += '</div>';
+        }
+    } catch (e) {
+        console.error('Error loading vault content:', e);
+        contentHtml += '<p style="color:#e74c3c; font-size:12px;">Error loading content items.</p>';
+    }
+    }
+
+    if (contentHtml === '') {
+        contentHtml = '<p style="color:#999; text-align:center; padding:30px;">No content yet. Add content above using 🥷 Aurion Vault destination.</p>';
+    }
+
+    sidebarContent.innerHTML = contentHtml;
+}
+
+async function deleteVaultFolder(folderId) {
+    const folder = vaultFolders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    if (!confirm(`Delete vault folder "${folder.title}" and all its content?`)) return;
+
+    try {
+        await vaultClient.deleteFolder(folderId);
+        showAlert('success', '✅ Vault folder deleted');
+        await loadAllData();
+    } catch (error) {
+        showAlert('error', 'Error deleting vault folder: ' + error.message);
+    }
+}
+
+async function deleteVaultContent(contentId, folderId) {
+    if (!confirm('Delete this vault content item?')) return;
+
+    try {
+        await vaultClient.deleteContent(contentId);
+        showAlert('success', '✅ Vault content deleted');
+        await loadAllData();
+        if (folderId) openVaultFolderSidebar(folderId);
+    } catch (error) {
+        showAlert('error', 'Error deleting vault content: ' + error.message);
+    }
+}
+
+async function moveVaultContentUp(contentId, folderId) {
+    try {
+        const items = await vaultClient.getContentByFolder(folderId);
+        const idx = items.findIndex(i => i.id === contentId);
+        if (idx <= 0) return;
+        await vaultClient.updateContent(contentId,         { display_order: items[idx - 1].display_order });
+        await vaultClient.updateContent(items[idx - 1].id, { display_order: items[idx].display_order });
+        openVaultFolderSidebar(folderId);
+    } catch (e) {
+        showAlert('error', 'Error reordering: ' + e.message);
+    }
+}
+
+async function moveVaultContentDown(contentId, folderId) {
+    try {
+        const items = await vaultClient.getContentByFolder(folderId);
+        const idx = items.findIndex(i => i.id === contentId);
+        if (idx < 0 || idx >= items.length - 1) return;
+        await vaultClient.updateContent(contentId,         { display_order: items[idx + 1].display_order });
+        await vaultClient.updateContent(items[idx + 1].id, { display_order: items[idx].display_order });
+        openVaultFolderSidebar(folderId);
+    } catch (e) {
+        showAlert('error', 'Error reordering: ' + e.message);
+    }
+}
+
+// ==================== SERIES CONTENT — EDIT / DELETE ====================
+function editSeriesContentItem(contentId, folderId) {
+    // Check library's in-memory series content first (already loaded),
+    // fall back to a fresh vault fetch if not found there.
+    const libraryItem = allSeriesContent.find(c => c.id === contentId);
+    const itemPromise = libraryItem ? Promise.resolve(libraryItem) : vaultClient.getSeriesContentItem(contentId);
+
+    itemPromise.then(item => {
+        if (!item) { showAlert('error', 'Series content item not found'); return; }
+
+        document.getElementById('editMode').value = 'true';
+        document.getElementById('contentId').value = item.id;
+        document.getElementById('contentFormTitle').textContent = '✏️ Edit Series Content';
+        document.getElementById('saveButton').textContent = '💾 Update Series Content';
+        editingSeriesContent = true;
+
+        // Point the content destination at the right system so the
+        // eventual update call routes correctly
+        const contentDest = document.getElementById('contentDestination');
+        if (contentDest) {
+            contentDest.value = libraryItem ? 'library' : 'vault';
+            updateContentDestinationUI();
+        }
+
+        document.getElementById('contentFolder').value = item.folder_id;
+        document.getElementById('contentTitle').value = item.title;
+        document.getElementById('contentType').value = item.type;
+        document.getElementById('contentUrl').value = item.url || '';
+        document.getElementById('externalUrl').value = item.external_url || '';
+        document.getElementById('contentDescription').value = item.description || '';
+        document.getElementById('contentCustomURL').value = item.custom_url || '';
+
+        currentFile = null;
+        currentThumbnail = null;
+
+        if (item.thumbnail_url) {
+            const preview = document.getElementById('thumbnailPreview');
+            preview.src = item.thumbnail_url;
+            preview.style.display = 'block';
+        }
+
+        document.getElementById('contentForm').scrollIntoView({ behavior: 'smooth' });
+    }).catch(error => {
+        showAlert('error', 'Error loading series content: ' + error.message);
+    });
+}
+
+async function deleteSeriesContentItem(contentId, folderId) {
+    if (!confirm('Delete this series content item?')) return;
+
+    const isLibraryItem = allSeriesContent.some(c => c.id === contentId);
+
+    try {
+        if (isLibraryItem) {
+            await supabaseClient.deleteSeriesContent(contentId);
+        } else {
+            await vaultClient.deleteSeriesContent(contentId);
+        }
+        showAlert('success', '✅ Series content deleted');
+        await loadAllData();
+        if (folderId) {
+            if (isLibraryItem) openFolderSidebar(folderId);
+            else openVaultFolderSidebar(folderId);
+        }
+    } catch (error) {
+        showAlert('error', 'Error deleting series content: ' + error.message);
+    }
+}
+
+// ==================== MOVE LEGACY CONTENT TO SERIES ====================
+async function moveVaultContentToSeries(contentId, folderId) {
+    if (!confirm('Move this item into the Collection? It will be removed from the old list and added to the series grid.')) return;
+
+    try {
+        const items = await vaultClient.getContentByFolder(folderId);
+        const item = items.find(i => i.id === contentId);
+        if (!item) { showAlert('error', 'Item not found — it may have already been moved.'); return; }
+
+        const seriesData = {
+            folder_id: item.folder_id,
+            title: item.title,
+            type: item.type,
+            url: item.url || null,
+            external_url: item.external_url || null,
+            thumbnail_url: item.thumbnail_url || null,
+            description: item.description || null,
+            custom_url: item.custom_url || null
+        };
+
+        // Create first — only delete the original once the new row
+        // is confirmed saved, so a failure never loses the item.
+        const created = await vaultClient.createSeriesContent(seriesData);
+
+        try {
+            await vaultClient.deleteContent(contentId);
+        } catch (deleteError) {
+            showAlert('error', `⚠️ Moved successfully, but the old copy could not be removed automatically. "${item.title}" now exists in BOTH lists — please delete the old one manually from Legacy Content. (${deleteError.message})`);
+            await loadAllData();
+            openVaultFolderSidebar(folderId);
+            return;
+        }
+
+        showAlert('success', `✅ "${item.title}" moved to Collection`);
+        await loadAllData();
+        openVaultFolderSidebar(folderId);
+    } catch (error) {
+        showAlert('error', 'Error moving content: ' + error.message);
+    }
+}
+
+// ==================== VAULT FOLDER — LANDING STYLE TOGGLE ====================
+async function setVaultFolderDisplayStyle(folderId, style) {
+    try {
+        await vaultClient.updateFolder(folderId, { display_style: style });
+        showAlert('success', `✅ Landing style set to "${style === 'collection' ? 'Collection / Series' : 'Default'}"`);
+        await loadAllData();
+        openVaultFolderSidebar(folderId);
+    } catch (error) {
+        showAlert('error', 'Error updating landing style: ' + error.message);
+    }
+}
+
+async function setLibraryFolderDisplayStyle(folderId, style) {
+    try {
+        await supabaseClient.updateFolder(folderId, { display_style: style });
+        showAlert('success', `✅ Landing style set to "${style === 'collection' ? 'Collection / Series' : 'Default'}"`);
+        await loadAllData();
+        openFolderSidebar(folderId);
+    } catch (error) {
+        showAlert('error', 'Error updating landing style: ' + error.message);
+    }
+}
+
+function editVaultContent(contentId) {
+    // Find item across all vault folders
+    const findItem = async () => {
+        for (const folder of vaultFolders) {
+            try {
+                const items = await vaultClient.getContentByFolder(folder.id);
+                const item = items.find(i => i.id === contentId);
+                if (item) return item;
+            } catch (e) {}
+        }
+        return null;
+    };
+
+    findItem().then(item => {
+        if (!item) {
+            showAlert('error', 'Vault content item not found');
+            return;
+        }
+
+        // Switch to vault destination first
+        const contentDest = document.getElementById('contentDestination');
+        if (contentDest) {
+            contentDest.value = 'vault';
+            updateContentDestinationUI();
+        }
+
+        // Populate content form — same pattern as library editContent
+        document.getElementById('editMode').value = 'true';
+        document.getElementById('contentId').value = item.id;
+        document.getElementById('contentFormTitle').textContent = '✏️ Edit Vault Content';
+        document.getElementById('saveButton').textContent = '💾 Update Content';
+
+        document.getElementById('contentFolder').value = item.folder_id;
+        document.getElementById('contentTitle').value = item.title;
+        document.getElementById('contentType').value = item.type;
+        document.getElementById('contentUrl').value = item.url || '';
+        document.getElementById('externalUrl').value = item.external_url || '';
+        document.getElementById('contentDescription').value = item.description || '';
+        document.getElementById('contentCustomURL').value = item.custom_url || '';
+
+        currentFile = null;
+        currentThumbnail = null;
+
+        if (item.thumbnail_url) {
+            const preview = document.getElementById('thumbnailPreview');
+            preview.src = item.thumbnail_url;
+            preview.style.display = 'block';
+        }
+
+        document.getElementById('contentForm').scrollIntoView({ behavior: 'smooth' });
+    });
+}
+function openFolderSidebar(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    
+    const folderContent = allContent.filter(c => c.folder_id === folderId);
+    const subfolders = folders.filter(f => f.parent_id === folderId).sort((a, b) => a.title.localeCompare(b.title));
+    const sidebar = document.getElementById('folderSidebar');
+    const sidebarTitle = document.getElementById('sidebarFolderTitle');
+    const sidebarContent = document.getElementById('sidebarContent');
+    
+    // Update sidebar header
+    const folderTypeLabel = folder.folder_type === 'sub_root' ? '📂 Sub-Root' : '📁 Root';
+    const displayURL = folder.table_name;
+    sidebarTitle.innerHTML = `
+        <div style="flex: 1;">
+            <h3 style="margin: 0; color: #a78bfa; font-size: 18px;">${escapeHtml(folder.title)} <span style="font-size: 12px; color: #999;">${folderTypeLabel}</span></h3>
+            <div style="font-size: 12px; color: #808080; margin-top: 4px;">URL: <strong style="color: #8b5cf6;">${displayURL}</strong></div>
+            ${folder.description ? `<div style="font-size: 12px; color: #999; margin-top: 2px;">${escapeHtml(folder.description)}</div>` : ''}
+            <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 11px; color: #808080;">Landing Style:</label>
+                <select onchange="setLibraryFolderDisplayStyle('${folder.id}', this.value)" style="font-size: 12px; padding: 4px 8px; background: rgba(139,92,246,0.15); color: #c084fc; border: 1px solid rgba(139,92,246,0.4); border-radius: 4px;">
+                    <option value="default" ${folder.display_style !== 'collection' ? 'selected' : ''}>Default</option>
+                    <option value="collection" ${folder.display_style === 'collection' ? 'selected' : ''}>Collection / Series</option>
+                </select>
+            </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+            <button onclick="editFolder('${folder.id}')" style="padding: 6px 12px; font-size: 12px;">✏️ Edit</button>
+            <button class="delete" onclick="deleteFolder('${folder.id}')" style="padding: 6px 12px; font-size: 12px;">🗑️ Delete</button>
+            <button onclick="event.stopPropagation(); closeFolderSidebar();" style="padding: 6px 12px; font-size: 16px;">×</button>
+        </div>
+    `;
+    
+    // Build sidebar content
+    let contentHtml = '';
+    
+    // Show subfolders first if they exist
+    if (subfolders.length > 0) {
+        contentHtml += '<div style="margin-bottom: 20px;"><h4 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(139, 92, 246, 0.2); padding-bottom: 8px;">📂 Subfolders</h4>';
+        
+        subfolders.forEach(subfolder => {
+            const subfolderContent = allContent.filter(c => c.folder_id === subfolder.id);
+            const subfolderURL = subfolder.table_name;
+            
+            contentHtml += `
+                <div class="subfolder-card" onclick="openFolderSidebar('${subfolder.id}')" style="background: rgba(40, 40, 40, 0.5); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="font-size: 24px;">📂</div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; color: #ffffff; font-size: 14px;">${escapeHtml(subfolder.title)}</div>
+                            <div style="font-size: 11px; color: #808080;">${subfolderContent.length} item${subfolderContent.length !== 1 ? 's' : ''} • ${subfolderURL}</div>
+                        </div>
+                        <div style="color: #8b5cf6; font-size: 18px;">→</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        contentHtml += '</div>';
+    }
+    
+    // Collection-style folders show series content instead of the
+    // regular content items list — a simpler card set since series
+    // items are more homogeneous (mostly links/quizzes/apps).
+    if (folder.display_style === 'collection') {
+        const seriesItems = allSeriesContent.filter(c => c.folder_id === folderId).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+        contentHtml += '<div><h4 style="color: #00d4c8; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(0, 212, 200, 0.2); padding-bottom: 8px;">🎬 Series Content (' + seriesItems.length + ')</h4>';
+        if (seriesItems.length === 0) {
+            contentHtml += '<p style="color: #999; font-size: 13px;">No content yet. Add some using the form above.</p>';
+        } else {
+            seriesItems.forEach(item => {
+                const thumb = item.thumbnail_url
+                    ? `<img src="${item.thumbnail_url}" style="width: 60px; height: 80px; border-radius: 6px; object-fit: cover;" alt="">`
+                    : `<div style="width: 60px; height: 80px; background: #ddd; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 24px;">🎬</div>`;
+                contentHtml += `
+                    <div class="content-card" style="margin-bottom: 10px; display: flex; gap: 12px; align-items: center; padding: 10px;">
+                        ${thumb}
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 600; color: #fff; font-size: 13px;">${escapeHtml(item.title)}</div>
+                            <div style="font-size: 11px; color: #999;">Type: ${item.type.toUpperCase()} | Views: ${item.view_count || 0}</div>
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                            <button onclick="editSeriesContentItem('${item.id}', '${folderId}')" style="padding: 4px 10px; font-size: 11px;">✏️</button>
+                            <button class="delete" onclick="deleteSeriesContentItem('${item.id}', '${folderId}')" style="padding: 4px 10px; font-size: 11px;">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        contentHtml += '</div>';
+        sidebarContent.innerHTML = contentHtml;
+        sidebar.classList.add('active');
+        return;
+    }
+    
+    // Show content items (always show if they exist, regardless of subfolders)
+    if (folderContent.length > 0) {
+        contentHtml += '<div><h4 style="color: #a78bfa; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(139, 92, 246, 0.2); padding-bottom: 8px;">📄 Content Items</h4>';
+        
+        folderContent.forEach((content, index) => {
+            // Show larger thumbnail for all content types
+            let thumbnailHtml;
+            const iconMap = {
+                'flipbook': '📖',
+                'presentation': '📊',
+                'pdf': '📄',
+                'video': '🎥',
+                'image': '🖼️',
+                'audio': '🎵',
+                'link': '🔗',
+                'virtual-slideshow': '🎞️'
+            };
+            const icon = iconMap[content.type] || '📄';
+            thumbnailHtml = content.thumbnail_url 
+                ? `<img src="${content.thumbnail_url}" style="width: 100%; max-width: 150px; height: auto; border-radius: 8px; object-fit: cover;" alt="Thumbnail">`
+                : `<div style="width: 100%; max-width: 150px; height: 200px; background: #ddd; display: flex; align-items: center; justify-content: center; color: #999; font-size: 48px; border-radius: 8px;">${icon}</div>`;
+            
+            const canMoveUp = index > 0;
+            const canMoveDown = index < folderContent.length - 1;
+            const isInteractive = (content.type === 'flipbook' || content.type === 'presentation') && content.url ? ' 📖 Interactive' : '';
+            
+            // For flipbooks, presentations, and PDFs, add "Click to view" link
+            let viewLink = '';
+            if (content.type === 'flipbook' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="flipbook-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📖</span> Click to view flipbook</a></div>`;
+            } else if (content.type === 'presentation' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="presentation-viewer.html?manifest=${encodeURIComponent(content.url)}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📊</span> Click to view presentation</a></div>`;
+            } else if (content.type === 'pdf' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">📄</span> Click to view PDF</a></div>`;
+            } else if (content.type === 'video' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🎥</span> Click to view video</a></div>`;
+            } else if (content.type === 'image' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🖼️</span> Click to view image</a></div>`;
+            } else if (content.type === 'audio' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🎵</span> Click to view audio</a></div>`;
+            } else if (content.type === 'link' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🔗</span> Click to view link</a></div>`;
+            } else if (content.type === 'virtual-slideshow' && content.url) {
+                viewLink = `<div class="content-meta" style="margin-top: 8px;"><a href="${content.url}" target="_blank" style="color: #8b5cf6; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><span style="font-size: 18px;">🎞️</span> Click to launch Virtual Slideshow</a></div>`;
+            }
+            contentHtml += `
+                <div class="content-card" style="margin-bottom: 10px;">
+                    ${thumbnailHtml}
+                    <div class="content-info">
+                        <div class="content-title">${escapeHtml(content.title)}${isInteractive}</div>
+                        <div class="content-meta">Type: ${content.type.toUpperCase()} | Views: ${content.view_count || 0}</div>
+                        <div class="content-meta">🔗 URL: <strong style="color: #007bff;">${content.custom_url || content.slug || 'auto-generated'}</strong></div>
+                        ${content.url ? `<div class="content-meta">📄 File: <a href="${truncateURL(content.url)}" target="_blank" style="color: #007bff;">${truncateURL(content.url)}</a></div>` : '<div class="content-meta" style="color: #dc3545;">⚠️ No file URL (Missing)</div>'}
+                        ${content.description ? `<div class="content-meta">${escapeHtml(content.description)}</div>` : ''}
+                        ${viewLink}
+                    </div>
+                    <div class="content-actions">
+                        ${canMoveUp ? `<button onclick="moveContentUp('${content.id}')">↑</button>` : ''}
+                        ${canMoveDown ? `<button onclick="moveContentDown('${content.id}')">↓</button>` : ''}
+                        <button onclick="editContent('${content.id}')">Edit</button>
+                        <button class="delete" onclick="deleteContent('${content.id}')">Delete</button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        contentHtml += '</div>';
+    }
+    
+    // Show empty state only if there are no content items AND no subfolders
+    if (folderContent.length === 0 && subfolders.length === 0) {
+        contentHtml += '<p style="color: #999; text-align: center; padding: 40px 20px;">No content or subfolders yet.<br><br>Use the "Add PDF/Flipbook" form above to add content.</p>';
+    }
+    
+    sidebarContent.innerHTML = contentHtml;
+    
+    // Show sidebar
+    sidebar.classList.add('active');
+}
+
+function closeFolderSidebar() {
+    document.getElementById('folderSidebar').classList.remove('active');
+}
+
+// ==================== FILE HANDLING (moved to top) ====================
+
+// ==================== PASSWORD MANAGEMENT ====================
+
+async function managePasswords(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    
+    document.getElementById('passwordFolderId').value = folderId;
+    document.getElementById('passwordModal').classList.add('active');
+    
+    // Load existing passwords
+    await loadFolderPasswords(folderId);
+    
+    // Generate initial password
+    generateNewPassword();
+}
+
+async function loadFolderPasswords(folderId) {
+    const container = document.getElementById('passwordsList');
+    container.innerHTML = '<p style="color: #999;">Loading passwords...</p>';
+    
+    try {
+        const { data, error } = await supabaseClient.client
+            .from('folder_passwords')
+            .select('*')
+            .eq('folder_id', folderId)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p style="color: #999;">No passwords created yet.</p>';
+            return;
+        }
+        
+        let html = '<div style="display: flex; flex-direction: column; gap: 10px;">';
+        data.forEach(pwd => {
+            const expiryText = pwd.expires_at 
+                ? `Expires: ${new Date(pwd.expires_at).toLocaleDateString()}`
+                : 'No expiration';
+            const userText = pwd.user_identifier || 'No user specified';
+            
+            html += `
+                <div style="background: #f5f5f5; padding: 12px; border-radius: 6px; border-left: 4px solid #e74c3c;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">🔑 ${pwd.password_plain || '••••••••'}</div>
+                            <div style="font-size: 12px; color: #666;">👤 ${userText}</div>
+                            <div style="font-size: 12px; color: #666;">📅 ${expiryText}</div>
+                            <div style="font-size: 11px; color: #999; margin-top: 4px;">Created: ${new Date(pwd.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <button onclick="deactivatePassword('${pwd.id}')" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">Deactivate</button>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading passwords:', error);
+        container.innerHTML = '<p style="color: #e74c3c;">Error loading passwords</p>';
+    }
+}
+
+function generateNewPassword() {
+    const password = PasswordUtils.generatePassword(12);
+    document.getElementById('newPasswordValue').value = password;
+}
+
+async function saveNewPassword() {
+    const folderId = document.getElementById('passwordFolderId').value;
+    const password = document.getElementById('newPasswordValue').value;
+    const userIdentifier = document.getElementById('newPasswordUser').value;
+    const expiresAt = document.getElementById('newPasswordExpiry').value;
+    
+    if (!password) {
+        alert('Please generate a password first');
+        return;
+    }
+    
+    try {
+        const passwordHash = await PasswordUtils.hashPassword(password);
+        
+        const { data, error } = await supabaseClient.client
+            .from('folder_passwords')
+            .insert({
+                folder_id: folderId,
+                password_hash: passwordHash,
+                password_plain: password, // Store plain for admin view (remove in production)
+                user_identifier: userIdentifier || null,
+                expires_at: expiresAt || null,
+                is_active: true
+            })
+            .select();
+        
+        if (error) throw error;
+        
+        alert(`✅ Password created successfully!\n\nPassword: ${password}\nUser: ${userIdentifier || 'Not specified'}\n\nShare this password with the user.`);
+        
+        // Reload passwords list
+        await loadFolderPasswords(folderId);
+        
+        // Reset form
+        document.getElementById('newPasswordUser').value = '';
+        document.getElementById('newPasswordExpiry').value = '';
+        generateNewPassword();
+        
+    } catch (error) {
+        console.error('Error saving password:', error);
+        alert('Failed to save password: ' + error.message);
+    }
+}
+
+async function deactivatePassword(passwordId) {
+    if (!confirm('Deactivate this password? Users will no longer be able to access the folder with it.')) {
+        return;
+    }
+    
+    try {
+        const { error } = await supabaseClient.client
+            .from('folder_passwords')
+            .update({ is_active: false })
+            .eq('id', passwordId);
+        
+        if (error) throw error;
+        
+        alert('✅ Password deactivated');
+        
+        // Reload passwords list
+        const folderId = document.getElementById('passwordFolderId').value;
+        await loadFolderPasswords(folderId);
+        
+    } catch (error) {
+        console.error('Error deactivating password:', error);
+        alert('Failed to deactivate password: ' + error.message);
+    }
+}
+
+function closePasswordModal() {
+    document.getElementById('passwordModal').classList.remove('active');
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+function getTypeIcon(type) {
+    const icons = {
+        pdf: '📄',
+        flipbook: '📖',
+        presentation: '📊',
+        video: '🎥',
+        image: '🖼️',
+        audio: '🎵',
+        link: '🔗',
+        'virtual-slideshow': '🎞️'
+    };
+    return icons[type] || '📎';
+}
+
+function truncateURL(url) {
+    if (!url) return '';
+    // Show only first 60 characters for long Cloudflare URLs
+    if (url.length > 60) {
+        return url.substring(0, 60) + '...';
+    }
+    return url;
+}
