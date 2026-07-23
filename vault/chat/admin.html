@@ -321,10 +321,10 @@ const PERSONAS = {
     anica:  { name: 'Anica',  role: 'Founder', color: '#e07bda', avatar: 'https://files.3c-public-library.org/Personas/Anica.png' },
 };
 
-let ADMIN_KEY = sessionStorage.getItem('dropin_admin_key');
+let ADMIN_KEY = localStorage.getItem('dropin_admin_key');
 if (!ADMIN_KEY) {
     ADMIN_KEY = prompt('Enter the Drop In admin key:');
-    if (ADMIN_KEY) sessionStorage.setItem('dropin_admin_key', ADMIN_KEY);
+    if (ADMIN_KEY) localStorage.setItem('dropin_admin_key', ADMIN_KEY);
 }
 
 async function adminFetch(path, options = {}) {
@@ -337,7 +337,7 @@ async function adminFetch(path, options = {}) {
         },
     });
     if (res.status === 401) {
-        sessionStorage.removeItem('dropin_admin_key');
+        localStorage.removeItem('dropin_admin_key');
         alert('Incorrect admin key. Please refresh and try again.');
         throw new Error('Unauthorized');
     }
