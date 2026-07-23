@@ -1908,6 +1908,49 @@
             const folder = library.folders.find(f => f.id === item.folderId) || currentFolder;
             currentFolder = folder;
             showViewer(item, true);
+
+            // Small symbol-style icons next to the title — return to
+            // the thumbnail grid, and copy a shareable link to this
+            // exact item. Matches icon.js's visual language (small
+            // circular icon buttons) rather than a full chunky button.
+            const h2 = document.querySelector('#viewerContent h2, #viewer h2');
+            if (h2) {
+                h2.style.display = 'flex';
+                h2.style.alignItems = 'center';
+                h2.style.justifyContent = 'space-between';
+                h2.style.gap = '10px';
+                const titleText = h2.textContent;
+                h2.innerHTML = `
+                    <span>${escapeHtml(titleText)}</span>
+                    <span style="display:flex; gap:6px; flex-shrink:0;">
+                        <button onclick="backToLibrarySeriesGrid('${folder.id}')" title="Back to thumbnails" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg>
+                        </button>
+                        <button onclick="copyLibrarySeriesLink('${item.id}')" title="Copy link" style="background: rgba(0,212,200,0.1); border: 1px solid rgba(0,212,200,0.35); color: #00d4c8; width: 30px; height: 30px; border-radius: 8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                        </button>
+                    </span>
+                `;
+            }
+        }
+
+        function backToLibrarySeriesGrid(folderId) {
+            const folder = library.folders.find(f => f.id === folderId);
+            if (folder) displayLibraryCollectionGrid(folder);
+        }
+
+        function copyLibrarySeriesLink(itemId) {
+            const item = librarySeriesItemsCache.find(i => i.id === itemId);
+            if (!item) return;
+            const baseUrl = window.location.origin + window.location.pathname;
+            const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
+            const itemSlug = item.customUrl || item.slug || item.id;
+            const link = baseUrl + '?folder=' + encodeURIComponent(folderSlug) + '&highlight=' + encodeURIComponent(itemSlug);
+            navigator.clipboard.writeText(link).then(() => {
+                alert('✅ Link copied!\n\n' + item.title + '\n' + link);
+            }).catch(() => {
+                prompt('Copy this link:', link);
+            });
         }
 
         function displayAllFolders() {
