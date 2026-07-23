@@ -577,10 +577,10 @@ function copySeriesLink(itemId) {
     const item = seriesItemsCache.find(i => i.id === itemId);
     if (!item) return;
 
-    const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+    const baseUrl = window.location.origin + window.location.pathname;
     const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
     const itemSlug = item.custom_url || item.slug || item.id;
-    const link = `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
+    const link = baseUrl + '?folder=' + encodeURIComponent(folderSlug) + '&highlight=' + encodeURIComponent(itemSlug);
 
     navigator.clipboard.writeText(link).then(() => {
         alert('✅ Link copied!\n\n' + item.title + '\n' + link);
@@ -848,12 +848,24 @@ function sharePDFLink(contentId) {
     }
     
     if (currentContent && currentFolder) {
-        const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+        const folderTableName  = currentFolder.tableName;
+        const contentCustomUrl = currentContent.customUrl || currentContent.slug;
+        return baseUrl + '?folder=' + folderTableName + '&url=' + contentCustomUrl + '&view=' + viewType;
+    }
+    return baseUrl + '?content=' + contentId + '&view=' + viewType;
+}
+
+function buildShareWorkerLink(contentId) {
+    // Share button only — routes through the share-preview Worker,
+    // separate from sharePDFLink() (Copy Link), which stays on the
+    // original direct-link format.
+    const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+    if (currentContent && currentFolder) {
         const folderSlug = currentFolder.slug || currentFolder.tableName;
         const itemSlug = currentContent.customUrl || currentContent.slug || currentContent.id;
         return `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
     }
-    return baseUrl + '?content=' + contentId + '&view=' + viewType;
+    return sharePDFLink(contentId);
 }
 
 // ==================== SHOW VIEWER ====================
@@ -956,7 +968,7 @@ function copyShareLink() {
 
 function nativeShareContent() {
     if (!currentContent) return;
-    const shareLink = sharePDFLink(currentContent.id);
+    const shareLink = buildShareWorkerLink(currentContent.id);
     if (navigator.share) {
         navigator.share({
             title: currentContent.title,
