@@ -29,13 +29,3 @@ command = ""
 [env.production]
 name = "3c-library-upload"
 route = "api.3c-public-library.org/*"
-
-# Explicitly repeated here — top-level [vars] and [[r2_buckets]] are not
-# guaranteed to carry into a named environment automatically, and production
-# (the one actually serving api.3c-public-library.org) needs both directly.
-[[env.production.r2_buckets]]
-binding = "R2_BUCKET"
-bucket_name = "3c-library-files"
-
-[env.production.vars]
-R2_PUBLIC_URL = "https://files.3c-public-library.org"
