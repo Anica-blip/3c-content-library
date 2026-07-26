@@ -922,6 +922,21 @@ async function saveContent(event) {
             showAlert('error', 'Please upload a file or enter a URL');
             return;
         }
+
+        // Final safety check on the ACTUAL values about to be saved — catches
+        // a local file:// reference no matter where it came from (typed by
+        // hand, or handed back by the upload itself), since this is the last
+        // point before anything reaches Supabase.
+        if (fileUrl && /^file:\/\//i.test(fileUrl)) {
+            showAlert('error', 'The file upload returned a local file:// path instead of a real web address — nothing was saved. This needs the upload endpoint checked, not the form.');
+            debugLog('🚫 Blocked save: content url was file:// — ' + fileUrl);
+            return;
+        }
+        if (thumbnailUrl && /^file:\/\//i.test(thumbnailUrl)) {
+            showAlert('error', 'The thumbnail upload returned a local file:// path instead of a real web address — nothing was saved. This needs the upload endpoint checked, not the form.');
+            debugLog('🚫 Blocked save: thumbnail url was file:// — ' + thumbnailUrl);
+            return;
+        }
         
         const contentData = {
             folder_id: folderId,
@@ -2182,4 +2197,60 @@ function truncateURL(url) {
         return url.substring(0, 60) + '...';
     }
     return url;
+}
+
+// ==================== SCAN FOR BROKEN file:// URLS ====================
+// Finds any existing content (Library or Vault, including series items)
+// whose url or thumbnail_url is a local file:// path instead of a real
+// web address, so they can be found and fixed by re-uploading properly.
+async function scanForBrokenFileUrls() {
+    debugLog('🔎 Scanning for file:// URLs across Library and Vault...');
+    const broken = [];
+    const isBroken = (val) => val && /^file:\/\//i.test(val);
+
+    function checkItem(item, side, folderTitle, isSeries) {
+        if (isBroken(item.url)) {
+            broken.push({ side, folder: folderTitle, title: item.title, field: 'url', value: item.url, id: item.id, isSeries });
+        }
+        if (isBroken(item.thumbnail_url)) {
+            broken.push({ side, folder: folderTitle, title: item.title, field: 'thumbnail_url', value: item.thumbnail_url, id: item.id, isSeries });
+        }
+    }
+
+    // ── Library: already fully loaded in memory ──
+    allContent.forEach(item => {
+        const folder = folders.find(f => f.id === item.folder_id);
+        checkItem(item, 'Library', folder ? folder.title : '(unknown folder)', false);
+    });
+    allSeriesContent.forEach(item => {
+        const folder = folders.find(f => f.id === item.folder_id);
+        checkItem(item, 'Library', folder ? folder.title : '(unknown folder)', true);
+    });
+
+    // ── Vault: fetched per folder, since it isn't bulk-loaded like Library ──
+    if (typeof vaultClient !== 'undefined' && vaultClient.isConnected) {
+        for (const folder of vaultFolders) {
+            try {
+                const items = await vaultClient.getContentByFolder(folder.id);
+                (items || []).forEach(item => checkItem(item, 'Vault', folder.title, false));
+            } catch (e) { /* folder may have no direct content — fine, skip */ }
+            try {
+                const seriesItems = await vaultClient.getContentSeries(folder.id);
+                (seriesItems || []).forEach(item => checkItem(item, 'Vault', folder.title, true));
+            } catch (e) { /* folder may have no series content — fine, skip */ }
+        }
+    }
+
+    if (broken.length === 0) {
+        showAlert('success', '✅ Scan complete — no file:// URLs found anywhere.');
+        debugLog('✅ Scan complete — nothing broken found.');
+        return;
+    }
+
+    console.table(broken);
+    const summary = broken
+        .map(b => `• [${b.side}] "${b.title}" in "${b.folder}" — bad ${b.field}`)
+        .join('\n');
+    debugLog(`🚫 Found ${broken.length} broken URL(s):\n` + summary);
+    alert(`Found ${broken.length} item(s) with a file:// URL:\n\n${summary}\n\n(Full details also printed to the browser console as a table.)`);
 }
