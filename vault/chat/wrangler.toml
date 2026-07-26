@@ -19,5 +19,12 @@ id = "214959dc21244082b3e80493a847ffd2"
 binding = "SHARE_CACHE_KV"
 id = "09c09aeec9b7423ca162e57c2af8cd36"
 
+# Added so this Worker can read thumbnail images directly from R2 (bucket
+# name confirmed from the R2 dashboard) rather than relying on a fetch to
+# api.3c-public-library.org, which non-browser requests get blocked on.
+[[r2_buckets]]
+binding = "THUMBNAILS_BUCKET"
+bucket_name = "3c-library-files"
+
 [triggers]
 crons = ["0 14 * * *"]
