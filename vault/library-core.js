@@ -592,7 +592,7 @@ function copySeriesLink(itemId) {
 function nativeShareSeriesItem(itemId) {
     const item = seriesItemsCache.find(i => i.id === itemId);
     if (!item) return;
-    const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+    const SHARE_WORKER = 'https://3c-public-library.org';
     const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
     const itemSlug = item.custom_url || item.slug || item.id;
     const link = `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
@@ -859,7 +859,7 @@ function buildShareWorkerLink(contentId) {
     // Share button only — routes through the share-preview Worker,
     // separate from sharePDFLink() (Copy Link), which stays on the
     // original direct-link format.
-    const SHARE_WORKER = 'https://dropin-chat.3c-innertherapy.workers.dev';
+    const SHARE_WORKER = 'https://3c-public-library.org';
     if (currentContent && currentFolder) {
         const folderSlug = currentFolder.slug || currentFolder.tableName;
         const itemSlug = currentContent.customUrl || currentContent.slug || currentContent.id;
