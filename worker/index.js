@@ -203,11 +203,23 @@ async function findItem(table, folderId, slugOrId) {
     }
 }
 
+function safeUrlEncode(rawUrl) {
+    if (!rawUrl) return rawUrl;
+    try {
+        // Decode first (undoes any existing %20-style encoding), then
+        // re-encode consistently — fixes a raw space in a filename without
+        // double-encoding a URL that was already correctly encoded.
+        return encodeURI(decodeURI(rawUrl));
+    } catch {
+        return rawUrl; // malformed beyond repair — pass through rather than crash
+    }
+}
+
 function buildSharePageHtml({ title, description, image, realUrl }) {
     const safeTitle = escapeHtmlServer(title);
     const rawDescription = (description && description.trim()) ? description.trim() : FALLBACK_DESCRIPTION;
     const safeDescription = escapeHtmlServer(rawDescription.slice(0, 155));
-    const safeImage = image || FALLBACK_IMAGE;
+    const safeImage = safeUrlEncode(image) || FALLBACK_IMAGE;
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -306,16 +318,53 @@ async function handleShareRequest(request, env, ctx, side, folderSlug, itemSlug)
         return Response.redirect(realUrl, 302);
     }
 
+    // Prefer a thumbnail served directly from R2 via this Worker's own
+    // domain — confirmed reachable by non-browser requests, unlike
+    // api.3c-public-library.org. Falls back to the stored thumbnail_url
+    // untouched if this specific file isn't found under this naming pattern.
+    let imageUrl = item.thumbnail_url;
+    if (env.THUMBNAILS_BUCKET) {
+        try {
+            const r2Key = `thumbnails/${item.id}-thumb.png`;
+            const head = await env.THUMBNAILS_BUCKET.head(r2Key);
+            if (head) {
+                imageUrl = `${SITE_URL}/share/image/${encodeURIComponent(item.id)}`;
+            }
+        } catch (e) { /* R2 lookup failed — silently keep the original thumbnail_url */ }
+    }
+
     const html = buildSharePageHtml({
         title: item.title,
         description: item.description,
-        image: item.thumbnail_url,
+        image: imageUrl,
         realUrl,
     });
 
     ctx.waitUntil(env.SHARE_CACHE_KV.put(cacheKey, html, { expirationTtl: SHARE_CACHE_TTL }));
 
     return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+}
+
+// Serves a thumbnail image directly from R2, bypassing api.3c-public-library.org
+// entirely (confirmed via curl testing to silently 404 non-browser requests).
+async function handleShareImage(env, itemId, corsHeaders) {
+    if (!env.THUMBNAILS_BUCKET) {
+        return new Response('R2 not bound', { status: 500, headers: corsHeaders });
+    }
+    try {
+        const key = `thumbnails/${itemId}-thumb.png`;
+        const object = await env.THUMBNAILS_BUCKET.get(key);
+        if (!object) {
+            return new Response('Not found', { status: 404, headers: corsHeaders });
+        }
+        const headers = new Headers(corsHeaders);
+        headers.set('Content-Type', object.httpMetadata?.contentType || 'image/png');
+        headers.set('Cache-Control', 'public, max-age=86400');
+        return new Response(object.body, { headers });
+    } catch (error) {
+        console.error('Share image serve error:', error);
+        return new Response('Server error', { status: 500, headers: corsHeaders });
+    }
 }
 
 export default {
@@ -326,6 +375,15 @@ export default {
 
         if (method === 'OPTIONS') {
             return new Response(null, { headers: corsHeaders });
+        }
+
+        // ── THUMBNAIL SERVE: /share/image/:itemId — serves a thumbnail
+        // straight from R2 on this Worker's own domain. Added because
+        // api.3c-public-library.org blocks non-browser requests, which was
+        // silently breaking every social-media image preview.
+        const imageMatch = path.match(/^\/share\/image\/([^/]+)\/?$/);
+        if (imageMatch) {
+            return await handleShareImage(env, decodeURIComponent(imageMatch[1]), corsHeaders);
         }
 
         // ── SHARE PREVIEW: /share/library/:folder/:item or /share/vault/:folder/:item ──
