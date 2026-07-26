@@ -770,6 +770,25 @@ async function saveContent(event) {
     const externalUrl = document.getElementById('externalUrl').value.trim();
     const description = document.getElementById('contentDescription').value.trim();
     const customURL = document.getElementById('contentCustomURL').value.trim() || null;
+
+    // Guard against a local file path (file:///...) getting pasted into either
+    // manual URL field by mistake instead of a real web address — this is the
+    // exact mistake that broke sharing/preview for a handful of items before,
+    // since a file:// path only ever resolves on the computer that typed it.
+    function isLocalFilePath(value) {
+        return value && /^file:\/\//i.test(value);
+    }
+    function looksLikeRealUrl(value) {
+        return !value || /^https?:\/\//i.test(value);
+    }
+    if (isLocalFilePath(urlInput) || isLocalFilePath(externalUrl)) {
+        showAlert('error', 'That looks like a local file path (starts with file://), not a web address. Upload the file using the file picker instead, or paste a real https:// link.');
+        return;
+    }
+    if (!looksLikeRealUrl(urlInput) || !looksLikeRealUrl(externalUrl)) {
+        showAlert('error', 'Content URL and External URL must start with http:// or https:// — please check what was pasted in.');
+        return;
+    }
     
     if (!folderId) {
         showAlert('error', 'Please select a folder');
