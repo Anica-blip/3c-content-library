@@ -37,6 +37,7 @@ export default {
             try {
                 const formData = await request.formData();
                 const file = formData.get('file');
+                const filename = formData.get('filename');
                 const folder = formData.get('folder') || 'content';
                 const contentType = formData.get('contentType') || file.type || 'application/octet-stream';
 
@@ -47,28 +48,8 @@ export default {
                     });
                 }
 
-                // The client never sends a separate 'filename' field — it only
-                // sends the file itself, which already carries its own name.
-                // Prefixing with a timestamp keeps two different uploads of a
-                // same-named file from silently overwriting each other in R2.
-                const safeOriginalName = (file.name || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
-                const filename = `${Date.now()}-${safeOriginalName}`;
-
                 // Build full R2 key including folder path
                 const key = `${folder}/${filename}`;
-
-                // Fail loudly here rather than silently building a broken URL —
-                // if this var is missing (e.g. not carried into a named
-                // environment), every upload would otherwise "succeed" while
-                // quietly returning "undefined/folder/file" as the URL.
-                if (!env.R2_PUBLIC_URL) {
-                    return new Response(JSON.stringify({
-                        error: 'Server misconfiguration: R2_PUBLIC_URL is not set in this environment.'
-                    }), {
-                        status: 500,
-                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                    });
-                }
 
                 // Upload to R2
                 await env.R2_BUCKET.put(key, file, {
