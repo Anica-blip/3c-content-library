@@ -358,7 +358,17 @@ body::after {
 
 /* ── MOBILE VIDEO CONTAINER ─────────────────────────────────── */
 @media (max-width: 768px) {
+  /* #viewerContent is an ID selector in the "Content above overlays"
+     rule above (position:relative). ID beats class in specificity,
+     so it was winning over library.html's own .right-viewer {
+     position:fixed } mobile rule — regardless of stylesheet order.
+     Net effect: the content panel never became a real full-screen
+     overlay, it just sat in normal flow after the thumbnail grid,
+     which is what showed up as leftover "debris" while scrolling.
+     Forcing it back here, scoped to mobile only, with !important so
+     it wins outright — desktop's position:relative is untouched. */
   .right-viewer {
+    position: fixed !important;
     background: var(--bg-primary) !important;
   }
 
