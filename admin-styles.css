@@ -119,6 +119,43 @@ textarea {
     min-height: 80px;
 }
 
+.thumb-url-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.thumb-url-or {
+    font-size: 12px;
+    color: #808080;
+    white-space: nowrap;
+}
+
+.thumb-url-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    background: rgba(13, 71, 161, 0.6);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 8px;
+    font-size: 13px;
+    color: #ffffff;
+    transition: all 0.2s;
+}
+
+.thumb-url-input:focus {
+    outline: none;
+    border-color: rgba(139, 92, 246, 0.5);
+    background: rgba(13, 71, 161, 0.8);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.thumb-url-input::placeholder {
+    color: #808080;
+}
+
 small {
     color: #ffffff; /* Changed to white */
     font-size: 12px;
