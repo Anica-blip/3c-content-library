@@ -1827,9 +1827,39 @@
             document.getElementById('contentViewer').style.display = 'block';
             document.getElementById('folderSidebar').style.display = 'none';
 
+            // Return icon — same root-climbing behavior as the content
+            // viewer's return icon: always lands on the true root
+            // ancestor's full sidebar, however deep this folder is nested.
+            let rootFolder = folder;
+            while (rootFolder.parentId) {
+                const parent = library.folders.find(f => f.id === rootFolder.parentId);
+                if (!parent) break;
+                rootFolder = parent;
+            }
+            const returnIconHtml = `
+                <button onclick="window.location.href='?openFolder=${encodeURIComponent(rootFolder.id)}'" title="Return to folder content list" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg>
+                </button>
+            `;
+
+            // Copy Link only — no native share icon here. The worker's
+            // OG-tag preview route is built around individual content
+            // items (item.thumbnail_url), not folder pages, so a rich
+            // share preview isn't available for this page without
+            // touching the worker. This just copies the plain URL.
+            const folderRef = folder.slug || folder.tableName || folder.id;
+            const copyLinkIconHtml = `
+                <button onclick="copyFolderLink('${String(folderRef).replace(/'/g, "\\'")}')" title="Copy Link" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                </button>
+            `;
+
             const viewer = document.getElementById('viewer');
             viewer.innerHTML = `
-                <h2 style="color: #ffffff; font-size: 20px; margin-bottom: 4px;">${escapeHtml(folder.title)}</h2>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px;">
+                    <h2 style="color: #ffffff; font-size: 20px; margin: 0; flex: 1; min-width: 0;">${escapeHtml(folder.title)}</h2>
+                    <div style="display: flex; gap: 6px; flex-shrink: 0;">${returnIconHtml}${copyLinkIconHtml}</div>
+                </div>
                 ${folder.description ? '<div style="color:#9a8fb0; font-size:13px; margin-bottom:20px;">' + escapeHtml(folder.description) + '</div>' : '<div style="margin-bottom:20px;"></div>'}
                 <div class="series-grid" id="librarySeriesGrid"></div>
             `;
@@ -2440,6 +2470,15 @@
             loadComments(content.id);
         }
         
+        function copyFolderLink(folderRef) {
+            const link = `${window.location.origin}${window.location.pathname}?folder=${encodeURIComponent(folderRef)}`;
+            navigator.clipboard.writeText(link).then(() => {
+                alert('✅ Folder link copied to clipboard!\n\n' + link);
+            }).catch(err => {
+                prompt('Copy this link:', link);
+            });
+        }
+
         function copyShareLink() {
             if (!currentContent) return;
             const shareLink = sharePDFLink(currentContent.id);
