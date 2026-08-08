@@ -2356,7 +2356,7 @@
             let returnButton = '';
             if (!pdfOnlyMode) {
                 returnButton = `
-                    <button onclick="hideContentViewer()" title="Back to thumbnails"
+                    <button onclick="hideContentViewer()" title="Return to folder content list"
                             style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
                         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg>
                     </button>
@@ -2630,15 +2630,18 @@
             
             if (viewer) {
                 viewer.classList.remove('active');
+                // Desktop: the left thumbnail column is already visible
+                // at all times (only mobile ever hides it), so there is
+                // nothing to "return" to — just reset the right panel
+                // back to its placeholder instead of leaving the folder
+                // entirely via a full-page redirect.
+                if (window.innerWidth > 768) {
+                    viewer.innerHTML = '<div class="no-content"><h2>Welcome to 3C Public Library</h2><p>Select content from the sidebar to view</p></div>';
+                }
             }
             
             if (leftSidebar) {
                 leftSidebar.classList.remove('hidden');
-            }
-            
-            // On desktop, just reload to go back to main page
-            if (window.innerWidth > 768) {
-                window.location.href = 'library.html';
             }
         }
         
