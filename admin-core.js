@@ -6,6 +6,7 @@
 // ==================== GLOBAL STATE ====================
 let currentFile = null;
 let currentThumbnail = null;
+let currentThumbnailUrl = null;
 let debugMode = false;
 let folders = [];
 let allContent = [];
@@ -153,6 +154,11 @@ function previewThumbnail(event) {
     if (!file) return;
     
     currentThumbnail = file;
+
+    // File takes priority — clear any pasted URL
+    currentThumbnailUrl = null;
+    const urlInput = document.getElementById('thumbnailUrlInput');
+    if (urlInput) urlInput.value = '';
     
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -163,6 +169,28 @@ function previewThumbnail(event) {
         }
     };
     reader.readAsDataURL(file);
+}
+
+function useThumbnailUrl(url) {
+    url = (url || '').trim();
+    currentThumbnailUrl = url || null;
+
+    if (url) {
+        // URL takes priority — clear any selected file
+        currentThumbnail = null;
+        const fileInput = document.getElementById('thumbnailUpload');
+        if (fileInput) fileInput.value = '';
+    }
+
+    const preview = document.getElementById('thumbnailPreview');
+    if (preview) {
+        if (url) {
+            preview.src = url;
+            preview.style.display = 'block';
+        } else if (!currentThumbnail) {
+            preview.style.display = 'none';
+        }
+    }
 }
 
 async function fileToBase64(file) {
@@ -879,7 +907,11 @@ async function saveContent(event) {
         }
         
         // Handle thumbnail upload (only if new thumbnail provided)
-        if (currentThumbnail) {
+        if (currentThumbnailUrl) {
+            // Pasted URL takes priority over any leftover file state —
+            // reuse an existing R2 thumbnail without re-uploading it.
+            thumbnailUrl = currentThumbnailUrl;
+        } else if (currentThumbnail) {
             debugLog('📤 Uploading thumbnail...');
             if (useR2) {
                 try {
@@ -910,7 +942,7 @@ async function saveContent(event) {
             type: type,
             url: fileUrl || (editMode && !currentFile ? allContent.find(c => c.id === contentId)?.url : null),
             external_url: externalUrl || null,
-            thumbnail_url: thumbnailUrl || (editMode && !currentThumbnail ? allContent.find(c => c.id === contentId)?.thumbnail_url : null),
+            thumbnail_url: thumbnailUrl || (editMode && !currentThumbnail && !currentThumbnailUrl ? allContent.find(c => c.id === contentId)?.thumbnail_url : null),
             description: description,
             file_size: currentFile ? currentFile.size : (editMode ? allContent.find(c => c.id === contentId)?.file_size : null),
             custom_url: customURL
@@ -1015,12 +1047,16 @@ function editContent(contentId) {
     // Store existing URLs so they don't get lost if user doesn't re-upload
     currentFile = null; // Clear file input
     currentThumbnail = null; // Clear thumbnail input
+    currentThumbnailUrl = null;
     
-    // Show thumbnail if exists
+    // Show thumbnail if exists, and pre-fill the URL field so it can
+    // be edited/replaced by pasting a different existing thumbnail URL
     if (content.thumbnail_url) {
         const preview = document.getElementById('thumbnailPreview');
         preview.src = content.thumbnail_url;
         preview.style.display = 'block';
+        const thumbUrlInput = document.getElementById('thumbnailUrlInput');
+        if (thumbUrlInput) thumbUrlInput.value = content.thumbnail_url;
     }
     
     // Scroll to form
@@ -1079,9 +1115,12 @@ function resetContentForm() {
     document.getElementById('thumbnailPreview').style.display = 'none';
     document.getElementById('contentCustomURL').value = '';
     document.getElementById('contentUrlPreview').textContent = 'URL: (will be auto-generated)';
+    const thumbUrlInput = document.getElementById('thumbnailUrlInput');
+    if (thumbUrlInput) thumbUrlInput.value = '';
     
     currentFile = null;
     currentThumbnail = null;
+    currentThumbnailUrl = null;
     editingSeriesContent = false;
 }
 
