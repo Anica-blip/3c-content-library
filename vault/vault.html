@@ -1574,14 +1574,11 @@
             });
         }
 
-        // Wrap hideContentViewer so video stops before panel hides on mobile
-        (function() {
-            const _orig = window.hideContentViewer;
-            window.hideContentViewer = function() {
-                stopAllVideos();
-                if (_orig) _orig.apply(this, arguments);
-            };
-        })();
+        // hideContentViewer() wrapper removed — that function no longer
+        // exists (return icon now navigates via ?openFolder= instead of
+        // calling it). The return button does a full page navigation,
+        // which stops any playing video/audio on its own as the page
+        // unloads, so no replacement stopAllVideos() hook is needed here.
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.8/plyr.polyfilled.min.js"></script>
 
