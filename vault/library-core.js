@@ -636,8 +636,6 @@ function nativeShareSeriesItem(itemId) {
     const link = `${SHARE_WORKER}/share/vault/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
     if (navigator.share) {
         navigator.share({
-            title: item.title,
-            text: item.description || 'Think it. Do it. Own it.',
             url: link,
         }).catch(() => { /* cancelled */ });
     } else {
@@ -1037,8 +1035,6 @@ function nativeShareContent() {
     const shareLink = buildShareWorkerLink(currentContent.id);
     if (navigator.share) {
         navigator.share({
-            title: currentContent.title,
-            text: currentContent.description || 'Think it. Do it. Own it.',
             url: shareLink,
         }).catch(() => { /* cancelled */ });
     } else {
