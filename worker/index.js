@@ -215,6 +215,22 @@ function safeUrlEncode(rawUrl) {
     }
 }
 
+// Derives the actual R2 object key from a stored thumbnail_url, instead
+// of guessing a filename pattern from the item's ID. thumbnail_url is
+// known-correct — it's the exact URL the live library UI uses to render
+// every thumbnail successfully, every day. This is just everything after
+// the domain, decoded back to the raw key R2 was given at upload time.
+function r2KeyFromPublicUrl(publicUrl) {
+    if (!publicUrl) return null;
+    try {
+        const u = new URL(publicUrl);
+        const key = u.pathname.replace(/^\/+/, '');
+        return key ? decodeURIComponent(key) : null;
+    } catch {
+        return null;
+    }
+}
+
 function buildSharePageHtml({ title, description, image, realUrl }) {
     const safeTitle = escapeHtmlServer(title);
     const rawDescription = (description && description.trim()) ? description.trim() : FALLBACK_DESCRIPTION;
@@ -320,15 +336,19 @@ async function handleShareRequest(request, env, ctx, side, folderSlug, itemSlug)
 
     // Prefer a thumbnail served directly from R2 via this Worker's own
     // domain — confirmed reachable by non-browser requests, unlike
-    // api.3c-public-library.org. Falls back to the stored thumbnail_url
-    // untouched if this specific file isn't found under this naming pattern.
+    // api.3c-public-library.org. The R2 key is derived directly from
+    // thumbnail_url itself (known-correct — it's what actually renders
+    // every thumbnail in the live UI) rather than guessed from the
+    // item's ID, which never matched the real storage layout.
     let imageUrl = item.thumbnail_url;
-    if (env.THUMBNAILS_BUCKET) {
+    if (env.THUMBNAILS_BUCKET && item.thumbnail_url) {
         try {
-            const r2Key = `thumbnails/${item.id}-thumb.png`;
-            const head = await env.THUMBNAILS_BUCKET.head(r2Key);
-            if (head) {
-                imageUrl = `${SITE_URL}/share/image/${encodeURIComponent(item.id)}`;
+            const derivedKey = r2KeyFromPublicUrl(item.thumbnail_url);
+            if (derivedKey) {
+                const head = await env.THUMBNAILS_BUCKET.head(derivedKey);
+                if (head) {
+                    imageUrl = `${SITE_URL}/share/image/${derivedKey.split('/').map(encodeURIComponent).join('/')}`;
+                }
             }
         } catch (e) { /* R2 lookup failed — silently keep the original thumbnail_url */ }
     }
@@ -347,13 +367,14 @@ async function handleShareRequest(request, env, ctx, side, folderSlug, itemSlug)
 
 // Serves a thumbnail image directly from R2, bypassing api.3c-public-library.org
 // entirely (confirmed via curl testing to silently 404 non-browser requests).
-async function handleShareImage(env, itemId, corsHeaders) {
+// Takes the real R2 key directly (may contain slashes) — handleShareRequest
+// already confirmed this exact key exists via .head() before linking here.
+async function handleShareImage(env, r2Key, corsHeaders) {
     if (!env.THUMBNAILS_BUCKET) {
         return new Response('R2 not bound', { status: 500, headers: corsHeaders });
     }
     try {
-        const key = `thumbnails/${itemId}-thumb.png`;
-        const object = await env.THUMBNAILS_BUCKET.get(key);
+        const object = await env.THUMBNAILS_BUCKET.get(r2Key);
         if (!object) {
             return new Response('Not found', { status: 404, headers: corsHeaders });
         }
@@ -377,13 +398,17 @@ export default {
             return new Response(null, { headers: corsHeaders });
         }
 
-        // ── THUMBNAIL SERVE: /share/image/:itemId — serves a thumbnail
+        // ── THUMBNAIL SERVE: /share/image/:r2Key — serves a thumbnail
         // straight from R2 on this Worker's own domain. Added because
         // api.3c-public-library.org blocks non-browser requests, which was
-        // silently breaking every social-media image preview.
-        const imageMatch = path.match(/^\/share\/image\/([^/]+)\/?$/);
+        // silently breaking every social-media image preview. Captures the
+        // FULL remaining path, not just one segment — real R2 keys are
+        // nested (e.g. library/thumbnails/xyz.jpg), so a single-segment
+        // match would break on the first slash.
+        const imageMatch = path.match(/^\/share\/image\/(.+)$/);
         if (imageMatch) {
-            return await handleShareImage(env, decodeURIComponent(imageMatch[1]), corsHeaders);
+            const r2Key = imageMatch[1].split('/').map(decodeURIComponent).join('/');
+            return await handleShareImage(env, r2Key, corsHeaders);
         }
 
         // ── SHARE PREVIEW: /share/library/:folder/:item or /share/vault/:folder/:item ──
