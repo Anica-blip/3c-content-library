@@ -2002,12 +2002,17 @@
             const link = `${SHARE_WORKER}/share/library/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
             if (navigator.share) {
                 navigator.share({
-                    title: item.title,
-                    text: item.description || 'Think it. Do it. Own it.',
                     url: link,
                 }).catch(() => { /* cancelled */ });
             } else {
-                copyLibrarySeriesLink(itemId);
+                // No native share sheet available — copy the SAME
+                // worker-routed link just built above, not a different
+                // one via copyLibrarySeriesLink().
+                navigator.clipboard.writeText(link).then(() => {
+                    alert('✅ Share link copied to clipboard!\n\n' + link);
+                }).catch(() => {
+                    prompt('Copy this link:', link);
+                });
             }
         }
 
@@ -2494,8 +2499,6 @@
             const shareLink = buildShareWorkerLink(currentContent.id);
             if (navigator.share) {
                 navigator.share({
-                    title: currentContent.title,
-                    text: currentContent.description || 'Think it. Do it. Own it.',
                     url: shareLink,
                 }).catch(() => { /* user cancelled the share sheet — not an error */ });
             } else {
