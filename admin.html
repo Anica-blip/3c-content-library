@@ -227,8 +227,14 @@
                 <div class="form-group">
                     <label>Thumbnail Image (Optional)</label>
                     <input type="file" id="thumbnailUpload" accept="image/*" onchange="previewThumbnail(event)">
+                    <div class="thumb-url-row">
+                        <span class="thumb-url-or">or paste existing thumbnail URL</span>
+                        <input type="text" id="thumbnailUrlInput" class="thumb-url-input"
+                               placeholder="https://files.3c-public-library.org/…"
+                               oninput="useThumbnailUrl(this.value)">
+                    </div>
                     <img id="thumbnailPreview" class="preview-image" style="display: none;">
-                    <small>If not provided, GitHub Actions will auto-generate screenshot for external URLs</small>
+                    <small>If not provided, GitHub Actions will auto-generate screenshot for external URLs. Reuse an existing thumbnail instead of re-uploading the same image.</small>
                 </div>
                 
                 <div class="form-group">
