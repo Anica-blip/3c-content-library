@@ -2353,20 +2353,28 @@
             // otherwise there's nothing meaningful to return to, so the
             // icon is omitted entirely.
             const params = getUrlParams();
+            // Return icon — always climbs to the true root ancestor
+            // folder, however deep the content is nested, and opens
+            // that root's full sidebar (all its sub-folders + its own
+            // items). That's the whole point: someone browsing Beginners
+            // → A.Introduction → one item should land back on Beginners'
+            // full list when they're done, not just A.Introduction's
+            // narrow slice of it — so they can pick a different
+            // sub-folder next without losing their place. Same behavior
+            // in both normal split-view and standalone/shared-link mode.
             let returnButton = '';
-            if (!pdfOnlyMode) {
-                returnButton = `
-                    <button onclick="hideContentViewer()" title="Return to folder content list"
-                            style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
-                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg>
-                    </button>
-                `;
-            } else if (currentFolder) {
-                const folderHasContent = (currentFolder.actualItemCount && currentFolder.actualItemCount > 0)
-                    || library.folders.some(f => f.parentId === currentFolder.id);
+            if (currentFolder) {
+                let rootFolder = currentFolder;
+                while (rootFolder.parentId) {
+                    const parent = library.folders.find(f => f.id === rootFolder.parentId);
+                    if (!parent) break;
+                    rootFolder = parent;
+                }
+                const folderHasContent = (rootFolder.actualItemCount && rootFolder.actualItemCount > 0)
+                    || library.folders.some(f => f.parentId === rootFolder.id);
                 if (folderHasContent) {
                     returnButton = `
-                        <button onclick="window.location.href='?openFolder=${encodeURIComponent(currentFolder.id)}'" title="Back to folder"
+                        <button onclick="window.location.href='?openFolder=${encodeURIComponent(rootFolder.id)}'" title="Return to folder content list"
                                 style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg>
                         </button>
@@ -2623,27 +2631,10 @@
             document.querySelectorAll('#viewerContent iframe, .right-viewer iframe').forEach(f => { f.src = ''; });
         }
 
-        function hideContentViewer() {
-            stopAllVideos();
-            const viewer = document.querySelector('.right-viewer');
-            const leftSidebar = document.getElementById('leftSidebar');
-            
-            if (viewer) {
-                viewer.classList.remove('active');
-                // Desktop: the left thumbnail column is already visible
-                // at all times (only mobile ever hides it), so there is
-                // nothing to "return" to — just reset the right panel
-                // back to its placeholder instead of leaving the folder
-                // entirely via a full-page redirect.
-                if (window.innerWidth > 768) {
-                    viewer.innerHTML = '<div class="no-content"><h2>Welcome to 3C Public Library</h2><p>Select content from the sidebar to view</p></div>';
-                }
-            }
-            
-            if (leftSidebar) {
-                leftSidebar.classList.remove('hidden');
-            }
-        }
+        // hideContentViewer() was removed — its only caller (the return
+        // icon) now navigates to the root folder's sidebar instead of
+        // closing the panel in place, per the folder-list requirement
+        // above. stopAllVideos() is still called separately elsewhere.
         
         // ==================== ORIENTATION MODAL ====================
         function openOrientationModal() {
