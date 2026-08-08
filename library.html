@@ -1467,7 +1467,8 @@
                 content: params.get('content'),
                 url: params.get('url'), // Content custom_url for new URL format
                 view: params.get('view'), // 'pdf-only' or 'flipbook-only' to hide folder sidebar
-                highlight: params.get('highlight') // item to glow/scroll to in a Collection grid
+                highlight: params.get('highlight'), // item to glow/scroll to in a Collection grid
+                openFolder: params.get('openFolder') // folder ID to auto-open the sidebar for, from the return icon
             };
         }
         
@@ -1645,6 +1646,12 @@
             if (!folderSlug) {
                 console.log('No folder slug, showing all folders');
                 displayAllFolders();
+                // Came here via the content viewer's return icon —
+                // auto-open the sidebar for the folder they were just
+                // viewing instead of leaving them to find it again.
+                if (params.openFolder) {
+                    openFolderSidebar(params.openFolder);
+                }
                 return;
             }
             
@@ -2358,9 +2365,8 @@
                 const folderHasContent = (currentFolder.actualItemCount && currentFolder.actualItemCount > 0)
                     || library.folders.some(f => f.parentId === currentFolder.id);
                 if (folderHasContent) {
-                    const folderRef = currentFolder.tableName || currentFolder.slug;
                     returnButton = `
-                        <button onclick="window.location.href='?folder=${encodeURIComponent(folderRef)}'" title="Back to folder"
+                        <button onclick="window.location.href='?openFolder=${encodeURIComponent(currentFolder.id)}'" title="Back to folder"
                                 style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg>
                         </button>
