@@ -7,12 +7,18 @@
  *   folder_passwords -> vault_folder_passwords
  *   flipbook-viewer.html -> ../flipbook-viewer.html
  *   presentation-viewer.html -> ../presentation-viewer.html
- *   library.html -> vault.html  (hideContentViewer desktop redirect)
  *   getComments/addComment -> vault_comments direct queries
  *   getTypeIcon extended with vault types
  *   displayAllFolders alphabetical (no pinned order)
  *   init block adds initVaultSupabase + updateVaultNav
  *   openPDFModal activates vault pdfModal + pdf-viewer-enhanced.js
+ *
+ * 2026-08-08: return icon now climbs to the root folder and opens its
+ * sidebar (?openFolder=) instead of hideContentViewer()'s old desktop
+ * redirect to vault.html — that function is removed. Share/copy buttons
+ * re-skinned to the SVG icon set. Desktop share fallback now copies the
+ * actual worker link built in nativeShareContent()/nativeShareSeriesItem()
+ * instead of silently switching to a different, plain link.
  */
 
 // ==================== GLOBAL STATE ====================
@@ -88,7 +94,7 @@ async function loadData() {
 // ==================== URL PARAMS ====================
 function getUrlParams() {
     const params = new URLSearchParams(window.location.search);
-    return { folder: params.get('folder'), content: params.get('content'), url: params.get('url'), view: params.get('view'), highlight: params.get('highlight') };
+    return { folder: params.get('folder'), content: params.get('content'), url: params.get('url'), view: params.get('view'), highlight: params.get('highlight'), openFolder: params.get('openFolder') };
 }
 
 // ==================== FIND HELPERS ====================
@@ -173,7 +179,14 @@ async function displayContent() {
     }
 
     // No folder selected — show all folders
-    if (!folderSlug) { console.log('No folder slug, showing all folders'); displayAllFolders(); return; }
+    if (!folderSlug) {
+        console.log('No folder slug, showing all folders');
+        displayAllFolders();
+        // Came here via the content viewer's return icon — auto-open
+        // the sidebar for the folder they were just viewing.
+        if (params.openFolder) openFolderSidebar(params.openFolder);
+        return;
+    }
 
     // Hide folders section, show content viewer with left/right layout
     document.querySelector('.folders-section').style.display = 'none';
@@ -603,7 +616,13 @@ function nativeShareSeriesItem(itemId) {
             url: link,
         }).catch(() => { /* cancelled */ });
     } else {
-        copySeriesLink(itemId);
+        // No native share sheet available — copy the same worker link
+        // just built above, not a different one via copySeriesLink().
+        navigator.clipboard.writeText(link).then(() => {
+            alert('✅ Share link copied to clipboard!\n\n' + link);
+        }).catch(() => {
+            prompt('Copy this link:', link);
+        });
     }
 }
 
@@ -874,7 +893,7 @@ function showViewer(content, pdfOnlyMode) {
     currentContent = content;
     let viewerHtml = '';
 
-    const shareButton = pdfOnlyMode ? '' : '<button onclick="nativeShareContent()" style="background: linear-gradient(135deg, #00d4c8, #00a89e); color: #0a0416; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,212,200,0.3);" title="Share">&#8599;</button><button onclick="copyShareLink()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-left: 6px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);" title="Copy Link">&#8853;</button>';
+    const shareButton = pdfOnlyMode ? '' : '<button onclick="nativeShareContent()" title="Share" style="background: rgba(0,212,200,0.1); border: 1px solid rgba(0,212,200,0.35); color: #00d4c8; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49"/></svg></button><button onclick="copyShareLink()" title="Copy Link" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>';
 
     if (content.type === 'pdf') {
         let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%93%84%3C/text%3E%3C/svg%3E';
@@ -917,7 +936,24 @@ function showViewer(content, pdfOnlyMode) {
         viewerHtml = '<div style="text-align: center;"><img src="' + thumbnailSrc + '" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="' + target + '" target="_blank" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">📎</span>Click to Open</a></div>';
     }
 
-    const backButton = !pdfOnlyMode ? '<button onclick="hideContentViewer()" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">&#8592; Back</button>' : '';
+    // Return icon — always climbs to the true root ancestor folder,
+    // however deep the content is nested, and opens that root's full
+    // sidebar (all its sub-folders + its own items). Matches
+    // library.html's return behavior exactly.
+    let returnButton = '';
+    if (currentFolder) {
+        let rootFolder = currentFolder;
+        while (rootFolder.parentId) {
+            const parent = library.folders.find(f => f.id === rootFolder.parentId);
+            if (!parent) break;
+            rootFolder = parent;
+        }
+        const folderHasContent = (rootFolder.actualItemCount && rootFolder.actualItemCount > 0)
+            || library.folders.some(f => f.parentId === rootFolder.id);
+        if (folderHasContent) {
+            returnButton = '<button onclick="window.location.href=\'?openFolder=' + encodeURIComponent(rootFolder.id) + '\'" title="Return to folder content list" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg></button>';
+        }
+    }
 
     const viewer = document.getElementById('viewer');
     if (pdfOnlyMode) viewer.innerHTML = '<div id="viewerContent" style="max-width: 800px; margin: 0 auto; padding: 20px;"></div>';
@@ -932,7 +968,7 @@ function showViewer(content, pdfOnlyMode) {
 
     const descHtml = content.description ? '<div class="viewer-desc">' + content.description + '</div>' : '';
 
-    contentArea.innerHTML = backButton + '<h2 style="font-size: 18px;">' + content.title + shareButton + '</h2>' + descHtml + viewerHtml + `
+    contentArea.innerHTML = '<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px;"><h2 style="font-size: 18px; margin: 0; flex: 1; min-width: 0;">' + content.title + '</h2><div style="display: flex; gap: 6px; flex-shrink: 0;">' + returnButton + shareButton + '</div></div>' + descHtml + viewerHtml + `
         <div class="comments-section" style="margin-top: 40px;">
             <div class="comments-header"><h3>💬 Comments</h3><span class="comment-count" id="commentCount">0</span></div>
             <div class="comment-form">
@@ -976,7 +1012,14 @@ function nativeShareContent() {
             url: shareLink,
         }).catch(() => { /* cancelled */ });
     } else {
-        copyShareLink();
+        // No native share sheet available (most desktop browsers) —
+        // copy the SAME worker-routed link just built above, not a
+        // different one via copyShareLink().
+        navigator.clipboard.writeText(shareLink).then(() => {
+            alert('✅ Share link copied to clipboard!\n\n' + shareLink);
+        }).catch(() => {
+            prompt('Copy this link:', shareLink);
+        });
     }
 }
 
@@ -993,12 +1036,9 @@ function openPDFModal(pdfUrl, title, contentId) {
 function closePDFModal() { const modal = document.getElementById('pdfModal'); if (modal) modal.classList.remove('active'); }
 
 // ==================== HIDE CONTENT VIEWER ====================
-function hideContentViewer() {
-    const viewer = document.querySelector('.right-viewer'), leftSidebar = document.getElementById('leftSidebar');
-    if (viewer) viewer.classList.remove('active');
-    if (leftSidebar) leftSidebar.classList.remove('hidden');
-    if (window.innerWidth > 768) window.location.href = 'vault.html';
-}
+// hideContentViewer() removed — its only caller (the return icon) now
+// navigates to the root folder's sidebar instead. vault.html's video-stop
+// wrapper around this function has been cleaned up to match.
 
 // ==================== LAZY LOADING ====================
 let thumbnailObserver;
