@@ -2460,9 +2460,17 @@
                     url: shareLink,
                 }).catch(() => { /* user cancelled the share sheet — not an error */ });
             } else {
-                // No native share sheet available (some desktop browsers) —
-                // fall back to the same copy-link behavior
-                copyShareLink();
+                // No native share sheet available (most desktop browsers) —
+                // copy the SAME worker-routed link this function just built,
+                // not a different one. This previously called copyShareLink(),
+                // which builds its own separate plain pdf-only link — meaning
+                // Share and Copy silently did the exact same thing on desktop,
+                // and the rich link-preview URL built above was discarded.
+                navigator.clipboard.writeText(shareLink).then(() => {
+                    alert('✅ Share link copied to clipboard!\n\n' + shareLink);
+                }).catch(() => {
+                    prompt('Copy this link:', shareLink);
+                });
             }
         }
         
