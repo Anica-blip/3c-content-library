@@ -2501,6 +2501,7 @@
         // block the slide-out animation and could break the next
         // slide-in too) and un-hides the thumbnail sidebar underneath.
         function closeViewerToThumbnails() {
+            stopAllVideos();
             const contentArea = document.getElementById('viewerContent');
             const leftSidebar = document.getElementById('leftSidebar');
             if (contentArea) {
