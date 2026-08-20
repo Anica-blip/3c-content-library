@@ -2417,6 +2417,25 @@
                 }
             }
             
+            // Close icon — separate from the return icon above. Return
+            // deliberately jumps out to the root folder's full sidebar;
+            // this instead just reverses the one thing showViewer() did
+            // on open — un-hiding #leftSidebar — so the everyday "done
+            // with this one, show me the list again" case doesn't have
+            // to go through a full folder-level navigation. Only makes
+            // sense where there's a sidebar in the DOM to reveal, so it's
+            // gated exactly the same way that hide step below is: mobile,
+            // normal browsing only, never in standalone/shared-link mode.
+            let closeButton = '';
+            if (!pdfOnlyMode && window.innerWidth <= 768) {
+                closeButton = `
+                    <button onclick="closeViewerToThumbnails()" title="Close and return to thumbnails"
+                            style="background: rgba(0,212,200,0.1); border: 1px solid rgba(0,212,200,0.35); color: #00d4c8; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                `;
+            }
+
             // Create or update content area (preserve comments section)
             const viewer = document.getElementById('viewer');
             if (pdfOnlyMode) {
@@ -2439,6 +2458,7 @@
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px;">
                     <h2 style="font-size: 18px; margin: 0; flex: 1; min-width: 0;">${content.title}</h2>
                     <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                        ${closeButton}
                         ${returnButton}
                         ${shareButton}
                     </div>
@@ -2473,6 +2493,22 @@
             
             // Load comments for this content
             loadComments(content.id);
+        }
+
+        // Reverses exactly what showViewer() did to open on mobile:
+        // slides the overlay back off-screen via the .active class (CSS
+        // handles the transition, so no display:none here — that would
+        // block the slide-out animation and could break the next
+        // slide-in too) and un-hides the thumbnail sidebar underneath.
+        function closeViewerToThumbnails() {
+            const contentArea = document.getElementById('viewerContent');
+            const leftSidebar = document.getElementById('leftSidebar');
+            if (contentArea) {
+                contentArea.classList.remove('active');
+            }
+            if (leftSidebar) {
+                leftSidebar.classList.remove('hidden');
+            }
         }
         
         function copyFolderLink(folderRef) {
