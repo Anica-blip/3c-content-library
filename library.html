@@ -1394,6 +1394,21 @@
             <div class="pdf-viewer-container" id="pdfViewerContainer"></div>
         </div>
     </div>
+
+    <div class="pdf-modal" id="slideshowModal" onclick="closeSlideshowModal()">
+        <div class="pdf-modal-content" onclick="event.stopPropagation()">
+            <div class="pdf-modal-header">
+                <div class="pdf-modal-title" id="slideshowTitle">Virtual Slideshow</div>
+                <button class="close-modal" onclick="closeSlideshowModal(); event.stopPropagation();" style="background: linear-gradient(135deg, #dc3545, #c82333); color: white; box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <iframe id="slideshowFrame" src="" style="width: 100%; flex: 1; border: none;" allowfullscreen></iframe>
+        </div>
+    </div>
     
     <script>
         // PDF.js setup
@@ -2361,9 +2376,28 @@
                 viewerHtml = `<div style="display: flex; justify-content: center; padding: 20px;"><img src="${content.url}" style="max-width: 440px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>`;
             } else if (content.type === 'audio') {
                 viewerHtml = `<div style="display: flex; justify-content: center; padding: 40px;"><audio controls style="width: 100%; max-width: 600px; height: 54px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"><source src="${content.url}"></audio></div>`;
-            } else if (content.type === 'quiz' || content.type === 'card-game' || content.type === 'spin-wheel' || content.type === 'landing-page' || content.type === 'virtual-slideshow' || content.type === 'link') {
-                const linkLabels = { 'quiz': 'Click to Open Quiz', 'card-game': 'Click to Open Card Game', 'spin-wheel': 'Click to Spin the Wheel', 'landing-page': 'Click to Open', 'virtual-slideshow': 'Click to Launch Virtual Slideshow', 'link': 'Click to Open Link' };
-                const linkIcons  = { 'quiz': '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', 'virtual-slideshow': '🎞️', 'link': '🔗' };
+            } else if (content.type === 'virtual-slideshow') {
+                // Modal + iframe — same pattern as the PDF modal above,
+                // not the plain-link pattern the other types below still
+                // use. Content here is a full webpage rather than a PDF
+                // file, so an iframe replaces PDF.js, but the point is
+                // identical: never navigate away from library.html at
+                // all. Closing just hides the overlay — there's nowhere
+                // to "return" to because nothing ever left.
+                let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%8E%9E%3C/text%3E%3C/svg%3E';
+                const slideshowUrl = content.url || content.externalUrl || '#';
+                viewerHtml = `
+                    <div style="text-align: center; cursor: pointer;" onclick="openSlideshowModal(\`${slideshowUrl.replace(/`/g, '\\`')}\`, \`${content.title.replace(/`/g, '\\`')}\`)">
+                        <img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border: 2px solid #ddd; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                        <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);">
+                            <span style="font-size: 24px;">🎞️</span>
+                            Click to Launch Virtual Slideshow
+                        </span>
+                    </div>
+                `;
+            } else if (content.type === 'quiz' || content.type === 'card-game' || content.type === 'spin-wheel' || content.type === 'landing-page' || content.type === 'link') {
+                const linkLabels = { 'quiz': 'Click to Open Quiz', 'card-game': 'Click to Open Card Game', 'spin-wheel': 'Click to Spin the Wheel', 'landing-page': 'Click to Open', 'link': 'Click to Open Link' };
+                const linkIcons  = { 'quiz': '🧠', 'card-game': '🃏', 'spin-wheel': '🎡', 'landing-page': '🚀', 'link': '🔗' };
                 const linkLabel  = linkLabels[content.type] || 'Click to Open';
                 const linkIcon   = linkIcons[content.type]  || '🔗';
                 let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%94%97%3C/text%3E%3C/svg%3E';
@@ -2711,6 +2745,17 @@
         function closePDFModal() {
             document.getElementById('pdfModal').classList.remove('active');
             pdfDoc = null;
+        }
+
+        function openSlideshowModal(url, title) {
+            document.getElementById('slideshowModal').classList.add('active');
+            document.getElementById('slideshowTitle').textContent = title;
+            document.getElementById('slideshowFrame').src = url;
+        }
+
+        function closeSlideshowModal() {
+            document.getElementById('slideshowModal').classList.remove('active');
+            document.getElementById('slideshowFrame').src = ''; // stop whatever's running inside, not just hide it
         }
         
         function stopAllVideos() {
