@@ -1,12 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Hide everything until every stylesheet below has fully loaded
-         and applied. This is the very first rule parsed, before any
-         external resource, so there is no possible moment where an
-         unstyled or half-styled page can paint. Revealed by the
-         DOMContentLoaded listener near the end of <body>. -->
-    <style>html{visibility:hidden;background:#0a0416;}</style>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3C Public Library</title>
@@ -879,7 +873,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(26, 26, 26, 0.95);
+            background: rgba(255, 255, 255, 0.95);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -1300,8 +1294,8 @@
                     <p style="font-size: 13px; color: #c4b5d4; padding-left: 12px; margin-bottom: 2px;">→ The Pomodoro Technique</p>
                     <p style="font-size: 13px; color: #c4b5d4; padding-left: 12px; margin-bottom: 2px;">→ The Pattern Recognition Approach</p>
                     <p style="font-size: 13px; color: #c4b5d4; padding-left: 12px; margin-bottom: 12px;">→ The Momentum Mechanism</p>
-                    <p style="font-size: 13px; color: #e2d4f0; font-weight: 600; margin-bottom: 4px;">Member Badges</p>
-                    <p style="font-size: 13px; color: #c4b5d4; padding-left: 12px; margin-bottom: 0;">→ The 3C Badge journey, one badge at a time — starting with 🦅 Falcon, The Seeker.</p>
+                    <p style="font-size: 13px; color: #e2d4f0; font-weight: 600; margin-bottom: 4px;">Mini-Courses — <span style="color: #c084fc;">Foundation FALCON</span></p>
+                    <p style="font-size: 13px; color: #c4b5d4; padding-left: 12px; margin-bottom: 0;">→ Flow Under Friction — Level 2</p>
                 </div>
 
                 <!-- CLOSING TEXT -->
@@ -1312,14 +1306,6 @@
                     <p style="font-size: 13px; color: #c4b5d4; margin-bottom: 10px;">This library grows with you. New content is added in sequence as the community progresses.</p>
                     <p style="font-size: 11px; color: #9b7bb0; margin-bottom: 10px;"><em>All material is the property of 3C Thread To Success. All rights reserved.</em></p>
                     <p style="font-size: 14px; color: #ffffff; font-weight: 700;">Keep Levelling Up — Anica</p>
-                </div>
-
-                <!-- TELEGRAM CTA -->
-                <div class="orientation-section" style="border-color: rgba(0, 212, 200, 0.25); background: rgba(0, 212, 200, 0.06); text-align: center;">
-                    <p style="font-size: 13px; color: #c4b5d4; margin-bottom: 14px;">Want more from 3C than the Library alone? Join the 3C Thread To Success channel — our main hub for updates, announcements, and Aurion's posts.</p>
-                    <a href="https://t.me/+9nzVQANylDY5Y2Y0" target="_blank" rel="noopener" style="display: inline-block; background: rgba(0, 212, 200, 0.12); border: 1px solid rgba(0, 212, 200, 0.5); color: #00d4c8; text-decoration: none; padding: 10px 22px; border-radius: 10px; font-size: 13px; font-weight: 700; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 212, 200, 0.22)'" onmouseout="this.style.background='rgba(0, 212, 200, 0.12)'">
-                        💬 Join the Telegram Channel
-                    </a>
                 </div>
 
                 <button class="orientation-cta" onclick="closeOrientationModal()">
@@ -1441,8 +1427,7 @@
                     parentId: f.parent_id,
                     depth: f.depth || 0,
                     path: f.path,
-                    actualItemCount: f.actual_item_count || 0,
-                    displayStyle: f.display_style || 'default'
+                    actualItemCount: f.actual_item_count || 0
                 }));
                 
                 // Don't load all content upfront - load on-demand for faster initial page load
@@ -1466,9 +1451,7 @@
                 folder: params.get('folder'),
                 content: params.get('content'),
                 url: params.get('url'), // Content custom_url for new URL format
-                view: params.get('view'), // 'pdf-only' or 'flipbook-only' to hide folder sidebar
-                highlight: params.get('highlight'), // item to glow/scroll to in a Collection grid
-                openFolder: params.get('openFolder') // folder ID to auto-open the sidebar for, from the return icon
+                view: params.get('view') // 'pdf-only' or 'flipbook-only' to hide folder sidebar
             };
         }
         
@@ -1646,12 +1629,6 @@
             if (!folderSlug) {
                 console.log('No folder slug, showing all folders');
                 displayAllFolders();
-                // Came here via the content viewer's return icon —
-                // auto-open the sidebar for the folder they were just
-                // viewing instead of leaving them to find it again.
-                if (params.openFolder) {
-                    openFolderSidebar(params.openFolder);
-                }
                 return;
             }
             
@@ -1663,13 +1640,6 @@
             currentFolder = findFolderBySlug(folderSlug);
             if (!currentFolder) {
                 document.getElementById('viewer').innerHTML = '<div class="no-content"><h2>Folder Not Found</h2><p>This folder may have been deleted.</p></div>';
-                return;
-            }
-            
-            // Collection-style folders get their own grid entirely —
-            // skip the default sidebar+viewer logic below completely.
-            if (currentFolder.displayStyle === 'collection') {
-                await displayLibraryCollectionGrid(currentFolder, params.highlight);
                 return;
             }
             
@@ -1814,208 +1784,6 @@
             return library.content.filter(c => allFolderIds.includes(c.folderId)).length;
         }
         
-        // ==================== LIBRARY COLLECTION GRID ====================
-        // Same visual pattern as Aurion Vault's Collection style — a
-        // clean wrapping thumbnail grid, click one to view. Reuses the
-        // Library's own proven showViewer() for actually displaying
-        // content (PDF modal, flipbook page, inline video, etc.) rather
-        // than rebuilding that logic — only the grid itself is new.
-        let librarySeriesItemsCache = [];
-
-        async function displayLibraryCollectionGrid(folder, highlightSlug) {
-            document.querySelector('.folders-section').style.display = 'none';
-            document.getElementById('contentViewer').style.display = 'block';
-            document.getElementById('folderSidebar').style.display = 'none';
-
-            // Return icon — same root-climbing behavior as the content
-            // viewer's return icon: always lands on the true root
-            // ancestor's full sidebar, however deep this folder is nested.
-            let rootFolder = folder;
-            while (rootFolder.parentId) {
-                const parent = library.folders.find(f => f.id === rootFolder.parentId);
-                if (!parent) break;
-                rootFolder = parent;
-            }
-            const returnIconHtml = `
-                <button onclick="window.location.href='?openFolder=${encodeURIComponent(rootFolder.id)}'" title="Return to folder content list" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg>
-                </button>
-            `;
-
-            // Copy Link only — no native share icon here. The worker's
-            // OG-tag preview route is built around individual content
-            // items (item.thumbnail_url), not folder pages, so a rich
-            // share preview isn't available for this page without
-            // touching the worker. This just copies the plain URL.
-            const folderRef = folder.slug || folder.tableName || folder.id;
-            const copyLinkIconHtml = `
-                <button onclick="copyFolderLink('${String(folderRef).replace(/'/g, "\\'")}')" title="Copy Link" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-                </button>
-            `;
-
-            const viewer = document.getElementById('viewer');
-            viewer.innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px;">
-                    <h2 style="color: #ffffff; font-size: 20px; margin: 0; flex: 1; min-width: 0;">${escapeHtml(folder.title)}</h2>
-                    <div style="display: flex; gap: 6px; flex-shrink: 0;">${returnIconHtml}${copyLinkIconHtml}</div>
-                </div>
-                ${folder.description ? '<div style="color:#9a8fb0; font-size:13px; margin-bottom:20px;">' + escapeHtml(folder.description) + '</div>' : '<div style="margin-bottom:20px;"></div>'}
-                <div class="series-grid" id="librarySeriesGrid"></div>
-            `;
-
-            if (!document.getElementById('librarySeriesGridStyle')) {
-                const style = document.createElement('style');
-                style.id = 'librarySeriesGridStyle';
-                style.textContent = `
-                    .series-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
-                    @media (max-width: 768px) {
-                        .series-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
-                        .series-grid .series-card { flex-direction: row !important; align-items: center; gap: 14px; }
-                        .series-grid .series-thumb { width: 130px !important; flex-shrink: 0; aspect-ratio: 1 !important; }
-                        .series-grid .series-title { text-align: left !important; margin-top: 0 !important; }
-                    }
-                    .series-card.series-highlighted .series-thumb {
-                        box-shadow: 0 0 0 3px #00d4c8, 0 0 24px rgba(0,212,200,0.55) !important;
-                        animation: librarySeriesHighlightPulse 1.6s ease-in-out 3;
-                    }
-                    @keyframes librarySeriesHighlightPulse {
-                        0%, 100% { box-shadow: 0 0 0 3px #00d4c8, 0 0 22px rgba(0,212,200,0.35); }
-                        50%      { box-shadow: 0 0 0 5px #00d4c8, 0 0 34px rgba(0,212,200,0.75); }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-
-            const grid = document.getElementById('librarySeriesGrid');
-            grid.innerHTML = '<p style="color:#999;">Loading...</p>';
-
-            try {
-                const rows = await supabaseClient.getContentPublicSeries(folder.id);
-                librarySeriesItemsCache = rows.map(c => ({
-                    id: c.id,
-                    folderId: c.folder_id,
-                    title: c.title,
-                    type: c.type,
-                    url: c.url,
-                    slug: c.custom_url || c.slug,
-                    customUrl: c.custom_url,
-                    thumbnail: c.thumbnail_url,
-                    description: c.description,
-                    externalUrl: c.external_url,
-                    order: c.display_order
-                }));
-            } catch (error) {
-                console.error('Error loading library series content:', error);
-                grid.innerHTML = '<p style="color:#e74c3c;">Error loading content.</p>';
-                return;
-            }
-
-            if (librarySeriesItemsCache.length === 0) {
-                grid.innerHTML = '<p style="color:#999;">No content yet.</p>';
-                return;
-            }
-
-            grid.innerHTML = librarySeriesItemsCache.map(item => {
-                const thumb = item.thumbnail ||
-                    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%231a0f2e" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" font-size="80"%3E' + encodeURIComponent(getTypeIcon(item.type)) + '%3C/text%3E%3C/svg%3E';
-                return `
-                    <div class="series-card" data-item-id="${item.id}" data-custom-url="${item.customUrl || item.slug || ''}" onclick="openLibrarySeriesItem('${item.id}')" style="cursor: pointer; display: flex; flex-direction: column; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform=''">
-                        <div class="series-thumb" style="position: relative; aspect-ratio: 3/4; border-radius: 10px; overflow: hidden; background-image: url('${thumb}'); background-size: cover; background-position: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(155,89,182,0.2);"></div>
-                        <div class="series-title" style="margin-top: 8px; font-size: 13px; color: #ffffff; text-align: center; line-height: 1.3;">${escapeHtml(item.title)}</div>
-                    </div>
-                `;
-            }).join('');
-
-            if (highlightSlug) {
-                const target = librarySeriesItemsCache.find(i => i.customUrl === highlightSlug || i.slug === highlightSlug || i.id === highlightSlug);
-                if (target) {
-                    const card = grid.querySelector(`[data-item-id="${target.id}"]`);
-                    if (card) {
-                        card.classList.add('series-highlighted');
-                        setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
-                    }
-                }
-            }
-        }
-
-        function openLibrarySeriesItem(itemId) {
-            const item = librarySeriesItemsCache.find(i => i.id === itemId);
-            if (!item) return;
-            const folder = library.folders.find(f => f.id === item.folderId) || currentFolder;
-            currentFolder = folder;
-            showViewer(item, true);
-
-            // Small symbol-style icons next to the title — return to
-            // the thumbnail grid, and copy a shareable link to this
-            // exact item. Matches icon.js's visual language (small
-            // circular icon buttons) rather than a full chunky button.
-            const h2 = document.querySelector('#viewerContent h2, #viewer h2');
-            if (h2) {
-                h2.style.display = 'flex';
-                h2.style.alignItems = 'center';
-                h2.style.justifyContent = 'space-between';
-                h2.style.gap = '10px';
-                const titleText = h2.textContent;
-                h2.innerHTML = `
-                    <span>${escapeHtml(titleText)}</span>
-                    <span style="display:flex; gap:6px; flex-shrink:0;">
-                        <button onclick="backToLibrarySeriesGrid('${folder.id}')" title="Back to thumbnails" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg>
-                        </button>
-                        <button onclick="nativeShareLibrarySeriesItem('${item.id}')" title="Share" style="background: rgba(0,212,200,0.1); border: 1px solid rgba(0,212,200,0.35); color: #00d4c8; width: 30px; height: 30px; border-radius: 8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49"/></svg>
-                        </button>
-                        <button onclick="copyLibrarySeriesLink('${item.id}')" title="Copy link" style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-                        </button>
-                    </span>
-                `;
-            }
-        }
-
-        function backToLibrarySeriesGrid(folderId) {
-            const folder = library.folders.find(f => f.id === folderId);
-            if (folder) displayLibraryCollectionGrid(folder);
-        }
-
-        function copyLibrarySeriesLink(itemId) {
-            const item = librarySeriesItemsCache.find(i => i.id === itemId);
-            if (!item) return;
-            const baseUrl = window.location.origin + window.location.pathname;
-            const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
-            const itemSlug = item.customUrl || item.slug || item.id;
-            const link = baseUrl + '?folder=' + encodeURIComponent(folderSlug) + '&highlight=' + encodeURIComponent(itemSlug);
-            navigator.clipboard.writeText(link).then(() => {
-                alert('✅ Link copied!\n\n' + item.title + '\n' + link);
-            }).catch(() => {
-                prompt('Copy this link:', link);
-            });
-        }
-
-        function nativeShareLibrarySeriesItem(itemId) {
-            const item = librarySeriesItemsCache.find(i => i.id === itemId);
-            if (!item) return;
-            const SHARE_WORKER = 'https://3c-public-library.org';
-            const folderSlug = currentFolder ? (currentFolder.slug || currentFolder.tableName) : '';
-            const itemSlug = item.customUrl || item.slug || item.id;
-            const link = `${SHARE_WORKER}/share/library/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
-            if (navigator.share) {
-                navigator.share({
-                    url: link,
-                }).catch(() => { /* cancelled */ });
-            } else {
-                // No native share sheet available — copy the SAME
-                // worker-routed link just built above, not a different
-                // one via copyLibrarySeriesLink().
-                navigator.clipboard.writeText(link).then(() => {
-                    alert('✅ Share link copied to clipboard!\n\n' + link);
-                }).catch(() => {
-                    prompt('Copy this link:', link);
-                });
-            }
-        }
-
         function displayAllFolders() {
             console.log('📁 displayAllFolders called, folders:', library.folders);
             
@@ -2043,7 +1811,7 @@
             console.log('✅ Displaying only root folders');
             
             // Get only root folders, exclude Testing folder
-            const pinnedOrder = ['bulletin_board', 'beginners', 'a_knowledge_base', 'falcon_seeker', 'panther_discoverer', 'wolf_builder', 'lion_leader'];
+            const pinnedOrder = ['bulletin_board', 'beginners', 'a_knowledge_base', 'mini_courses'];
             
             const rootFolders = library.folders.filter(f => {
                 const isRoot = !f.parentId && f.depth === 0;
@@ -2058,13 +1826,6 @@
                 return a.title.localeCompare(b.title); // neither pinned — alphabetical
             });
             
-            const BADGE_WATERMARKS = {
-                falcon_seeker: 'https://files.3c-public-library.org/badges/FALCON.png',
-                panther_discoverer: 'https://files.3c-public-library.org/badges/PANTHER.png',
-                wolf_builder: 'https://files.3c-public-library.org/badges/WOLF.png',
-                lion_leader: 'https://files.3c-public-library.org/badges/LION.png',
-            };
-
             let html = '';
             rootFolders.forEach(folder => {
                 const subfolders = library.folders.filter(f => f.parentId === folder.id);
@@ -2079,16 +1840,9 @@
                 } else {
                     countLabel = `${contentCount} item${contentCount !== 1 ? 's' : ''}`;
                 }
-
-                const badgeUrl = BADGE_WATERMARKS[folder.tableName];
-                const badgeWatermark = badgeUrl
-                    ? `<img src="${badgeUrl}" alt="" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:78%; max-width:180px; opacity:0.1; pointer-events:none; z-index:0;">`
-                    : '';
                 
                 html += `
                     <div class="folder-card-item" onclick="openFolderSidebar('${folder.id}')">
-                        ${badgeWatermark}
-                        <div style="position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:12px;">
                         <div class="folder-icon">
                             <svg width="64" height="54" viewBox="0 0 64 54" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M4 18 L4 11 Q4 9 6 9 L24 9 Q27 9 29 13 L31 18 Z" fill="#7c3aed"/>
@@ -2100,7 +1854,6 @@
                         <div class="folder-title" style="${folder.tableName === 'bulletin_board' ? 'color:#c77dff;text-shadow:0 0 8px rgba(199,125,255,0.5);' : ''}">${folder.title}</div>
                         <div class="folder-details">${countLabel}</div>
                         <div class="folder-slug">${folder.tableName}</div>
-                        </div>
                     </div>
                 `;
             });
@@ -2130,13 +1883,20 @@
             
             // Load content from Supabase for this folder
             let folderContent = [];
-            if (folder.displayStyle === 'collection') {
-                try {
-                    const items = await supabaseClient.getContentPublicSeries(folderId);
-                    folderContent = items.map(item => ({
+            try {
+                const { data, error } = await supabaseClient.client
+                    .from('content_public')
+                    .select('id, folder_id, title, type, url, thumbnail_url, description, slug, display_order')
+                    .eq('folder_id', folderId)
+                    .order('display_order', { ascending: true });
+                
+                console.log('📦 Supabase query result:', { data, error, count: data?.length || 0 });
+                
+                if (!error && data) {
+                    folderContent = data.map(item => ({
                         id: item.id,
                         title: item.title,
-                        slug: item.custom_url || item.slug,
+                        slug: item.slug,
                         type: item.type,
                         folderId: item.folder_id,
                         url: item.url,
@@ -2144,39 +1904,12 @@
                         description: item.description,
                         order: item.display_order
                     }));
-                    console.log('✅ Loaded series folder content:', folderContent.length, 'items');
-                } catch (err) {
-                    console.error('❌ Error loading series folder content:', err);
+                    console.log('✅ Loaded folder content:', folderContent.length, 'items');
+                } else if (error) {
+                    console.error('❌ Supabase error:', error);
                 }
-            } else {
-                try {
-                    const { data, error } = await supabaseClient.client
-                        .from('content_public')
-                        .select('id, folder_id, title, type, url, thumbnail_url, description, slug, display_order')
-                        .eq('folder_id', folderId)
-                        .order('display_order', { ascending: true });
-                    
-                    console.log('📦 Supabase query result:', { data, error, count: data?.length || 0 });
-                    
-                    if (!error && data) {
-                        folderContent = data.map(item => ({
-                            id: item.id,
-                            title: item.title,
-                            slug: item.slug,
-                            type: item.type,
-                            folderId: item.folder_id,
-                            url: item.url,
-                            thumbnail: item.thumbnail_url,
-                            description: item.description,
-                            order: item.display_order
-                        }));
-                        console.log('✅ Loaded folder content:', folderContent.length, 'items');
-                    } else if (error) {
-                        console.error('❌ Supabase error:', error);
-                    }
-                } catch (err) {
-                    console.error('❌ Error loading folder content:', err);
-                }
+            } catch (err) {
+                console.error('❌ Error loading folder content:', err);
             }
             
             document.getElementById('sidebarFolderTitle').innerHTML = `
@@ -2215,7 +1948,7 @@
                     contentHtml += '<hr style="border: none; border-top: 1px solid rgba(155, 89, 182, 0.3); margin: 20px 0;">';
                 }
                 contentHtml += `<p style="color: #9b59b6; margin-top: 15px; font-size: 14px;">📄 This folder has ${itemCount} content item${itemCount !== 1 ? 's' : ''}. Click to view:</p>`;
-                contentHtml += `<button onclick="window.location.href='?folder=${folder.slug || folder.tableName}'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(155, 89, 182, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(155, 89, 182, 0.3)'">📂 View Content (${itemCount})</button>`;
+                contentHtml += `<button onclick="window.location.href='?folder=${folder.tableName || folder.slug}'" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(155, 89, 182, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(155, 89, 182, 0.3)'">📂 View Content (${itemCount})</button>`;
             }
             
             if (folderContent.length === 0 && subfolders.length === 0) {
@@ -2239,36 +1972,20 @@
         }
         
         function sharePDFLink(contentId) {
-            // Copy Link — restored to the original, proven format
-            // documented in SETUP.md. Uses folder.tableName specifically
-            // (not slug), exactly as designed: folder=table_name,
-            // url=custom_url. This is separate from the Share button,
-            // which uses the newer Worker-routed link instead — see
-            // buildShareWorkerLink() below.
             const baseUrl = window.location.origin + window.location.pathname;
-
+            
+            // Generate URL using folder custom_url and content custom_url
             if (currentContent && currentFolder) {
                 const folderTableName = currentFolder.tableName;
                 const contentCustomUrl = currentContent.customUrl || currentContent.slug;
                 const viewType = (currentContent.type === 'flipbook' || currentContent.type === 'presentation') ? 'flipbook-only' : 'pdf-only';
+                
                 return `${baseUrl}?folder=${folderTableName}&url=${contentCustomUrl}&view=${viewType}`;
             }
-
+            
+            // Fallback to old format if folder/content data not available
             const viewType = currentContent && (currentContent.type === 'flipbook' || currentContent.type === 'presentation') ? 'flipbook-only' : 'pdf-only';
             return `${baseUrl}?content=${contentId}&view=${viewType}`;
-        }
-
-        function buildShareWorkerLink(contentId) {
-            // Share button only — routes through the share-preview
-            // Worker, giving the shared link a real thumbnail, title,
-            // and description when it lands in Telegram/WhatsApp/etc.
-            const SHARE_WORKER = 'https://3c-public-library.org';
-            if (currentContent && currentFolder) {
-                const folderSlug = currentFolder.slug || currentFolder.tableName;
-                const itemSlug = currentContent.customUrl || currentContent.slug || currentContent.id;
-                return `${SHARE_WORKER}/share/library/${encodeURIComponent(folderSlug)}/${encodeURIComponent(itemSlug)}`;
-            }
-            return sharePDFLink(contentId);
         }
         
         function showViewer(content, pdfOnlyMode = false) {
@@ -2278,13 +1995,11 @@
             
             // In PDF-only mode, show share button
             const shareButton = pdfOnlyMode ? '' : `
-                <button onclick="nativeShareContent()" title="Share"
-                        style="background: rgba(0,212,200,0.1); border: 1px solid rgba(0,212,200,0.35); color: #00d4c8; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49"/></svg>
-                </button>
-                <button onclick="copyShareLink()" title="Copy Link"
-                        style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                <button onclick="copyShareLink()" 
+                        style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; 
+                               border-radius: 4px; cursor: pointer; margin-left: 10px; font-size: 14px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);"
+                        title="Copy Link">
+                    ⧉
                 </button>
             `;
             
@@ -2358,7 +2073,7 @@
                     viewerHtml = `<iframe src="${content.url}" style="width: 100%; height: auto; aspect-ratio: 16/9; max-height: 80vh; border: none; display: block; border-radius: 16px;" allowfullscreen></iframe>`;
                 }
             } else if (content.type === 'image') {
-                viewerHtml = `<div style="display: flex; justify-content: center; padding: 20px;"><img src="${content.url}" style="max-width: 440px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>`;
+                viewerHtml = `<div style="display: flex; justify-content: center; padding: 20px;"><img src="${content.url}" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>`;
             } else if (content.type === 'audio') {
                 viewerHtml = `<div style="display: flex; justify-content: center; padding: 40px;"><audio controls style="width: 100%; max-width: 600px; height: 54px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"><source src="${content.url}"></audio></div>`;
             } else if (content.type === 'quiz' || content.type === 'card-game' || content.type === 'spin-wheel' || content.type === 'landing-page' || content.type === 'virtual-slideshow' || content.type === 'link') {
@@ -2368,74 +2083,21 @@
                 const linkIcon   = linkIcons[content.type]  || '🔗';
                 let thumbnailSrc = content.thumbnail || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f0f0f0" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" fill="%23999" font-size="80"%3E%F0%9F%94%97%3C/text%3E%3C/svg%3E';
                 const target = content.url || content.externalUrl || '#';
-                viewerHtml = `<div style="text-align: center;"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="${target}" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">${linkIcon}</span>${linkLabel}</a></div>`;
+                viewerHtml = `<div style="text-align: center;"><img src="${thumbnailSrc}" style="width: 80%; max-width: 400px; height: auto; border-radius: 8px; margin: 0 auto 20px auto; display: block; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"><a href="${target}" onclick="event.stopPropagation(); window.location.href='${target}'; return false;" style="display: inline-flex; align-items: center; gap: 8px; font-size: 18px; color: #9b59b6; font-weight: 600; text-decoration: none; padding: 12px 24px; background: rgba(155, 89, 182, 0.1); border: 2px solid #9b59b6; border-radius: 8px; transition: all 0.3s; text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);"><span style="font-size: 24px;">${linkIcon}</span>${linkLabel}</a></div>`;
             } else {
                 viewerHtml = `<div style="display: flex; justify-content: center; padding: 20px;"><iframe src="${content.url}" style="width: 100%; max-width: 600px; height: 800px; border: none; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></iframe></div>`;
             }
             
-            // Return icon — replaces the old text "← Back" button, styled
-            // to match the newer icon set (openLibrarySeriesItem).
-            //
-            // Normal browsing (pdfOnlyMode=false): the left sidebar
-            // thumbnails already exist in the DOM, just hidden — return
-            // un-hides them in-page exactly as the old Back button did.
-            //
-            // Standalone / direct-link (pdfOnlyMode=true): there is no
-            // sidebar in the DOM at all in this mode, so return has
-            // nowhere in-page to go back to — it navigates to that
-            // folder's content page instead. It only shows when the
-            // folder actually has items or sub-folders to land on;
-            // otherwise there's nothing meaningful to return to, so the
-            // icon is omitted entirely.
+            // Add back button for navigating between content
             const params = getUrlParams();
-            // Return icon — always climbs to the true root ancestor
-            // folder, however deep the content is nested, and opens
-            // that root's full sidebar (all its sub-folders + its own
-            // items). That's the whole point: someone browsing Beginners
-            // → A.Introduction → one item should land back on Beginners'
-            // full list when they're done, not just A.Introduction's
-            // narrow slice of it — so they can pick a different
-            // sub-folder next without losing their place. Same behavior
-            // in both normal split-view and standalone/shared-link mode.
-            let returnButton = '';
-            if (currentFolder) {
-                let rootFolder = currentFolder;
-                while (rootFolder.parentId) {
-                    const parent = library.folders.find(f => f.id === rootFolder.parentId);
-                    if (!parent) break;
-                    rootFolder = parent;
-                }
-                const folderHasContent = (rootFolder.actualItemCount && rootFolder.actualItemCount > 0)
-                    || library.folders.some(f => f.parentId === rootFolder.id);
-                if (folderHasContent) {
-                    returnButton = `
-                        <button onclick="window.location.href='?openFolder=${encodeURIComponent(rootFolder.id)}'" title="Return to folder content list"
-                                style="background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.35); color: #c084fc; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36M3 4v5h5"/></svg>
-                        </button>
-                    `;
-                }
-            }
+            const backButton = !pdfOnlyMode ? `
+                <button onclick="hideContentViewer()" 
+                        style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; padding: 8px 12px; 
+                               border-radius: 4px; cursor: pointer; margin-bottom: 20px; font-size: 16px; box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);">
+                    ← Back
+                </button>
+            ` : '';
             
-            // Close icon — separate from the return icon above. Return
-            // deliberately jumps out to the root folder's full sidebar;
-            // this instead just reverses the one thing showViewer() did
-            // on open — un-hiding #leftSidebar — so the everyday "done
-            // with this one, show me the list again" case doesn't have
-            // to go through a full folder-level navigation. Only makes
-            // sense where there's a sidebar in the DOM to reveal, so it's
-            // gated exactly the same way that hide step below is: mobile,
-            // normal browsing only, never in standalone/shared-link mode.
-            let closeButton = '';
-            if (!pdfOnlyMode && window.innerWidth <= 768) {
-                closeButton = `
-                    <button onclick="closeViewerToThumbnails()" title="Close and return to thumbnails"
-                            style="background: rgba(0,212,200,0.1); border: 1px solid rgba(0,212,200,0.35); color: #00d4c8; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
-                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                `;
-            }
-
             // Create or update content area (preserve comments section)
             const viewer = document.getElementById('viewer');
             if (pdfOnlyMode) {
@@ -2455,14 +2117,8 @@
             }
             
             contentArea.innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px;">
-                    <h2 style="font-size: 18px; margin: 0; flex: 1; min-width: 0;">${content.title}</h2>
-                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
-                        ${closeButton}
-                        ${returnButton}
-                        ${shareButton}
-                    </div>
-                </div>
+                ${backButton}
+                <h2 style="font-size: 18px;">${content.title}${shareButton}</h2>
                 ${content.description ? `<div class="viewer-desc">${content.description}</div>` : ''}
                 ${viewerHtml}
                 
@@ -2494,33 +2150,7 @@
             // Load comments for this content
             loadComments(content.id);
         }
-
-        // Reverses exactly what showViewer() did to open on mobile:
-        // slides the overlay back off-screen via the .active class (CSS
-        // handles the transition, so no display:none here — that would
-        // block the slide-out animation and could break the next
-        // slide-in too) and un-hides the thumbnail sidebar underneath.
-        function closeViewerToThumbnails() {
-            stopAllVideos();
-            const contentArea = document.getElementById('viewerContent');
-            const leftSidebar = document.getElementById('leftSidebar');
-            if (contentArea) {
-                contentArea.classList.remove('active');
-            }
-            if (leftSidebar) {
-                leftSidebar.classList.remove('hidden');
-            }
-        }
         
-        function copyFolderLink(folderRef) {
-            const link = `${window.location.origin}${window.location.pathname}?folder=${encodeURIComponent(folderRef)}`;
-            navigator.clipboard.writeText(link).then(() => {
-                alert('✅ Folder link copied to clipboard!\n\n' + link);
-            }).catch(err => {
-                prompt('Copy this link:', link);
-            });
-        }
-
         function copyShareLink() {
             if (!currentContent) return;
             const shareLink = sharePDFLink(currentContent.id);
@@ -2529,28 +2159,6 @@
             }).catch(err => {
                 prompt('Copy this link:', shareLink);
             });
-        }
-
-        function nativeShareContent() {
-            if (!currentContent) return;
-            const shareLink = buildShareWorkerLink(currentContent.id);
-            if (navigator.share) {
-                navigator.share({
-                    url: shareLink,
-                }).catch(() => { /* user cancelled the share sheet — not an error */ });
-            } else {
-                // No native share sheet available (most desktop browsers) —
-                // copy the SAME worker-routed link this function just built,
-                // not a different one. This previously called copyShareLink(),
-                // which builds its own separate plain pdf-only link — meaning
-                // Share and Copy silently did the exact same thing on desktop,
-                // and the rich link-preview URL built above was discarded.
-                navigator.clipboard.writeText(shareLink).then(() => {
-                    alert('✅ Share link copied to clipboard!\n\n' + shareLink);
-                }).catch(() => {
-                    prompt('Copy this link:', shareLink);
-                });
-            }
         }
         
         function openShareLink() {
@@ -2718,10 +2326,24 @@
             document.querySelectorAll('#viewerContent iframe, .right-viewer iframe').forEach(f => { f.src = ''; });
         }
 
-        // hideContentViewer() was removed — its only caller (the return
-        // icon) now navigates to the root folder's sidebar instead of
-        // closing the panel in place, per the folder-list requirement
-        // above. stopAllVideos() is still called separately elsewhere.
+        function hideContentViewer() {
+            stopAllVideos();
+            const viewer = document.querySelector('.right-viewer');
+            const leftSidebar = document.getElementById('leftSidebar');
+            
+            if (viewer) {
+                viewer.classList.remove('active');
+            }
+            
+            if (leftSidebar) {
+                leftSidebar.classList.remove('hidden');
+            }
+            
+            // On desktop, just reload to go back to main page
+            if (window.innerWidth > 768) {
+                window.location.href = 'library.html';
+            }
+        }
         
         // ==================== ORIENTATION MODAL ====================
         function openOrientationModal() {
@@ -3007,14 +2629,7 @@
                 `;
                 return;
             } finally {
-                // Reveal the page and hide the loading overlay at the
-                // exact same moment — both only happen once loadData()
-                // and displayContent() have genuinely finished. This
-                // replaces relying on DOMContentLoaded, which fires as
-                // soon as HTML parsing completes and does NOT wait for
-                // this async data to load — that mismatch was the race
-                // condition causing the overlay/header ordering issue.
-                document.documentElement.style.visibility = 'visible';
+                // Hide loading overlay with fade effect
                 setTimeout(() => {
                     const overlay = document.getElementById('loadingOverlay');
                     overlay.classList.add('hidden');
