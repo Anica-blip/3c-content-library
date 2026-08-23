@@ -76,7 +76,13 @@ async function init() {
         if (isMobileDevice()) {
             console.log('📱 Mobile device detected, redirecting to mobile viewer...');
             const params = new URLSearchParams(window.location.search);
-            window.location.href = 'presentation-viewer-mobile.html?' + params.toString();
+            // location.replace (not .href) — swaps this history entry
+            // instead of pushing a new one, so the desktop page doesn't
+            // sit in the back-stack. Without this, pressing X on the
+            // mobile viewer's history.back() would land back on this
+            // desktop page, which immediately re-detects mobile and
+            // redirects again — bouncing instead of actually closing.
+            window.location.replace('presentation-viewer-mobile.html?' + params.toString());
             return;
         }
         
