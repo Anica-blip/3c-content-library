@@ -1037,16 +1037,12 @@ async function downloadPDF() {
 }
 
 /**
- * Go back - close window and return to landing page 2
+ * Go back - close window and return to whatever page launched this
+ * presentation (e.g. library.html, at the exact folder the user was
+ * browsing). Matches flipbook-viewer-mobile.js's goBack() exactly.
  */
 function goBack() {
-    // Close the current window/tab
-    window.close();
-    
-    // If window.close() doesn't work (some browsers block it), redirect to landing page 2
-    setTimeout(() => {
-        window.location.href = 'landing-page-2.html';
-    }, 100);
+    history.back();
 }
 
 /**
