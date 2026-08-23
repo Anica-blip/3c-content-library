@@ -49,10 +49,37 @@ function getUrlParams() {
 }
 
 /**
+ * Detect if device is mobile/tablet
+ */
+function isMobileDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+    // Check for mobile/tablet devices
+    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+    const isMobileUA = mobileRegex.test(userAgent);
+
+    // Check for touch support
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    // Check screen size (tablets and phones typically < 1024px width)
+    const isSmallScreen = window.innerWidth < 1024;
+
+    return isMobileUA || (hasTouch && isSmallScreen);
+}
+
+/**
  * Initialize presentation
  */
 async function init() {
     try {
+        // Redirect mobile devices to mobile viewer
+        if (isMobileDevice()) {
+            console.log('📱 Mobile device detected, redirecting to mobile viewer...');
+            const params = new URLSearchParams(window.location.search);
+            window.location.href = 'presentation-viewer-mobile.html?' + params.toString();
+            return;
+        }
+
         console.log('🖥️ Loading desktop presentation...');
         const params = getUrlParams();
         contentId = params.content;
@@ -205,6 +232,33 @@ function detectPageOrientation() {
 }
 
 /**
+ * Wait until a container's measured size is non-zero and stable across two
+ * consecutive animation frames, so callers can safely read its final
+ * dimensions instead of a mid-layout snapshot. Capped at maxFrames as a
+ * safety limit so this can never hang if layout is somehow never stable.
+ */
+async function waitForStableLayout(containerId, maxFrames = 10) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    let lastWidth = -1;
+    let lastHeight = -1;
+
+    for (let i = 0; i < maxFrames; i++) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+
+        if (width > 0 && height > 0 && width === lastWidth && height === lastHeight) {
+            return; // Layout has stabilized
+        }
+
+        lastWidth = width;
+        lastHeight = height;
+    }
+}
+
+/**
  * Calculate the best scale so the page fills the visible container
  * without overflow. Called after orientation is known.
  */
@@ -263,11 +317,14 @@ async function initFromManifest(manifestData) {
     detectPageOrientation();
 
     // Auto-fit scale to viewport now that orientation (and page dimensions) are
-    // known — deferred one frame so the browser has actually finished layout
-    // before we measure the container, instead of measuring too early and
-    // clamping to the 30% floor. Awaited so rendering below uses the
-    // corrected scale, not whatever scale was set before this frame.
-    await new Promise(resolve => requestAnimationFrame(resolve));
+    // known. A single animation frame isn't always enough on a cold/first
+    // load (fonts, images, and flex layout may not have settled yet), which
+    // was causing calculateOptimalScale() to measure a not-yet-final
+    // container and clamp to the 30% floor. Instead, poll frames until the
+    // container's measured size is non-zero and identical across two
+    // consecutive frames — i.e. layout has actually stabilized — before
+    // calculating scale, so pages always render at the correct fit.
+    await waitForStableLayout('presentation-container');
     calculateOptimalScale();
     document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
 
