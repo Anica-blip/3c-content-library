@@ -285,22 +285,44 @@ async function initFromManifest(manifestData) {
  * Render all pages at the current scale with 2x resolution for quality
  */
 async function renderPagesAtScale() {
-    pageCanvases = [];
-    
     // Calculate actual display dimensions at current zoom (using detected orientation)
     const pageWidth = Math.round(currentPageWidth * scale);
     const pageHeight = Math.round(currentPageHeight * scale);
     
     console.log('   Page dimensions:', pageWidth, 'x', pageHeight, 'px');
-    
-    for (let i = 0; i < manifest.pages.length; i++) {
-        const page = manifest.pages[i];
+
+    // Renders a single page's canvas. Identical logic to before (timeout
+    // fallback, error fallback, 2x quality) — only difference is this now
+    // runs concurrently for every page instead of one at a time.
+    function renderOnePage(page, i) {
         const canvas = document.createElement('canvas');
         const img = new Image();
         img.crossOrigin = 'anonymous';
         
-        await new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
+            // Safety net: if neither onload nor onerror fires (stalled
+            // request, network hiccup), don't hang here forever — fall
+            // back to a blank page after 15s so the viewer never freezes.
+            let settled = false;
+            const settleOnce = (fn) => { if (!settled) { settled = true; fn(); } };
+            const timeoutId = setTimeout(() => {
+                console.warn('⏱️ Page', i + 1, 'image load timed out after 15s — using blank page');
+                settleOnce(() => {
+                    const renderScale = 2;
+                    canvas.width = pageWidth * renderScale;
+                    canvas.height = pageHeight * renderScale;
+                    canvas.style.width = pageWidth + 'px';
+                    canvas.style.height = pageHeight + 'px';
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    resolve(canvas);
+                });
+            }, 15000);
+
             img.onload = () => {
+                clearTimeout(timeoutId);
+                settleOnce(() => {
                 // Render at 2x resolution for quality, then scale display with CSS
                 const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
@@ -315,10 +337,13 @@ async function renderPagesAtScale() {
                 canvas.style.width = pageWidth + 'px';
                 canvas.style.height = pageHeight + 'px';
                 
-                resolve();
+                resolve(canvas);
+                });
             };
             
             img.onerror = (error) => {
+                clearTimeout(timeoutId);
+                settleOnce(() => {
                 console.warn(' Failed to load background for page', i + 1);
                 const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
@@ -329,7 +354,8 @@ async function renderPagesAtScale() {
                 const ctx = canvas.getContext('2d');
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                resolve();
+                resolve(canvas);
+                });
             };
             
             // Get background source
@@ -346,6 +372,7 @@ async function renderPagesAtScale() {
                 img.src = backgroundSource;
             } else {
                 // Create blank canvas
+                clearTimeout(timeoutId);
                 const renderScale = 2;
                 canvas.width = pageWidth * renderScale;
                 canvas.height = pageHeight * renderScale;
@@ -355,12 +382,17 @@ async function renderPagesAtScale() {
                 const ctx = canvas.getContext('2d');
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                resolve();
+                resolve(canvas);
             }
         });
-        
-        pageCanvases.push(canvas);
     }
+
+    // Fire off every page's image load at once instead of waiting for
+    // each one to finish before starting the next — this is the fix for
+    // slow presentation loading. Order is preserved via Promise.all.
+    pageCanvases = await Promise.all(
+        manifest.pages.map((page, i) => renderOnePage(page, i))
+    );
     
     console.log(' All pages rendered at', Math.round(scale * 100) + '% with 2x quality');
 }
