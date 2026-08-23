@@ -295,10 +295,13 @@ async function initFromManifest(manifestData) {
     // Detect page orientation from first page or manifest metadata
     detectPageOrientation();
 
-    // Auto-fit scale to viewport now that orientation (and page dimensions) are known
+    // Auto-fit scale to viewport now that orientation (and page dimensions) are
+    // known — deferred one frame so the browser has actually finished layout
+    // before we measure the container, instead of measuring too early and
+    // clamping to the 30% floor. Awaited so rendering below uses the
+    // corrected scale, not whatever scale was set before this frame.
+    await new Promise(resolve => requestAnimationFrame(resolve));
     calculateOptimalScale();
-
-    // Update zoom display to reflect calculated scale
     document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
 
     // Render all pages at current scale with 2x quality
