@@ -5,237 +5,260 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>3C Presentation Viewer</title>
     <link rel="icon" type="image/png" href="favicon.png">
-    
-    <!-- jQuery -->
+
+    <!-- jQuery (required for turn.js) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    
+
+    <!-- Turn.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
+
     <!-- PDF.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    
+
     <!-- Cloudflare Stream Player -->
     <script src="https://embed.cloudflarestream.com/embed/sdk.latest.js"></script>
-    
-    <!-- Hammer.js for touch gestures -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
-    
-    <!-- jsPDF for PDF generation -->
+
+    <!-- jsPDF for download functionality -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
-    <!-- Configuration -->
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    
+    <script src="supabase-client.js"></script>
+
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            background: linear-gradient(135deg, #0a0e27 0%, #1a237e 100%);
             color: #ffffff;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             height: 100vh;
-            height: 100dvh;
-            width: 100vw;
-            touch-action: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
         }
 
-        /* Toolbar Styles */
         #toolbar {
-            background: rgba(42, 42, 42, 0.95);
+            background: rgba(26, 26, 26, 0.95);
             backdrop-filter: blur(10px);
-            padding: 10px 15px;
+            padding: 10px 20px;
             display: flex;
-            flex-direction: column;
-            gap: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-            z-index: 100;
-        }
-
-        /* Top Line: Logo + Title */
-        .toolbar-top {
-            display: flex;
-            justify-content: flex-start;
             align-items: center;
-            gap: 10px;
+            justify-content: space-between;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            height: 60px;
         }
 
-        #logo {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        #title {
-            font-size: 20px;
-            color: #b19cd9;
-            font-weight: 500;
-        }
-
-        /* Second Line: Page Navigation */
-        .toolbar-middle {
+        #toolbar-left {
             display: flex;
-            justify-content: center;
             align-items: center;
             gap: 15px;
         }
 
-        /* Third Line: Action Buttons */
-        .toolbar-bottom {
+        #toolbar-center {
             display: flex;
-            justify-content: center;
             align-items: center;
             gap: 10px;
         }
 
-        /* Button Styles */
-        .btn {
-            background: linear-gradient(135deg, #b19cd9, #9d84c8);
-            border: none;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 15px;
+        #toolbar-right {
             display: flex;
             align-items: center;
-            justify-content: center;
-            min-width: 40px;
-            min-height: 40px;
-            box-shadow: 0 2px 8px rgba(177, 156, 217, 0.3);
-            transition: all 0.2s ease;
-            -webkit-tap-highlight-color: transparent;
+            gap: 10px;
         }
 
-        .btn:active {
-            transform: scale(0.95);
-            box-shadow: 0 1px 4px rgba(177, 156, 217, 0.3);
+        .btn {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #8e44ad, #663399);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
         }
 
         .btn:disabled {
-            opacity: 0.5;
+            background: #666;
+            color: #999;
             cursor: not-allowed;
+            transform: none;
+            opacity: 0.5;
+            box-shadow: none;
         }
 
-        .btn-orange {
-            background: linear-gradient(135deg, #ff6b35, #ff8c42);
-            box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            justify-content: center;
+            font-size: 18px;
         }
 
-        .btn-green {
-            background: linear-gradient(135deg, #4caf50, #66bb6a);
-            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+        .btn-back {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            border: none;
+            color: white;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
         }
 
-        #page-counter {
-            background: rgba(177, 156, 217, 0.2);
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 15px;
-            color: #b19cd9;
-            min-width: 50px;
+        .btn-back:hover {
+            background: linear-gradient(135deg, #8e44ad, #663399);
+            box-shadow: 0 4px 12px rgba(155, 89, 182, 0.4);
+        }
+
+        #page-info {
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 120px;
             text-align: center;
+            padding: 8px 16px;
+            background: rgba(45, 45, 45, 0.95);
+            border-radius: 8px;
         }
 
-        /* Page Container */
-        #page-container {
+        #toolbar-left h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #9b59b6;
+            text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);
+        }
+
+        #presentation-container {
             flex: 1;
             display: flex;
-            align-items: center;
             justify-content: center;
-            overflow: hidden;
+            align-items: flex-start;
+            padding: 20px;
             position: relative;
-            background: #2a2a2a;
-            touch-action: pan-y pinch-zoom;
+            perspective: 2000px;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
-        #page-wrapper {
+        #presentation-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100%;
             position: relative;
-            max-width: 100%;
-            max-height: 100%;
+        }
+
+        #presentation {
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            position: relative;
+        }
+
+        /* Navigation Arrows - positioned OFF document sides */
+        .nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 60px;
+            background: rgba(155, 89, 182, 0.2);
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            touch-action: pan-y pinch-zoom;
-        }
-
-        .page {
-            position: relative;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            background: white;
-            touch-action: pan-y pinch-zoom;
-        }
-
-        .page canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Interactive Elements */
-        .interactive-element {
-            position: absolute;
             cursor: pointer;
+            transition: all 0.3s ease;
             z-index: 10;
-            transition: transform 0.2s ease;
+            backdrop-filter: blur(5px);
+            border: 2px solid rgba(155, 89, 182, 0.4);
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
-        .interactive-element:active {
-            transform: scale(0.95);
+        .nav-arrow:hover {
+            background: rgba(155, 89, 182, 0.4);
+            border-color: rgba(155, 89, 182, 0.7);
+            transform: translateY(-50%) scale(1.05);
         }
 
-        .interactive-element img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
+        #nav-arrow-left {
+            left: -60px;
+        }
+
+        #nav-arrow-right {
+            right: -60px;
+        }
+
+        /* Hide arrows on first/last page */
+        .nav-arrow.hidden {
+            opacity: 0;
             pointer-events: none;
         }
 
-        /* Loading Overlay */
-        #loading {
-            position: fixed;
+        .page {
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page canvas {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .page-number {
+            position: absolute;
+            bottom: 15px;
+            right: 20px;
+            color: #666;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* Interactive Elements Overlay */
+        .interactive-overlay {
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-            flex-direction: column;
-            gap: 20px;
+            pointer-events: none;
         }
 
-        #loading.hidden {
-            display: none;
+        .interactive-element {
+            position: absolute;
+            pointer-events: all;
+            cursor: pointer;
+            transition: transform 0.2s;
         }
 
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(177, 156, 217, 0.3);
-            border-top-color: #b19cd9;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+        .interactive-element:hover {
+            transform: scale(1.05);
+            z-index: 10;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Media Overlay */
+        /* Video/Media Overlay */
         #media-overlay {
             position: fixed;
             top: 0;
@@ -243,145 +266,261 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             display: none;
-            align-items: center;
             justify-content: center;
-            z-index: 10000;
-            padding: 20px;
+            align-items: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
         }
 
         #media-overlay.active {
             display: flex;
         }
 
-        #media-content {
-            position: relative;
-            max-width: 100%;
-            max-height: 90vh;
-            width: 100%;
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
-        #media-player {
-            width: 100%;
-            max-height: 90vh;
+        #media-container {
+            position: relative;
+            max-width: 95vw;
+            max-height: 95vh;
+            width: auto;
+            height: auto;
+            background: rgba(75, 40, 130, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            animation: slideUp 0.4s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        #media-player-wrapper {
+            position: relative;
+            width: 90vw;
+            height: 85vh;
+            max-width: 90vw;
+            max-height: 85vh;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        #media-player img {
+        #media-player-wrapper iframe,
+        #media-player-wrapper video,
+        #media-player-wrapper img {
+            width: 100%;
+            height: 100%;
+            border: none;
             object-fit: contain;
-            display: block;
-            margin: 0 auto;
         }
 
-        #media-player video,
-        #media-player iframe {
+        #media-player-wrapper audio {
             width: 100%;
-            height: auto;
-            max-height: 90vh;
+            max-width: 600px;
+            border: none;
         }
 
         #close-media {
             position: absolute;
-            top: -40px;
-            right: 0;
-            background: #ff6b35;
-            border: none;
-            color: white;
-            width: 40px;
-            height: 40px;
+            top: -15px;
+            right: -15px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #ff1744, #f50057);
+            border: 3px solid rgba(255, 255, 255, 0.2);
             border-radius: 50%;
+            color: white;
+            font-size: 24px;
             cursor: pointer;
-            font-size: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 10px rgba(255, 107, 53, 0.5);
+            transition: all 0.2s;
+            z-index: 10000;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
         }
 
-        /* SVG Icons */
-        .icon {
-            width: 20px;
-            height: 20px;
-            fill: currentColor;
+        #close-media:hover {
+            background: linear-gradient(135deg, #d50000, #c51162);
+            transform: rotate(90deg) scale(1.1);
         }
+
+        #media-title {
+            color: #9b59b6;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(155, 89, 182, 0.5);
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 4px solid rgba(155, 89, 182, 0.2);
+            border-top: 4px solid #9b59b6;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+            background: rgba(13, 71, 161, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(233, 30, 99, 0.3);
+        }
+
+        #loading.hidden {
+            display: none;
+        }
+
+        #loading p {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #ffffff;
+        }
+
+        /* Zoom level */
+        #zoom-level {
+            color: #ffffff;
+            font-size: 13px;
+            min-width: 50px;
+            text-align: center;
+            padding: 8px 12px;
+            background: rgba(45, 45, 45, 0.95);
+            border-radius: 8px;
+        }
+
+        /* Scrollbar styling */
+        #presentation-container::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        #presentation-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        #presentation-container::-webkit-scrollbar-thumb {
+            background: rgba(155, 89, 182, 0.3);
+            border-radius: 6px;
+        }
+
+        #presentation-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(155, 89, 182, 0.5);
+        }
+
     </style>
 </head>
 <body>
-    <!-- Loading Overlay -->
-    <div id="loading">
-        <div class="spinner"></div>
-        <div style="color: #b19cd9; font-size: 16px;">Loading flipbook...</div>
+    <!-- Claude x Chef Anica watermark -->
+    <div id="claudeWatermark" style="background: rgba(10,14,39,0.9); border-bottom: 1px solid rgba(155,89,182,0.15); padding: 4px 16px; text-align: right; font-size: 10px; color: rgba(155,89,182,0.6); letter-spacing: 0.3px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;">
+        Designed and Built with ❤️ by <a href="https://www.anthropic.com" target="_blank" rel="noopener" style="color: rgba(192,132,252,0.7); text-decoration: none;">Claude</a> (Anthropic) × Chef Anica · 3C Thread To Success™ Cooking Lab 🧪👨‍🍳
     </div>
 
     <!-- Toolbar -->
     <div id="toolbar">
-        <!-- Top Line: Logo + Title -->
-        <div class="toolbar-top">
-            <img id="logo" src="3C Thread To Success logo.png" alt="3C Logo">
-            <div id="title">3C Presentation Viewer</div>
+        <div id="toolbar-left">
+            <img src="3C Thread To Success logo.png" alt="3C Logo" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 10px; object-fit: cover; background: white;">
+            <h2>3C Presentation Viewer</h2>
         </div>
 
-        <!-- Second Line: Page Navigation -->
-        <div class="toolbar-middle">
-            <button class="btn" id="first-page" title="First Page">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6zM6 6h2v12H6z"/>
-                </svg>
-            </button>
-            <div id="page-counter">1/1</div>
-            <button class="btn" id="last-page" title="Last Page">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6zM16 6h2v12h-2z"/>
-                </svg>
-            </button>
+        <div id="toolbar-center">
+            <button id="first-page" class="btn" title="First Page">⏮</button>
+            <button id="prev-page" class="btn" title="Previous Page" style="display: none;">◀</button>
+            <span id="page-info"><span id="current-page">1</span> of <span id="total-pages">1</span></span>
+            <button id="next-page" class="btn" title="Next Page" style="display: none;">▶</button>
+            <button id="last-page" class="btn" title="Last Page">⏭</button>
         </div>
 
-        <!-- Third Line: Action Buttons -->
-        <div class="toolbar-bottom">
-            <button class="btn" id="prev-page" title="Previous">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+        <div id="toolbar-right">
+            <button class="btn btn-icon" id="back-btn" title="Close" style="background: linear-gradient(135deg, #ff6b35, #ff8c42); box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
             </button>
-            <button class="btn" id="next-page" title="Next">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+            <button class="btn btn-icon" id="download-btn" title="Download PDF" style="background: linear-gradient(135deg, #4caf50, #66bb6a); box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
             </button>
-            <button class="btn" id="refresh-btn" title="Refresh">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            <button class="btn btn-icon" id="refresh-btn" title="Refresh">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <polyline points="1 20 1 14 7 14"></polyline>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                 </svg>
             </button>
-            <button class="btn btn-orange" id="close-btn" title="Close">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
-            </button>
-            <button class="btn btn-green" id="download-btn" title="Download">
-                <svg class="icon" viewBox="0 0 24 24">
-                    <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/>
-                </svg>
-            </button>
+            <button class="btn" id="zoom-out" title="Zoom Out">−</button>
+            <span id="zoom-level">75%</span>
+            <button class="btn" id="zoom-in" title="Zoom In">+</button>
         </div>
     </div>
 
-    <!-- Page Container -->
-    <div id="page-container">
-        <div id="page-wrapper"></div>
+    <!-- Presentation Container -->
+    <div id="presentation-container">
+        <div id="presentation-wrapper">
+            <div id="presentation"></div>
+            <!-- Navigation Arrows -->
+            <div id="nav-arrow-left" class="nav-arrow" title="Previous Page" style="transform: rotate(180deg);">
+                ➥
+            </div>
+            <div id="nav-arrow-right" class="nav-arrow" title="Next Page">
+                ➥
+            </div>
+        </div>
     </div>
 
     <!-- Media Overlay -->
     <div id="media-overlay">
-        <div id="media-content">
-            <button id="close-media">×</button>
-            <div id="media-player"></div>
+        <div id="media-container">
+            <button id="close-media">✕</button>
+            <div id="media-title"></div>
+            <div id="media-player-wrapper"></div>
         </div>
     </div>
 
-    <!-- Desktop Presentation Script -->
+    <!-- Loading Indicator -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Loading presentation...</p>
+    </div>
+
     <script src="presentation-viewer.js?v=1.0"></script>
 </body>
 </html>
