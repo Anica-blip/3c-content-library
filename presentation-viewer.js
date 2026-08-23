@@ -49,44 +49,11 @@ function getUrlParams() {
 }
 
 /**
- * Detect if device is mobile/tablet
- */
-function isMobileDevice() {
-    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    
-    // Check for mobile/tablet devices
-    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
-    const isMobileUA = mobileRegex.test(userAgent);
-    
-    // Check for touch support
-    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    
-    // Check screen size (tablets and phones typically < 1024px width)
-    const isSmallScreen = window.innerWidth < 1024;
-    
-    return isMobileUA || (hasTouch && isSmallScreen);
-}
-
-/**
  * Initialize presentation
  */
 async function init() {
     try {
-        // Redirect mobile devices to mobile viewer
-        if (isMobileDevice()) {
-            console.log('📱 Mobile device detected, redirecting to mobile viewer...');
-            const params = new URLSearchParams(window.location.search);
-            // location.replace (not .href) — swaps this history entry
-            // instead of pushing a new one, so the desktop page doesn't
-            // sit in the back-stack. Without this, pressing X on the
-            // mobile viewer's history.back() would land back on this
-            // desktop page, which immediately re-detects mobile and
-            // redirects again — bouncing instead of actually closing.
-            window.location.replace('presentation-viewer-mobile.html?' + params.toString());
-            return;
-        }
-        
-        console.log('🖥️ Desktop device detected, loading desktop presentation...');
+        console.log('🖥️ Loading desktop presentation...');
         const params = getUrlParams();
         contentId = params.content;
         const manifestUrl = params.manifest;
