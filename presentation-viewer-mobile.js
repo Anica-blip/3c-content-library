@@ -278,12 +278,37 @@ async function renderPage(pageNum) {
         
         pageWrapper.appendChild(pageDiv);
         
+        // Quietly warm the browser cache for the pages either side of this
+        // one, so the next tap turns the page instantly instead of showing
+        // the loading spinner while the image downloads.
+        preloadNeighbourPages(pageNum);
+        
     } catch (error) {
         console.error('❌ Error rendering page:', error);
         alert('Error rendering page: ' + error.message);
     } finally {
         loading.classList.add('hidden');
     }
+}
+
+/**
+ * Preload the previous and next pages' background images into the
+ * browser cache (fire and forget — never blocks, never errors out loud).
+ * crossOrigin must match renderPage's usage exactly, otherwise the
+ * cached copy would be rejected on CORS grounds and re-downloaded.
+ */
+function preloadNeighbourPages(pageNum) {
+    [pageNum - 1, pageNum + 1].forEach(n => {
+        if (n < 1 || n > totalPages) return;
+        const pageData = manifest.pages[n - 1];
+        if (!pageData) return;
+        const src = pageData.backgroundData || pageData.background || pageData.imageUrl || null;
+        // Only preload real URLs — data: URIs are already in memory
+        if (!src || src.startsWith('data:')) return;
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = src;
+    });
 }
 
 /**
@@ -1037,12 +1062,16 @@ async function downloadPDF() {
 }
 
 /**
- * Go back - close window and return to whatever page launched this
- * presentation (e.g. library.html, at the exact folder the user was
- * browsing). Matches flipbook-viewer-mobile.js's goBack() exactly.
+ * Go back - close window and return to landing page 2
  */
 function goBack() {
-    history.back();
+    // Close the current window/tab
+    window.close();
+    
+    // If window.close() doesn't work (some browsers block it), redirect to landing page 2
+    setTimeout(() => {
+        window.location.href = 'landing-page-2.html';
+    }, 100);
 }
 
 /**
