@@ -1498,13 +1498,14 @@
             }
         });
 
-        // Remove stray cookie banner close button that appears on vault page
-        window.addEventListener('load', () => {
-            document.querySelectorAll('[id*="cookie-banner"] button, [id*="cookie-close"], .cookie-banner button, .cookie-close').forEach(btn => {
-                btn.style.opacity = '0';
-                btn.style.pointerEvents = 'none';
-            });
-        });
+        // NOTE: A previous version of this script hid stray cookie-banner
+        // close buttons using the selector '[id*="cookie-banner"] button'.
+        // That selector also matched the real consent banner itself
+        // (id="_3c-cookie-banner"), which silently disabled the Accept /
+        // Essential-only buttons on this page. The CSS rule further up
+        // (targeting [id*="cookie-close"] only) already covers the genuine
+        // stray-close-button case, so this block was removed rather than
+        // re-added — fixed 30 Aug 2026.
 
         // ── Plyr: hide controls + replay button for Aurion Vault videos ──
         (function initVaultPlyr() {
