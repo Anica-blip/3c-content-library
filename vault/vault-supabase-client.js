@@ -19,9 +19,13 @@ class VaultSupabaseClient {
             if (typeof supabase === 'undefined') {
                 throw new Error('Supabase library not loaded.');
             }
+            // storageKey intentionally left at Supabase's default so this
+            // client shares the same signed-in session as supabase-client.js
+            // and admin.html's auth-guard.js — previously a separate custom
+            // key here meant a GitHub sign-in on the page never carried
+            // through to vaultClient's own requests. Fixed 30 Aug 2026.
             this.client = supabase.createClient(url, anonKey, {
                 auth: {
-                    storageKey: 'sb-vault-auth-token',
                     persistSession: true,
                     autoRefreshToken: true
                 }
