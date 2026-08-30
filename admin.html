@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Auth guard — must be the very first scripts, before anything else,
+         so the page stays hidden until a signed-in session is confirmed.
+         Protects admin.html only; no other page on this domain loads this. -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="auth-guard.js"></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3C Admin Panel - Enhanced</title>
