@@ -530,7 +530,13 @@ async function renderReviewSliderEmbed() {
     }
 
     try {
-        const res = await fetch('https://dropin-chat.3c-innertherapy.workers.dev/api/reviews/approved?for=vault');
+        // No ?for= filter — this carousel is the ONLY place any review is
+        // ever shown (there is no separate Public Library carousel), so
+        // every approved review belongs here regardless of its ratedFor
+        // tag ('library', 'vault', or 'both'). ratedFor still decides
+        // which logo(s) print on the card in buildEmbedTrack() below —
+        // it just no longer gates whether the card appears at all.
+        const res = await fetch('https://dropin-chat.3c-innertherapy.workers.dev/api/reviews/approved');
         const data = await res.json();
         embedReviews = data.reviews || [];
     } catch (e) {
