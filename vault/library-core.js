@@ -82,7 +82,7 @@ async function loadData() {
             customUrl: f.custom_url, tableName: f.table_name, description: f.description,
             folderType: f.folder_type, parentId: f.parent_id, depth: f.depth || 0,
             path: f.path, actualItemCount: f.actual_item_count || 0, isPublic: f.is_public,
-            displayStyle: f.display_style || 'default'
+            displayStyle: f.display_style || 'default', displayOrder: (f.display_order ?? 100)
         }));
         library.content = [];
         libraryCache = library; cacheTimestamp = now;
@@ -218,7 +218,7 @@ async function displayContent() {
 
     let folderContent = library.content.filter(c => c.folderId === currentFolder.id);
     folderContent.sort((a, b) => (a.order || 0) - (b.order || 0));
-    const subfolders = library.folders.filter(f => f.parentId === currentFolder.id).sort((a, b) => a.title.localeCompare(b.title));
+    const subfolders = library.folders.filter(f => f.parentId === currentFolder.id).sort((a, b) => (a.displayOrder - b.displayOrder) || a.title.localeCompare(b.title));
 
     // If contentSlug exists, show ONLY content viewer (no left sidebar)
     if (contentSlug) {
@@ -811,7 +811,7 @@ async function openFolderSidebar(folderId) {
     if (!folder) return;
     if (folder.isPublic === false) { console.warn('Attempted to access private folder via sidebar:', folder.title); window.location.href = '?folder=' + folder.slug; return; }
     console.log('Opening folder sidebar for:', folder.title, 'ID:', folderId);
-    const subfolders = library.folders.filter(f => f.parentId === folderId).sort((a, b) => a.title.localeCompare(b.title));
+    const subfolders = library.folders.filter(f => f.parentId === folderId).sort((a, b) => (a.displayOrder - b.displayOrder) || a.title.localeCompare(b.title));
 
     let folderContent = [];
     if (folder.displayStyle === 'collection') {
