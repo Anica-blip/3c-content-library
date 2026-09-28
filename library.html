@@ -689,9 +689,20 @@
                 height: 400px;
             }
 
-            /* Mobile video container background fix */
+            /* Mobile video background — was #1e1d1d, a shade that doesn't
+               match the page's true dark background. It only applies in
+               this mobile media query (desktop has no such rule, which is
+               why desktop already looked correct), and it wasn't reached
+               by library-skin.css's ".right-viewer video { background:
+               transparent !important; }" rule for videos opened from a
+               series/collection-style folder, since that standalone
+               viewer wrapper (built a few lines above in showViewer(),
+               the `if (pdfOnlyMode)` branch) doesn't carry the
+               "right-viewer" class. Making it transparent here directly
+               fixes the mismatch without touching that wrapper's markup
+               or any layout/positioning logic. */
             video {
-                background: #1e1d1d;
+                background: transparent;
             }
 
             .viewer {
