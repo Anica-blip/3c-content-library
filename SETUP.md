@@ -1,5 +1,7 @@
 # 3C Content Library - Architecture & Setup
 
+*Last updated: 16 November 2026 (content page styles added)*
+
 ## System Architecture
 
 ### Data Loading Architecture
@@ -100,6 +102,37 @@ Once you click to open content from a root or sub-folder, that content opens fro
 - **Fast content loading**: Direct R2 URLs, no database queries
 - **Standalone content**: Share direct links that load instantly
 - **Scalable**: R2 handles all heavy content delivery
+
+## Content Page Styles
+
+The site has two sections that share one domain and one Supabase project: the **Main Library** (`library.html`) and **Aurion Vault** (`vault/vault.html`). In both, every folder is shown in one of two page styles. The style is chosen **per folder** when the folder is created in the admin panel (the "Display style" drop-down), and is stored in the `display_style` column of `folders` (Main Library) and `vault_folders` (Aurion Vault).
+
+| `display_style` value | Name | Content comes from |
+|---|---|---|
+| `default` | Default style | `content_public` (Main Library), `vault_content` (Aurion Vault). Private folders use `content_private`. |
+| `collection` | New style, also called series style | `content_series` (one table shared by both sections) |
+
+### 1. Default style (`display_style = 'default'`)
+
+- A two-column page.
+- **Left column:** thumbnails for the folder (a fixed 350px-wide column).
+- **Right column:** the item the visitor clicked, shown in the viewer (PDF, flipbook, video, image, audio, or an external page).
+- A comment box appears under the viewer on pages that offer one.
+- Used for most folders in the Main Library.
+
+### 2. New style, also called series style (`display_style = 'collection'`)
+
+- A page that lines up **all the thumbnails in rows**, as a grid of thumbnail and title cards. On phones the cards become a single-column list with a small thumbnail beside each title.
+- Clicking a card opens that item on the same page, with a **Back to thumbnails** button plus Share and Copy link buttons.
+- Content comes from `content_series`, not from `content_public` or `vault_content`.
+- There is **no comment box** on the grid page.
+- Mostly used in **Aurion Vault**, because it suits series content. At 16 November 2026, Aurion Vault had 14 `collection` folders and 2 `default` folders. The Main Library had 1 `collection` folder and 25 `default` folders.
+
+### How the code chooses the style
+
+- Page display: the Main Library (`library.html`) and Aurion Vault (`vault/library-core.js`) read the folder's `displayStyle`. If it equals `collection`, the page shows the thumbnail grid; otherwise it shows the default sidebar and viewer layout.
+- Saving content: `admin-core.js` checks the target folder's `display_style`. If it is `collection`, the new item is saved to `content_series`; otherwise it is saved to the normal content table for that section.
+- Because `content_series` is shared, a series folder in either section reads its items from the same table, selected by `folder_id`.
 
 ## Setup Instructions
 
