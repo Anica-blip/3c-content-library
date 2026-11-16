@@ -1101,7 +1101,7 @@ initLazyLoading();
 async function loadComments(contentId) {
     try {
         console.log('Loading vault comments for content:', contentId);
-        const { data: comments, error } = await vaultClient.client.from('vault_comments').select('*').eq('content_id', contentId).eq('is_approved', true).order('created_at', { ascending: true });
+        const { data: comments, error } = await vaultClient.client.from('vault_comments').select('id, content_id, author_name, comment_text, is_approved, created_at').eq('content_id', contentId).eq('is_approved', true).order('created_at', { ascending: true });
         if (error) throw error;
         const count = comments ? comments.length : 0;
         const commentCountEl = document.getElementById('commentCount');
