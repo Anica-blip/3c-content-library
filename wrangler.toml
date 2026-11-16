@@ -1,7 +1,7 @@
 # Cloudflare Worker Configuration for 3C Library
 # This file tells Cloudflare how to deploy your worker from GitHub
 
-name = "3c-library-upload"
+name = "3c-library-api"
 main = "cloudflare-worker.js"
 compatibility_date = "2024-01-01"
 
@@ -15,6 +15,11 @@ bucket_name = "3c-library-files"
 # These will be set in Cloudflare Dashboard
 [vars]
 R2_PUBLIC_URL = "https://files.3c-public-library.org"
+# Public Supabase details (the anon key is meant to be public, same as config.js).
+# Used only to check the admin sign-in. The owner email is NOT stored here:
+# set it once with:  wrangler secret put OWNER_EMAIL
+SUPABASE_URL = "https://cgxjqsbrditbteqhdyus.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNneGpxc2JyZGl0YnRlcWhkeXVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMTY1ODEsImV4cCI6MjA2NjY5MjU4MX0.xUDy5ic-r52kmRtocdcW8Np9-lczjMZ6YKPXc03rIG4"
 
 # Worker Settings
 workers_dev = true
