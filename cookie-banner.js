@@ -298,13 +298,14 @@
             <div class="_3c-cookie-row">
                 <div class="_3c-cookie-icon">🍪</div>
                 <div class="_3c-cookie-text">
-                    <strong>We use cookies on the 3C Public Library</strong>
+                    <strong>Cookies on the 3C Public Library</strong>
                     <p>
-                        This site uses essential cookies to function and optional cookies to
-                        improve your experience. We collect only what's necessary.
-                        Read our <a href="${POLICY_URL}" target="_blank" rel="noopener">Privacy Policy</a>
+                        This site sets no advertising or analytics cookies. It stores a few
+                        essential items in your browser to work properly, and some pages show
+                        content from other services, such as video players, which may set their
+                        own cookies. Read our <a href="${POLICY_URL}" target="_blank" rel="noopener">Privacy Policy</a>
                         and <a href="${COOKIE_URL}" target="_blank" rel="noopener">Cookie Policy</a>
-                        to learn more. You can change your preferences at any time.
+                        to learn more. You can change your choice at any time.
                     </p>
                 </div>
                 <div class="_3c-cookie-actions">
@@ -329,9 +330,10 @@
                 <button class="_3c-close-settings" id="_3c-close-settings-btn" title="Close">✕</button>
                 <h3>🍪 Cookie Settings</h3>
                 <p>
-                    We use cookies to keep the library running and to understand how
-                    it is used. Essential cookies are always active. Optional cookies
-                    help us improve the experience — you can decline them below.
+                    We set no advertising or analytics cookies. A few essential items
+                    keep the library running and are always active. Your choice below is
+                    remembered on this device. Videos from other services, where a page
+                    includes them, may set their own cookies.
                     See our <a href="${POLICY_URL}" target="_blank" rel="noopener">Privacy Policy</a>
                     for full details.
                 </p>
@@ -473,7 +475,7 @@
         // Copyright
         const copy = document.createElement('span');
         copy.style.cssText = 'color: #555; font-size: 11px;';
-        copy.textContent = `© ${new Date().getFullYear()} 3C Thread To Success. All rights reserved.`;
+        copy.textContent = `© ${new Date().getFullYear()} 3C Thread To Success™. All rights reserved.`;
 
         footerEl.appendChild(privLink);
         footerEl.appendChild(termsLink);
