@@ -696,7 +696,7 @@ class SupabaseClient {
         
         const { data, error } = await this.client
             .from('comments')
-            .select('*')
+            .select('id, content_id, content_table, author_name, comment_text, is_approved, created_at, updated_at')
             .eq('content_id', contentId)
             .eq('content_table', contentTable)
             // Remove is_approved filter to show all comments immediately
@@ -722,7 +722,7 @@ class SupabaseClient {
                 comment_text: commentText,
                 is_approved: true // Auto-approve comments to appear immediately
             })
-            .select()
+            .select('id, content_id, content_table, author_name, comment_text, is_approved, created_at, updated_at') // author_email is never read back to the public
             .single();
         
         if (error) throw error;
@@ -737,7 +737,7 @@ class SupabaseClient {
         
         const { count, error } = await this.client
             .from('comments')
-            .select('*', { count: 'exact', head: true })
+            .select('id', { count: 'exact', head: true })
             .eq('content_id', contentId)
             .eq('content_table', contentTable)
             // Remove is_approved filter to count all comments
