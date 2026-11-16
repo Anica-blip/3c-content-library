@@ -1,5 +1,5 @@
 /**
- * auth-guard.js — 3C Public Library / Aurion Vault Admin Auth Guard v1.0
+ * auth-guard.js — 3C Public Library / Aurion Vault Admin Auth Guard v1.1
  * ─────────────────────────────────────────────────────────────────────────────
  * Protects admin.html only. Reuses the same "Anica-blip Tools Auth" GitHub
  * OAuth app and the same Supabase project (Aurion 3C Mascot) already used
@@ -37,7 +37,16 @@ document.documentElement.style.visibility = 'hidden';
     // No session — send to login
     if (!session) { redirectToLogin(); return; }
 
-    // ✅ Session exists — reveal the page
+    // Signed in is not enough: it must be the owner's account.
+    // is_owner() is a small database function (no email is kept in this file).
+    const { data: isOwner, error: ownerError } = await client.rpc('is_owner');
+    if (ownerError || isOwner !== true) {
+      await client.auth.signOut({ scope: 'local' });
+      redirectToLogin('not_owner');
+      return;
+    }
+
+    // ✅ Owner session — reveal the page
     document.documentElement.style.visibility = 'visible';
 
   } catch (err) {
