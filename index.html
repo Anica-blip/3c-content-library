@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>3C Thread To Success — Public Library</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Raleway:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link href="fonts.css" rel="stylesheet" />
   <style>
     :root {
       --deep:    #0a0416;
@@ -249,6 +249,32 @@
       align-items: center;
       justify-content: center;
       background: linear-gradient(to top, rgba(10,4,22,0.95), transparent);
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .legal-links {
+      font-family: 'Raleway', sans-serif;
+      font-weight: 300;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: rgba(240,234,248,0.45);
+      text-align: center;
+      opacity: 0;
+      animation: fadeIn 1s ease forwards 2s;
+    }
+
+    .legal-links a {
+      color: rgba(0,212,200,0.75);
+      text-decoration: underline;
+      padding: 4px 6px;
+    }
+
+    .legal-links a:hover { color: var(--teal); }
+
+    @media (max-width: 600px) {
+      .bottom-rule { padding: 10px 16px; gap: 4px; }
+      .legal-copy { display: none; }
     }
 
     .watermark {
@@ -320,9 +346,16 @@
   <p class="watermark">
     Built with ❤️ by Claude (Anthropic) × Chef Anica &nbsp;·&nbsp; 3C Thread To Success Cooking Lab 🧪👨‍🍳
   </p>
+  <p class="legal-links">
+    <span class="legal-copy">&copy; <span id="legalYear"></span> 3C Thread To Success&trade; &nbsp;&middot;&nbsp;</span>
+    <a href="privacy.html">Privacy Policy</a>
+    &nbsp;&middot;&nbsp; <a href="terms.html">Terms of Use</a>
+  </p>
 </footer>
 
 <script>
+  document.getElementById('legalYear').textContent = new Date().getFullYear();
+
   // ── Starfield ──────────────────────────────────────────────────────────────
   const canvas = document.getElementById('stars');
   const ctx    = canvas.getContext('2d');
