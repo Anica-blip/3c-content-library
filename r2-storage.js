@@ -12,6 +12,25 @@ class R2Storage {
     }
 
     /**
+     * Sign-in header for the owner-only Worker routes.
+     * Uses the session the admin sign-in already created.
+     * @returns {Promise<Object>} { Authorization: 'Bearer ...' } or {}
+     */
+    async getAuthHeaders() {
+        try {
+            if (typeof supabaseClient !== 'undefined' && supabaseClient.client) {
+                const { data } = await supabaseClient.client.auth.getSession();
+                if (data && data.session && data.session.access_token) {
+                    return { Authorization: 'Bearer ' + data.session.access_token };
+                }
+            }
+        } catch (e) {
+            console.error('Could not read sign-in session:', e);
+        }
+        return {};
+    }
+
+    /**
      * Upload file to R2 via Cloudflare Worker
      * @param {File} file - The file to upload
      * @param {string} folder - Optional folder path in R2
@@ -40,6 +59,7 @@ class R2Storage {
             // Upload to Cloudflare Worker
             const response = await fetch(this.uploadEndpoint, {
                 method: 'POST',
+                headers: await this.getAuthHeaders(),
                 body: formData
             });
 
@@ -157,7 +177,8 @@ class R2Storage {
             const response = await fetch(`${this.uploadEndpoint}/delete`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(await this.getAuthHeaders())
                 },
                 body: JSON.stringify({ filename })
             });
