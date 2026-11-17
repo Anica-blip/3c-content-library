@@ -29,8 +29,3 @@ zone_id = ""
 # Build Configuration
 [build]
 command = ""
-
-# Deployment
-[env.production]
-name = "3c-library-upload"
-route = "api.3c-public-library.org/*"
