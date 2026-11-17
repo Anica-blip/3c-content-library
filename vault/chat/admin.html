@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../../auth-guard.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Drop In — Admin</title>
@@ -321,25 +323,38 @@ const PERSONAS = {
     anica:  { name: 'Anica',  role: 'Founder', color: '#e07bda', avatar: 'https://files.3c-public-library.org/Personas/Anica.png' },
 };
 
-let ADMIN_KEY = localStorage.getItem('dropin_admin_key');
-if (!ADMIN_KEY) {
-    ADMIN_KEY = prompt('Enter the Drop In admin key:');
-    if (ADMIN_KEY) localStorage.setItem('dropin_admin_key', ADMIN_KEY);
+// Admin sign-in: GitHub login through Supabase (same as the other 3C tools).
+// auth-guard.js (loaded at the top of the page head) sends you to the login page
+// when signed out and only reveals this page for the owner's account.
+// No admin key is used any more.
+const authClient = supabase.createClient(AUTH_CONFIG.supabaseUrl, AUTH_CONFIG.supabaseKey);
+
+async function getAccessToken() {
+    const { data: { session } } = await authClient.auth.getSession();
+    return session ? session.access_token : null;
+}
+
+function goToLogin() {
+    window.location.replace(
+        `${AUTH_CONFIG.loginPage}?next=${encodeURIComponent(window.location.href)}`
+    );
 }
 
 async function adminFetch(path, options = {}) {
+    const token = await getAccessToken();
+    if (!token) { goToLogin(); throw new Error('Not signed in'); }
     const res = await fetch(`${WORKER_URL}${path}`, {
         ...options,
         headers: {
             'Content-Type': 'application/json',
-            'X-Admin-Key': ADMIN_KEY || '',
+            'Authorization': `Bearer ${token}`,
             ...(options.headers || {}),
         },
     });
-    if (res.status === 401) {
-        localStorage.removeItem('dropin_admin_key');
-        alert('Incorrect admin key. Please refresh and try again.');
-        throw new Error('Unauthorized');
+    if (res.status === 401) { goToLogin(); throw new Error('Sign in required'); }
+    if (res.status === 403) {
+        alert('This account does not have access to Drop In admin.');
+        throw new Error('Not allowed');
     }
     return res.json();
 }
