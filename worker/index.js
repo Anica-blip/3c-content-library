@@ -14,10 +14,12 @@
  * Variables required (Settings → Variables, encrypted):
  *   TELEGRAM_BOT_TOKEN
  *   TELEGRAM_CHAT_ID
- *   ADMIN_KEY          — any long random string you choose. The admin
- *                        page sends this back on every admin request.
- *                        Treat it like a password — do not share it,
- *                        do not commit it anywhere.
+ *
+ * Admin access (no key any more): the admin pages sign in with GitHub through
+ * Supabase (project cgxjqsbrditbteqhdyus) and send the login token. This Worker
+ * asks Supabase's is_owner() function whether that login is the owner's.
+ * The old ADMIN_KEY variable is no longer used — remove it with:
+ *   wrangler secret delete ADMIN_KEY
  *
  * Cron Trigger required: 0 14 * * *  (daily purge — deleted chats AND
  *                                     rejected reviews, both after 7 days)
@@ -47,8 +49,15 @@ const SHARE_CACHE_TTL = 3600; // 1 hour
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+// Admin routes (/api/admin/*) may only be called from Chef's own site.
+// Public routes keep the open CORS above, unchanged.
+const ADMIN_ORIGINS = [
+    'https://3c-public-library.org',
+    'https://www.3c-public-library.org',
+];
 
 function json(data, status = 200) {
     return new Response(JSON.stringify(data), {
@@ -63,9 +72,38 @@ function randomToken(len = 24) {
     return Array.from(bytes, b => chars[b % chars.length]).join('');
 }
 
-function requireAdmin(request, env) {
-    const key = request.headers.get('X-Admin-Key');
-    return key && env.ADMIN_KEY && key === env.ADMIN_KEY;
+// Owner check for the admin routes. Returns null when the caller is the owner,
+// otherwise the error Response to send back.
+// The login token goes to Supabase's own is_owner() function (it compares the
+// signed-in email inside the database — no email is stored in this Worker).
+async function requireOwner(request) {
+    const match = (request.headers.get('Authorization') || '').match(/^Bearer\s+(\S+)$/i);
+    if (!match) return json({ error: 'Sign in required' }, 401);
+
+    let res;
+    try {
+        res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/is_owner`, {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${match[1]}`,
+                'Content-Type': 'application/json',
+            },
+            body: '{}',
+        });
+    } catch (e) {
+        return json({ error: 'Could not verify sign-in. Try again.' }, 503);
+    }
+    if (res.status === 401 || res.status === 403) {
+        return json({ error: 'Sign in required' }, 401);
+    }
+    if (!res.ok) {
+        return json({ error: 'Could not verify sign-in. Try again.' }, 503);
+    }
+    let isOwner = false;
+    try { isOwner = (await res.json()) === true; } catch (e) { isOwner = false; }
+    if (!isOwner) return json({ error: 'This account does not have access' }, 403);
+    return null;
 }
 
 async function sendTelegram(env, text) {
@@ -388,8 +426,7 @@ async function handleShareImage(env, r2Key, corsHeaders) {
     }
 }
 
-export default {
-    async fetch(request, env, ctx) {
+async function handleRequest(request, env, ctx) {
         const url = new URL(request.url);
         const path = url.pathname;
         const method = request.method;
@@ -571,11 +608,10 @@ export default {
                 return json({ entries });
             }
 
-            // ── ADMIN: everything below requires the admin key ──
+            // ── ADMIN: everything below requires the owner's login ──
             if (path.startsWith('/api/admin/')) {
-                if (!requireAdmin(request, env)) {
-                    return json({ error: 'Unauthorized' }, 401);
-                }
+                const denied = await requireOwner(request);
+                if (denied) return denied;
 
                 // List all threads (not deleted)
                 if (path === '/api/admin/chats' && method === 'GET') {
@@ -839,6 +875,24 @@ export default {
             console.error('Worker error:', error);
             return json({ error: error.message }, 500);
         }
+}
+
+export default {
+    // Public routes behave exactly as before. Admin routes (/api/admin/*) answer
+    // browsers only from Chef's own site instead of from anywhere.
+    async fetch(request, env, ctx) {
+        const res = await handleRequest(request, env, ctx);
+        if (!new URL(request.url).pathname.startsWith('/api/admin/')) return res;
+
+        const origin = request.headers.get('Origin') || '';
+        const out = new Response(res.body, res);
+        if (ADMIN_ORIGINS.includes(origin)) {
+            out.headers.set('Access-Control-Allow-Origin', origin);
+        } else {
+            out.headers.delete('Access-Control-Allow-Origin');
+        }
+        out.headers.append('Vary', 'Origin');
+        return out;
     },
 
     // ── Daily cleanup: permanently remove anything soft-deleted more than
