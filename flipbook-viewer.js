@@ -486,7 +486,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                             playMedia(element, 'video');
                         } else {
                             console.log('🔗 Opening link in new window...');
-                            const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no,scrollbars=yes,resizable=yes');
+                            const popup = openLinkOrMedia(element.url, 'width=800,height=600,menubar=no,toolbar=no,location=no,scrollbars=yes,resizable=yes', element);
                             if (!popup) {
                                 console.error('❌ Popup blocked by browser');
                                 // alert('⚠️ Popup Blocked\n\nPlease allow popups for this site to open links.\n\nURL: ' + element.url);
@@ -539,7 +539,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                                 playMedia(element, 'video');
                             } else {
                                 console.log('🔗 Opening link in new window...');
-                                window.open(element.url, '_blank');
+                                openLinkOrMedia(element.url, null, element);
                                 console.log('✅ Link opened successfully');
                             }
                         }
@@ -595,7 +595,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                             playMedia(element, 'video');
                         } else {
                             console.log('🔗 Opening link in new window...');
-                            const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
+                            const popup = openLinkOrMedia(element.url, 'width=800,height=600,menubar=no,toolbar=no,location=no', element);
                             if (!popup) {
                                 console.error('❌ Popup blocked by browser');
                                 // alert('⚠️ Popup Blocked\n\nPlease allow popups for this site.\n\nURL: ' + element.url);
@@ -659,7 +659,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                                     playMedia(element, 'video');
                                 } else {
                                     console.log('🔗 Opening link...');
-                                    const popup = window.open(element.url, '_blank', 'width=800,height=600');
+                                    const popup = openLinkOrMedia(element.url, 'width=800,height=600', element);
                                     if (!popup) {
                                         console.error('❌ Popup blocked');
                                     } else {
@@ -696,7 +696,7 @@ function renderInteractiveElements(pageDiv, elements, pageWidth, pageHeight) {
                             playMedia(element, 'video');
                         } else {
                             console.log('🔗 Opening link in new window...');
-                            const popup = window.open(element.url, '_blank', 'width=800,height=600,menubar=no,toolbar=no,location=no');
+                            const popup = openLinkOrMedia(element.url, 'width=800,height=600,menubar=no,toolbar=no,location=no', element);
                             if (!popup) {
                                 console.error('❌ Popup blocked by browser');
                                 // alert('⚠️ Popup Blocked\n\nPlease allow popups for this site.\n\nURL: ' + element.url);
@@ -834,6 +834,66 @@ function isVideoUrl(url) {
         /customer-.*\.cloudflarestream\.com/i // Cloudflare Stream customer domains
     ];
     return videoPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is an image (including GIFs, PNGs, JPGs, etc.)
+ */
+function isImageUrl(url) {
+    if (!url) return false;
+    const imagePatterns = [
+        /\.gif$/i,
+        /\.png$/i,
+        /\.jpg$/i,
+        /\.jpeg$/i,
+        /\.webp$/i,
+        /\.svg$/i,
+        /\.bmp$/i,
+        /giphy\.com/i,
+        /tenor\.com/i,
+        /files\.3c-public-library\.org.*\.(gif|png|jpg|jpeg|webp)/i
+    ];
+    return imagePatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Check if URL is an audio file
+ */
+function isAudioUrl(url) {
+    if (!url) return false;
+    const audioPatterns = [
+        /\.mp3$/i,
+        /\.wav$/i,
+        /\.ogg$/i,
+        /\.m4a$/i,
+        /\.aac$/i,
+        /\.flac$/i,
+        /files\.3c-public-library\.org.*\.(mp3|wav|ogg|m4a|aac|flac)/i
+    ];
+    return audioPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * Open the link of an interactive element.
+ * Videos, audio and images open inside the page (overlay) with no address bar and no text.
+ * Anything else (a web page) opens in a new window as before.
+ * Returns a truthy value when the link was handled, so the "popup blocked" branches
+ * at the call sites do not fire.
+ */
+function openLinkOrMedia(url, features, element) {
+    if (isVideoUrl(url)) {
+        playMedia(Object.assign({}, element || {}, { url: url }), 'video');
+        return true;
+    }
+    if (isAudioUrl(url)) {
+        playMedia(Object.assign({}, element || {}, { url: url }), 'audio');
+        return true;
+    }
+    if (isImageUrl(url)) {
+        showGif(Object.assign({}, element || {}, { url: url }));
+        return true;
+    }
+    return features ? window.open(url, '_blank', features) : window.open(url, '_blank');
 }
 
 /**
@@ -1018,9 +1078,9 @@ function showGif(element) {
         console.log('\n🖼️ ========== SHOWING GIF/IMAGE ==========');
         console.log('Element:', element);
         
-        // Set clean title
-        const cleanTitle = element.text || element.title || element.name || 'Image';
-        mediaTitle.textContent = cleanTitle;
+        // Never show any text: hide the title completely (same as video and audio)
+        mediaTitle.textContent = '';
+        mediaTitle.style.display = 'none';
         mediaPlayerWrapper.innerHTML = '';
         
         const imageUrl = element.url || element.imageUrl || element.src;
@@ -1379,7 +1439,7 @@ function setupInteractiveElementHandlers() {
                     playMedia(elementData, 'video');
                 } else {
                     console.log('🔗 Opening link...');
-                    const popup = window.open(elementData.url, '_blank', 'width=800,height=600');
+                    const popup = openLinkOrMedia(elementData.url, 'width=800,height=600', elementData);
                     if (!popup) {
                         // alert('⚠️ Popup blocked. Please allow popups for this site.\n\nURL: ' + elementData.url);
                     }
@@ -1392,7 +1452,7 @@ function setupInteractiveElementHandlers() {
                 if (isVideoUrl(elementData.url)) {
                     playMedia(elementData, 'video');
                 } else {
-                    const popup = window.open(elementData.url, '_blank', 'width=800,height=600');
+                    const popup = openLinkOrMedia(elementData.url, 'width=800,height=600', elementData);
                     if (!popup) {
                         // alert('⚠️ Popup blocked. Please allow popups for this site.\n\nURL: ' + elementData.url);
                     }
@@ -1418,7 +1478,7 @@ function setupInteractiveElementHandlers() {
                     console.log('🎥 3c-emoji video detected, using purple overlay...');
                     playMedia({...elementData, url: emojiUrl}, 'video');
                 } else {
-                    const popup = window.open(emojiUrl, '_blank', 'width=800,height=600');
+                    const popup = openLinkOrMedia(emojiUrl, 'width=800,height=600', elementData);
                     if (!popup) alert('Please allow popups');
                 }
             }
