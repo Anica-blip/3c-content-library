@@ -1,7 +1,7 @@
 # 3C Content Library - Architecture Documentation
 
-**Version:** 3.0  
-**Last Updated:** January 28, 2026  
+**Version:** 3.1  
+**Last Updated:** November 18, 2026  
 **Purpose:** Comprehensive reference for understanding the complete 3C Content Library system architecture
 
 ---
@@ -21,6 +21,8 @@
 11. [Nested Subfolder System](#nested-subfolder-system)
 12. [Presentation Viewer System](#presentation-viewer-system)
 13. [Interactive PDF Integration](#interactive-pdf-integration)
+14. [Aurion Vault and Content Page Styles](#aurion-vault-and-content-page-styles)
+15. [Cloudflare Workers and Deployment](#cloudflare-workers-and-deployment)
 
 ---
 
@@ -360,42 +362,52 @@ user_interactions (Analytics tracking)
 ## File Structure
 
 ```
-3c-content-library-main/
+3c-content-library/
 ├── index.html                      # Landing page / redirect
 ├── library.html                    # Public library interface
 ├── private-library.html            # Private library interface
-├── admin.html                      # Admin panel
+├── admin.html                      # Admin panel (owner only)
+├── login.html                      # GitHub sign-in page for the admin side
+├── auth-guard.js                   # Owner check that protects admin.html
 │
 ├── library-core.js                 # Public library logic
 ├── private-library-core.js         # Private library logic
 ├── admin-core.js                   # Admin panel logic
 ├── supabase-client.js              # Supabase API wrapper
-│
-├── flipbook-viewer.html            # Flipbook viewer interface
-├── flipbook-viewer.js              # Flipbook viewer logic
-├── pdf-viewer-enhanced.js          # PDF viewer logic
-├── interactive-pdf-viewer.html     # Interactive PDF viewer
-│
-├── admin-styles.css                # Admin panel styles
 ├── config.js                       # Configuration (Supabase keys)
-│
-├── cloudflare-worker.js            # Cloudflare Worker API
-├── worker-api.js                   # Worker API routes
-├── r2-storage.js                   # R2 storage integration
-├── wrangler.toml                   # Cloudflare Worker config
-│
-├── supabase-schema.sql             # Database schema
-├── verify-database.sql             # Database verification
 ├── password-utils.js               # Password hashing utilities
+├── r2-storage.js                   # R2 upload module used by the admin panel
 │
-├── DOC/
-│   └── VIDEO_FIXES.md              # Flipbook video fixes documentation
+├── flipbook-viewer.html / .js      # Flipbook viewer (desktop)
+├── flipbook-viewer-mobile.html / .js
+├── presentation-viewer.html / .js  # Presentation viewer (desktop)
+├── presentation-viewer-mobile.html / .js
+├── pdf-viewer-enhanced.js          # PDF viewer logic
+├── interactive-pdf-viewer.html / .js
+│
+├── library-skin.css                # Library styles
+├── admin-styles.css                # Admin panel styles
+├── fonts.css, fonts/               # Self-hosted fonts
+├── cookie-banner.js, privacy.html, terms.html
+│
+├── cloudflare-worker.js            # Worker 3c-library-api (owner-only R2 uploads)
+├── wrangler.toml                   # Settings for 3c-library-api
+├── worker/
+│   └── index.js                    # Worker dropin-chat (chat, reviews, Build Kit, share previews)
+│
+├── vault/                          # Aurion Vault (cloned from the library, own tables)
+│   ├── vault.html, library-core.js, vault-skin.css, vault-supabase-client.js
+│   └── chat/                       # Drop In chat and reviews admin pages
+├── build-kit/                      # Build Kit page and its admin page
 │
 ├── .github/
 │   └── workflows/
-│       └── cloudflare-worker.yml   # CI/CD for Worker deployment
+│       └── cloudflare-pages.yml    # Deploys the site to Cloudflare Pages on push to main
 │
-└── README.md                       # Project documentation
+├── DOC/VIDEO_FIXES.md              # Flipbook video fixes documentation
+├── docs-archive/                   # Older guides, kept for reference
+├── README.md, SETUP.md, ARCHITECTURE.md, FLIPBOOK-SYSTEM.md, LEGAL_DISCLAIMER.md
+└── debug.html, fix-all-urls.html, start-server.sh, temp_subfolder_code.txt   # helper and scratch files
 ```
 
 ---
@@ -815,7 +827,7 @@ if (folderSlug || contentSlug || contentUrl) {
    ↓
 5. JavaScript: uploadToR2(file)
    ↓
-6. Cloudflare Worker: Uploads to R2 storage
+6. Cloudflare Worker (`3c-library-api`): checks the owner's sign-in, then uploads to R2 storage
    ↓
 7. Returns R2 URL: https://files.3c-public-library.org/...
    ↓
@@ -1111,8 +1123,8 @@ Complete presentation viewer system cloned from flipbook viewer with dedicated b
 ├── flipbook-viewer-mobile.html       # Mobile flipbook viewer
 ├── flipbook-viewer-mobile.js         # Mobile viewer logic
 │
-├── worker-api.js                     # Shared Cloudflare R2 worker
-├── wrangler.toml                     # Shared Cloudflare config
+├── cloudflare-worker.js              # Worker 3c-library-api (library uploads)
+├── wrangler.toml                     # Settings for 3c-library-api
 └── config.js                         # Shared Supabase config
 ```
 
@@ -1196,8 +1208,8 @@ if (content.type === 'presentation' && content.url) {
 
 **Cloudflare R2 Storage:**
 - Same R2 bucket: `3c-library-files`
-- Same worker: `worker-api.js`
-- Same configuration: `wrangler.toml`
+- Uploads from the library admin go through Worker `3c-library-api` (`cloudflare-worker.js`, `wrangler.toml`)
+- Uploads from the interactive PDF builder go through its own Worker, `interactive-pdf-api` (separate repo `Anica-blip/interactive-PDF`)
 - Same public URL: `https://files.3c-public-library.org`
 
 **Supabase Integration:**
@@ -1400,7 +1412,42 @@ settings: {
 
 ---
 
+## Aurion Vault and Content Page Styles
+
+The site has two sections on one domain and one Supabase project: the **Main Library** (`library.html`) and **Aurion Vault** (`vault/vault.html`). The Vault was cloned from the library and adapted. It has its own code in `vault/` and its own tables (`vault_folders`, `vault_content`), and it shares the same R2 bucket, Workers and external apps.
+
+Every folder is shown in one of two content page styles, chosen per folder in the admin panel and stored in the `display_style` column:
+
+- **Default** (`display_style = 'default'`): thumbnails in a left column, and the thumbnail the visitor clicked opens in the right column.
+- **New style, also called series style** (`display_style = 'collection'`): all thumbnails lined up in rows as a grid; content comes from the table `content_series`. Mostly used in Aurion Vault.
+
+The full description is in [SETUP.md](SETUP.md), section "Content Page Styles".
+
+---
+
+## Cloudflare Workers and Deployment
+
+| Worker | Code | Address | Purpose | Deployed by |
+|---|---|---|---|---|
+| `3c-library-api` | `cloudflare-worker.js`, `wrangler.toml` | `api.3c-public-library.org` | Owner-only uploads to R2; public file reads | Cloudflare build from GitHub on every push to `main`, or `wrangler deploy` by hand |
+| `dropin-chat` | `worker/index.js` | `3c-public-library.org/share/*` | Chat, reviews, Build Kit, share previews, daily purge | `wrangler deploy` by hand only |
+| `interactive-pdf-api` | other repo (`interactive-PDF`) | `api.3c-public-library.org/pdf/*` | Uploads from the interactive PDF builder | See that repository |
+
+- **Site hosting:** Cloudflare Pages project `3c-content-library`, deployed by the GitHub Action `.github/workflows/cloudflare-pages.yml` on every push to `main`.
+- **Admin sign-in:** the admin side uses GitHub sign-in through Supabase. Both Workers confirm the caller is the owner before any admin action: `3c-library-api` compares the sign-in email with its secret `OWNER_EMAIL`, and `dropin-chat` asks the Supabase function `is_owner()`. No shared admin key exists.
+- **Public side:** reading the library, reading files, public chat, public reviews and share previews need no sign-in.
+- **Settings, bindings and secrets** for each Worker are listed in [SETUP.md](SETUP.md), section "Cloudflare Workers".
+- **Removed in November 2026:** the duplicate Worker `3c-library-upload`, the old `worker-api.js` and the GitHub workflow `cloudflare-worker.yml`.
+
+---
+
 ## Version History
+
+**v3.1** (November 18, 2026)
+- 📚 Added sections on Aurion Vault, content page styles, Cloudflare Workers and deployment
+- 🔧 Corrected the file structure to match the repository
+- 🔒 Documented owner-only admin sign-in for both Workers (no shared admin key)
+- 🧹 Removed the old `worker-api.js`, the `cloudflare-worker.yml` workflow and the duplicate Worker `3c-library-upload`
 
 **v3.0** (January 28, 2026)
 - ✨ Added unlimited nested subfolder support
@@ -1431,10 +1478,9 @@ settings: {
 ## Support & Contact
 
 For questions or issues, refer to:
-- `README.md` - Setup instructions
-- `SETUP.md` - Deployment guide
+- `README.md` - Project overview
+- `SETUP.md` - Setup, content page styles, Workers and deployment
 - `DOC/VIDEO_FIXES.md` - Flipbook video fixes
-- `IMPLEMENTATION-SUMMARY.md` - Latest feature implementation details
 - GitHub Issues - Bug reports
 
 ---
