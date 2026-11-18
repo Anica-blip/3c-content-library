@@ -64,8 +64,8 @@ Aurion's Vault lives in the `/vault/` folder. It was cloned from the Public Libr
 | Front end | Plain HTML, CSS and JavaScript — no framework |
 | Database | Supabase (PostgreSQL, EU region) with row-level security |
 | Files | Cloudflare R2, served from `files.3c-public-library.org` |
-| API | Cloudflare Worker `3c-library-api` (`cloudflare-worker.js`, `wrangler.toml`) for owner-only uploads |
-| Chat and reviews | Cloudflare Worker with KV storage (`worker/index.js`) |
+| API | Cloudflare Worker `3c-library-api` at `api.3c-public-library.org` (`cloudflare-worker.js`, `wrangler.toml`) for owner-only uploads |
+| Chat, reviews, Build Kit and share previews | Cloudflare Worker `dropin-chat` with KV storage (`worker/index.js`) |
 | Hosting | Cloudflare Pages, deployed from this repository by GitHub Actions (`.github/workflows/cloudflare-pages.yml`) |
 | Admin access | Cloudflare Zero Trust, then GitHub sign-in, then an owner check against Supabase |
 | Fonts | Self-hosted in `/fonts/` (SIL Open Font License) |
@@ -79,13 +79,14 @@ Libraries such as PDF.js, Turn.js and the Supabase client are currently loaded f
 - Writes to the database are owner-only; the public can read published content and add comments.
 - Visitors' comment emails are not readable by the public.
 - Uploads go through an owner-only Worker.
+- Every admin route of the Drop In Worker needs the owner's GitHub sign-in. There is no shared admin key.
 - The site sets no advertising or analytics cookies. See [privacy.html](privacy.html), [terms.html](terms.html) and `cookie-banner.js`.
 
 ---
 
 ## 📖 Documentation
 
-- [SETUP.md](SETUP.md) — setup guide and content page styles
+- [SETUP.md](SETUP.md) — setup guide, content page styles, Cloudflare Workers and deployment
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the whole system fits together
 - [FLIPBOOK-SYSTEM.md](FLIPBOOK-SYSTEM.md) — flipbook viewer documentation
 - [LEGAL_DISCLAIMER.md](LEGAL_DISCLAIMER.md) — legal protection notice
